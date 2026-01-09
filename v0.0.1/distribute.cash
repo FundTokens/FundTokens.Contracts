@@ -1,0 +1,44 @@
+pragma cashscript ~0.13.0;
+
+contract Distribute(bytes managerCategory, bytes distroCategory, bytes holdingAsset1, bytes asset1, int amount1, bytes holdingAsset2, bytes asset2, int amount2) 
+{
+    function assert() {
+        // we are able to spend back to the contract the proof of manager
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == distroCategory);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        
+        // check for the manager
+        // assert the assets from holdings is included
+        // asserting one to one for now
+        int inputIndex = 0;
+        bool asset1Distributed = false;
+        bool asset2Distributed = false;
+        bool managerSeen = false;
+        do {
+            if(tx.inputs[inputIndex].lockingBytecode == holdingAsset1
+                && tx.inputs[inputIndex].tokenCategory == asset1
+                && tx.inputs[inputIndex].tokenAmount == amount1) {
+                require(!asset1Distributed);
+                asset1Distributed = true;
+            }
+
+            if(tx.inputs[inputIndex].lockingBytecode == holdingAsset2
+                && tx.inputs[inputIndex].tokenCategory == asset2
+                && tx.inputs[inputIndex].tokenAmount == amount2) {
+                require(!asset2Distributed);
+                asset2Distributed = true;
+            }
+
+            if(tx.inputs[inputIndex].tokenCategory == managerCategory) {
+                managerSeen = true;
+            }
+
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.outputs.length);
+        require(asset1Distributed);
+        require(asset2Distributed);
+        require(managerSeen);
+    }
+}

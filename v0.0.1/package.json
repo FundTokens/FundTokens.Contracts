@@ -1,0 +1,19 @@
+{
+  "name": "fundTokens-contracts",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "cashc": "0.13.0-next.1",
+    "cashscript": "0.13.0-next.1"
+  },
+  "scripts": {
+    "mock": "node ./mock.js",
+    "chipnet": "node ./chipnet.js",
+    "build": "yarn build:all",
+    "build:all": "yarn build:inflow && yarn build:outflow",
+    "build:inflow": "cashc ./inflow.cash --output ./art/inflow.json && cashc ./mint.cash --output ./art/mint.json && cashc ./collection.cash --output ./art/collection.json && cashc ./holdings.cash --output ./art/holdings.json",
+    "build:outflow": "cashc ./outflow.cash --output ./art/outflow.json && cashc ./burn.cash --output ./art/burn.json && cashc ./distribute.cash --output ./art/distribute.json && cashc ./holdings.cash --output ./art/holdings.json"
+  }
+}

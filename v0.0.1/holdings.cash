@@ -1,0 +1,23 @@
+pragma cashscript ~0.13.0;
+
+contract Holdings(bytes managerCategory, bytes assetCategory, int assetAmount) 
+{
+    function release() {
+        // verify manager in transaction
+        bool managerSeen = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == managerCategory) {
+                managerSeen = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length);
+        require(managerSeen);
+        
+        //
+        require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == assetAmount);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+    }
+}

@@ -1,0 +1,27 @@
+pragma cashscript ~0.13.0;
+
+contract OutflowManager(bytes managerCategory, bytes burnCategory, bytes distroCategory) 
+{
+    function main() {
+        // we are able to spend back to the contract the proof of manager
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == managerCategory);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        int outputIndex = 0;
+        bool burnSeen = false;
+        bool distroSeen = false;
+        do {
+            if(tx.outputs[outputIndex].tokenCategory == burnCategory) {
+                burnSeen = true;
+            }
+            if(tx.outputs[outputIndex].tokenCategory == distroCategory) {
+                distroSeen = true;
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+        require(burnSeen);
+        require(distroSeen);
+    }
+}

@@ -1,0 +1,61 @@
+{
+  "contractName": "Burn",
+  "constructorInputs": [
+    {
+      "name": "proofOfBurnCategory",
+      "type": "bytes"
+    },
+    {
+      "name": "burningTokenCategory",
+      "type": "bytes"
+    }
+  ],
+  "abi": [
+    {
+      "name": "prove",
+      "inputs": []
+    }
+  ],
+  "bytecode": "OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_0 OP_0 OP_0 OP_BEGIN OP_2 OP_PICK OP_UTXOTOKENCATEGORY OP_4 OP_PICK OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_DUP OP_1ADD OP_NIP OP_ENDIF OP_2 OP_PICK OP_1ADD OP_3 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_2 OP_PICK OP_TXINPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_SWAP OP_VERIFY OP_1 OP_NUMEQUALVERIFY OP_0 OP_0 OP_BEGIN OP_OVER OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUAL OP_IF OP_DROP OP_1 OP_ENDIF OP_OVER OP_1ADD OP_ROT OP_DROP OP_SWAP OP_OVER OP_TXOUTPUTCOUNT OP_LESSTHAN OP_OVER OP_NOT OP_BOOLAND OP_NOT OP_UNTIL OP_NOT OP_NIP OP_NIP OP_NIP",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract Burn(bytes proofOfBurnCategory, bytes burningTokenCategory) \r\n{\r\n    function prove() {\r\n        // we are able to spend back to the contract the proof of burn token\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == proofOfBurnCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        // prove existence first\r\n        int inIndex = 0;\r\n        bool tokenInputSeen = false;\r\n        int burnCount = 0;\r\n        do {\r\n            if (tx.inputs[inIndex].tokenCategory == burningTokenCategory) {\r\n                tokenInputSeen = true;\r\n                burnCount = burnCount + 1;\r\n            }\r\n            inIndex = inIndex + 1;\r\n        } while(inIndex < tx.inputs.length);\r\n        require(tokenInputSeen);\r\n        require(burnCount == 1); // KISS for hackathon \r\n        // improve the collection and distribution to count the burn and more than one can happen\r\n        \r\n        // prove all tokens burned\r\n        int outIndex = 0;\r\n        bool tokenOutputSeen = false;\r\n        do {\r\n\r\n            if (tx.outputs[outIndex].tokenCategory == burningTokenCategory) {\r\n                tokenOutputSeen = true;\r\n            }\r\n            outIndex = outIndex + 1;\r\n        } while(outIndex < tx.outputs.length && !tokenOutputSeen);\r\n        require(!tokenOutputSeen); // must burn all burn tokens in this transaction\r\n    }\r\n}",
+  "debug": {
+    "bytecode": "c0c7c0cd88c0ce88c0cec0d188c0cfc0d288000000655279ce54798763517b757c768b776852798b537a757c6b7c6c5279c3a2667c69519d00006578d154798763755168788b7b757c78c49f78919a916691777777",
+    "sourceMap": "7:26:7:47;:16::64:1;:79::100:0;:68::117:1;:8::119;8:26:8:47:0;:16::62:1;:8::87;9:26:9:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;10:26:10:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;13:22:13:23:0;14:30:14:35;15:24:15:25;16:8:22:44;17:26:17:33;;:16::48:1;:52::72:0;;:16:::1;:74:20:13:0;18:33:18:37;:16::38:1;;;19:28:19:37:0;:::41:1;:16::42;17:74:20:13;21:22:21:29:0;;:::33:1;:12::34;;;;;;;22:16:22:23:0;;:26::42;16:8::44:1;;23:16:23:30:0;:8::32:1;24:29:24:30:0;:8::32:1;28:23:28:24:0;29:31:29:36;30:8:36:66;32:27:32:35;:16::50:1;:54::74:0;;:16:::1;:76:34:13:0;33:16:33:39:1;;32:76:34:13;35:23:35:31:0;:::35:1;:12::36;;;36:16:36:24:0;:27::44;:16:::1;:49::64:0;:48:::1;:16;30:8::66;;37::37:34;5:4:38:5;;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 6,
+        "line": 7
+      },
+      {
+        "ip": 9,
+        "line": 8
+      },
+      {
+        "ip": 14,
+        "line": 9
+      },
+      {
+        "ip": 19,
+        "line": 10
+      },
+      {
+        "ip": 55,
+        "line": 23
+      },
+      {
+        "ip": 57,
+        "line": 24
+      },
+      {
+        "ip": 84,
+        "line": 37
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.1"
+  },
+  "updatedAt": "2025-11-22T20:55:35.389Z"
+}

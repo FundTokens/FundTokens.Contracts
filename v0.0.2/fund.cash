@@ -1,0 +1,27 @@
+pragma cashscript ~0.13.0;
+
+contract FundManager(bytes inflowManager, bytes outflowManager, bytes fundCategory)
+{
+    function mint() {
+        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowManager);
+
+        // make sure we spend our input back to ourself
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenAmount > tx.outputs[this.activeInputIndex].tokenAmount);
+
+        if(tx.outputs[this.activeInputIndex].tokenAmount > 0) {
+            require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory);
+            require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        }
+    }
+
+    // TODO: A cost should be included for redeeming to a no token UTXO in an effort to prevent spamming
+    function redeem() {
+        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowManager);
+
+        // make sure we spend out input back to ourself
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenAmount < tx.outputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);
+    }
+}

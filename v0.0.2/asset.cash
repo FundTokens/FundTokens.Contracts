@@ -1,0 +1,20 @@
+pragma cashscript ~0.13.0;
+
+contract AssetManager(bytes outflowManager, bytes assetCategory, int assetAmount) 
+{
+    function release() {
+        // verify manager in transaction
+        bool outflowManagerSeen = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == outflowManager) {
+                outflowManagerSeen = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !outflowManagerSeen);
+        require(outflowManagerSeen);
+        
+        require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount % assetAmount == 0);
+    }
+}

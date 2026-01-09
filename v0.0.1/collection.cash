@@ -1,0 +1,38 @@
+pragma cashscript ~0.13.0;
+
+contract Collection(bytes managerCategory, bytes nextAsset1, bytes asset1, int amount1, bytes nextAsset2, bytes asset2, int amount2) 
+{
+    function assert() {
+        // verify manager in transaction
+        bool managerSeen = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == managerCategory) {
+                managerSeen = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length);
+        require(managerSeen);
+
+        // assert the assets are collected
+        int outputIndex = 0;
+        int asset1CollectionCount = 0;
+        int asset2CollectionCount = 0;
+        do {
+            if(tx.outputs[outputIndex].lockingBytecode == nextAsset1
+                && tx.outputs[outputIndex].tokenCategory == asset1
+                && tx.outputs[outputIndex].tokenAmount == amount1) {
+                asset1CollectionCount = asset1CollectionCount + 1;
+            }
+
+            if(tx.outputs[outputIndex].lockingBytecode == nextAsset2
+                && tx.outputs[outputIndex].tokenCategory == asset2
+                && tx.outputs[outputIndex].tokenAmount == amount2) {
+                asset2CollectionCount = asset2CollectionCount + 1;
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+        require(asset1CollectionCount == 1);
+        require(asset2CollectionCount == 1);
+    }
+}

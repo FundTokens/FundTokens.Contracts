@@ -1,0 +1,30 @@
+pragma cashscript ~0.13.0;
+
+contract InflowManager(bytes managerCategory, bytes mintCategory, bytes collectionCategory)
+{
+    function main() {
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == managerCategory);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        int inputIndex = 0;
+        bool mintSeen = false;
+        bool collectionSeen = false;
+        do {
+            bytes currentToken = tx.inputs[inputIndex].tokenCategory;
+            console.log('found input', inputIndex, currentToken);
+            console.log('looking for mint and collection', mintCategory, collectionCategory);
+            if(tx.inputs[inputIndex].tokenCategory == bytes(mintCategory + bytes(0x02))) {
+                mintSeen = true;
+            }
+
+            if(tx.inputs[inputIndex].tokenCategory == collectionCategory) {
+                collectionSeen = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length);
+        require(mintSeen);
+        require(collectionSeen);
+    }
+}

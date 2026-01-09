@@ -1,0 +1,27 @@
+pragma cashscript ~0.13.0;
+
+contract Minting(bytes managerCategory, bytes mintingCategory) 
+{
+    // contract has a minting nft
+    function mint() {
+        bool managerSeen = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == managerCategory) {
+                managerSeen = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length);
+        require(managerSeen);
+
+
+        // n
+        // return minting baton to contract
+        require(tx.inputs[this.activeInputIndex].tokenCategory == bytes(mintingCategory + bytes(0x02)));
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+
+        // n + 1
+        // require minted nft output
+        require(tx.outputs[this.activeInputIndex + 1].tokenCategory == mintingCategory);
+    }
+}

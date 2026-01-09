@@ -1,0 +1,93 @@
+{
+  "contractName": "Distribute",
+  "constructorInputs": [
+    {
+      "name": "managerCategory",
+      "type": "bytes"
+    },
+    {
+      "name": "distroCategory",
+      "type": "bytes"
+    },
+    {
+      "name": "holdingAsset1",
+      "type": "bytes"
+    },
+    {
+      "name": "asset1",
+      "type": "bytes"
+    },
+    {
+      "name": "amount1",
+      "type": "int"
+    },
+    {
+      "name": "holdingAsset2",
+      "type": "bytes"
+    },
+    {
+      "name": "asset2",
+      "type": "bytes"
+    },
+    {
+      "name": "amount2",
+      "type": "int"
+    }
+  ],
+  "abi": [
+    {
+      "name": "assert",
+      "inputs": []
+    }
+  ],
+  "bytecode": "OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_0 OP_0 OP_0 OP_0 OP_BEGIN OP_3 OP_PICK OP_UTXOBYTECODE OP_6 OP_PICK OP_EQUAL OP_4 OP_PICK OP_UTXOTOKENCATEGORY OP_8 OP_PICK OP_EQUAL OP_BOOLAND OP_4 OP_PICK OP_UTXOTOKENAMOUNT OP_9 OP_PICK OP_NUMEQUAL OP_BOOLAND OP_IF OP_2 OP_PICK OP_NOT OP_VERIFY OP_1 OP_3 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_ENDIF OP_3 OP_PICK OP_UTXOBYTECODE OP_9 OP_PICK OP_EQUAL OP_4 OP_PICK OP_UTXOTOKENCATEGORY OP_11 OP_PICK OP_EQUAL OP_BOOLAND OP_4 OP_PICK OP_UTXOTOKENAMOUNT OP_12 OP_PICK OP_NUMEQUAL OP_BOOLAND OP_IF OP_OVER OP_NOT OP_VERIFY OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_3 OP_PICK OP_UTXOTOKENCATEGORY OP_5 OP_PICK OP_EQUAL OP_IF OP_DROP OP_1 OP_ENDIF OP_3 OP_PICK OP_1ADD OP_4 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_3 OP_PICK OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_ROT OP_VERIFY OP_SWAP OP_VERIFY OP_VERIFY OP_2DROP OP_2DROP OP_2DROP OP_2DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract Distribute(bytes managerCategory, bytes distroCategory, bytes holdingAsset1, bytes asset1, int amount1, bytes holdingAsset2, bytes asset2, int amount2) \r\n{\r\n    function assert() {\r\n        // we are able to spend back to the contract the proof of manager\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == distroCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n        \r\n        // check for the manager\r\n        // assert the assets from holdings is included\r\n        // asserting one to one for now\r\n        int inputIndex = 0;\r\n        bool asset1Distributed = false;\r\n        bool asset2Distributed = false;\r\n        bool managerSeen = false;\r\n        do {\r\n            if(tx.inputs[inputIndex].lockingBytecode == holdingAsset1\r\n                && tx.inputs[inputIndex].tokenCategory == asset1\r\n                && tx.inputs[inputIndex].tokenAmount == amount1) {\r\n                require(!asset1Distributed);\r\n                asset1Distributed = true;\r\n            }\r\n\r\n            if(tx.inputs[inputIndex].lockingBytecode == holdingAsset2\r\n                && tx.inputs[inputIndex].tokenCategory == asset2\r\n                && tx.inputs[inputIndex].tokenAmount == amount2) {\r\n                require(!asset2Distributed);\r\n                asset2Distributed = true;\r\n            }\r\n\r\n            if(tx.inputs[inputIndex].tokenCategory == managerCategory) {\r\n                managerSeen = true;\r\n            }\r\n\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.outputs.length);\r\n        require(asset1Distributed);\r\n        require(asset2Distributed);\r\n        require(managerSeen);\r\n    }\r\n}\r\n",
+  "debug": {
+    "bytecode": "c0c7c0cd88c0ce7b88c0cec0d188c0cfc0d28800000000655379c75679875479ce5879879a5479d059799c9a635279916951537a757c6b7c6c685379c75979875479ce5b79879a5479d05c799c9a63789169517b757c685379ce5579876375516853798b547a757c6b7c6b7c6c6c5379c4a2667b697c69696d6d6d6d51",
+    "sourceMap": "7:26:7:47;:16::64:1;:79::100:0;:68::117:1;:8::119;8:26:8:47:0;:16::62:1;:66::80:0;:8::82:1;9:26:9:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;10:26:10:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;15:25:15:26:0;16:33:16:38;17::17;18:27:18:32;19:8:39:48;20:25:20:35;;:15::52:1;:56::69:0;;:15:::1;21:29:21:39:0;;:19::54:1;:58::64:0;;:19:::1;20:15;22:29:22:39:0;;:19::52:1;:56::63:0;;:19:::1;20:15;22:65:25:13:0;23:25:23:42;;:24:::1;:16::44;24:36:24:40:0;:16::41:1;;;;;;;22:65:25:13;27:25:27:35:0;;:15::52:1;:56::69:0;;:15:::1;28:29:28:39:0;;:19::54:1;:58::64:0;;:19:::1;27:15;29:29:29:39:0;;:19::52:1;:56::63:0;;:19:::1;27:15;29:65:32:13:0;30:25:30:42;:24:::1;:16::44;31:36:31:40:0;:16::41:1;;;29:65:32:13;34:25:34:35:0;;:15::50:1;:54::69:0;;:15:::1;:71:36:13:0;35:16:35:35:1;;34:71:36:13;38:25:38:35:0;;:::39:1;:12::40;;;;;;;;;;39:16:39:26:0;;:29::46;19:8::48:1;;40:16:40:33:0;:8::35:1;41:16:41:33:0;:8::35:1;42::42:29;5:4:43:5;;;;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 12,
+        "line": 7
+      },
+      {
+        "ip": 16,
+        "line": 8
+      },
+      {
+        "ip": 21,
+        "line": 9
+      },
+      {
+        "ip": 26,
+        "line": 10
+      },
+      {
+        "ip": 56,
+        "line": 23
+      },
+      {
+        "ip": 89,
+        "line": 30
+      },
+      {
+        "ip": 124,
+        "line": 40
+      },
+      {
+        "ip": 126,
+        "line": 41
+      },
+      {
+        "ip": 127,
+        "line": 42
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.1"
+  },
+  "updatedAt": "2025-11-22T20:55:35.636Z"
+}

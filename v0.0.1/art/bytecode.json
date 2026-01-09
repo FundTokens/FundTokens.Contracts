@@ -1,0 +1,41 @@
+{
+  "contractName": "BytecodeTesting",
+  "constructorInputs": [
+    {
+      "name": "value",
+      "type": "int"
+    },
+    {
+      "name": "value2",
+      "type": "int"
+    }
+  ],
+  "abi": [
+    {
+      "name": "test",
+      "inputs": []
+    }
+  ],
+  "bytecode": "OP_0 OP_NUMNOTEQUAL OP_VERIFY OP_0 OP_NUMNOTEQUAL",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract BytecodeTesting(int value, int value2) \r\n{\r\n    function test() {\r\n        require(value != 0);\r\n        require(value2 != 0);\r\n    }\r\n}\r\n",
+  "debug": {
+    "bytecode": "009e69009e",
+    "sourceMap": "6:25:6:26;:16:::1;:8::28;7:26:7:27:0;:8::29:1",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 4,
+        "line": 6
+      },
+      {
+        "ip": 7,
+        "line": 7
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.1"
+  },
+  "updatedAt": "2025-11-21T15:33:44.865Z"
+}
