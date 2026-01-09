@@ -124,7 +124,7 @@ const { managerContract, fundContract } = new FundTokenTransactionBuilder({ prov
     });
 
 
-// MOCKING //
+// Initial Setup //
 // hydrate inflow contracts w/ UTXOs
 provider.addUtxo(managerContract.tokenAddress, inflowUtxo);
 provider.addUtxo(managerContract.tokenAddress, outflowUtxo);
@@ -137,7 +137,7 @@ provider.addUtxo(wallet.address, asset1);
 provider.addUtxo(wallet.address, asset2);
 provider.addUtxo(wallet.address, inflowTransactionFee);
 
-// End of mockup setup
+// End of initial setup
 
 
 

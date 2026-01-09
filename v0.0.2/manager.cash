@@ -2,7 +2,7 @@ pragma cashscript ~0.13.0;
 
 contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, int fundAmount, bytes asset1Contract, bytes asset1Category, int asset1Amount, bytes asset2Contract, bytes asset2Category, int asset2Amount)
 {
-    // i - inflow manager
+    // i - inflow signal
     // i + 1 - fund manager
     //
     // o - inflow manager
@@ -23,11 +23,12 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, int 
         int fundInputIndex = this.activeInputIndex + 1;
         require(tx.inputs[fundInputIndex].lockingBytecode == fundContract);
         
+        // calculate the number of "whole" fund tokens is released
         int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - tx.outputs[fundInputIndex].tokenAmount;
         require(fundReleasedAmount % fundAmount == 0); // ensure a multiple of the fund amount
         fundReleasedAmount = fundReleasedAmount / fundAmount;
 
-        //
+        // verify asset 1
         int assetOutputIndex = fundInputIndex + 1;
         require(tx.outputs[assetOutputIndex].lockingBytecode == asset1Contract);
         require(tx.outputs[assetOutputIndex].tokenCategory == asset1Category);
@@ -35,7 +36,7 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, int 
         int asset1CollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / asset1Amount;
         require(asset1CollectedAmount == fundReleasedAmount);
 
-        //
+        // verify asset 2
         assetOutputIndex = assetOutputIndex + 1;
         require(tx.outputs[assetOutputIndex].lockingBytecode == asset2Contract);
         require(tx.outputs[assetOutputIndex].tokenCategory == asset2Category);
@@ -44,6 +45,13 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, int 
         require(asset2CollectedAmount == fundReleasedAmount);
     }
 
+    // i - outflow signal
+    // i + 1 - fund manager
+    // x - asset 1
+    // y - asset 2
+    //
+    // o - inflow manager
+    // o + 1 - fund manager
     function outflow() {
         // check input
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
@@ -60,6 +68,7 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, int 
         require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount
         fundLockingAmount = fundLockingAmount / fundAmount;
 
+        // calculate all the assets amounts from the contracts
         int inputIndex = 0;
         int asset1ReleaseAmount = 0;
         int asset2ReleaseAmount = 0;
@@ -75,6 +84,7 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, int 
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length);
 
+        // account for change back to the contract
         int outputIndex = 0;
         do {
             if(tx.outputs[outputIndex].lockingBytecode == asset1Contract && tx.outputs[outputIndex].tokenCategory == asset1Category) {

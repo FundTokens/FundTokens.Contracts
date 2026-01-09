@@ -1,9 +1,10 @@
 pragma cashscript ~0.13.0;
 
+// hold the token assets that make-up a fund token
 contract AssetManager(bytes outflowManager, bytes assetCategory, int assetAmount) 
 {
+    // The asset manager is relying on the outflow manager to ensure this contract is spent correctly
     function release() {
-        // verify manager in transaction
         bool outflowManagerSeen = false;
         int inputIndex = 0;
         do {
@@ -14,6 +15,9 @@ contract AssetManager(bytes outflowManager, bytes assetCategory, int assetAmount
         } while(inputIndex < tx.inputs.length && !outflowManagerSeen);
         require(outflowManagerSeen);
         
+        // need to use all params...
+        // so this seems reasonale check to ensure the UTXO is the correct token asset for the fund
+        // and a even mutliple of the token amount, which should always true
         require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
         require(tx.inputs[this.activeInputIndex].tokenAmount % assetAmount == 0);
     }
