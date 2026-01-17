@@ -2,12 +2,13 @@ pragma cashscript ~0.13.0;
 
 // fund manager maintains the fund token balance
 // the fund manager always expects the transaction manager to be the previous input and output
-contract FundManager(bytes inflowManager, bytes outflowManager, bytes fundCategory)
+contract FundManager(bytes inflowManager, bytes outflowManager, bytes fundCategory, bytes fundHash)
 {
     // check for the inflow token to release or mint fund tokens
     // if all fund tokens are redeemed, then spend a no token output back to the contract (for future redemption)
     function mint() {
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowManager);
+        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == (fundCategory + fundHash));
 
         // make sure we spend our input back to ourself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
@@ -25,6 +26,7 @@ contract FundManager(bytes inflowManager, bytes outflowManager, bytes fundCatego
     // redeem the fund token by sending it back to this contract
     function redeem() {
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowManager);
+        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == (fundCategory + fundHash));
 
         // make sure we spend out input back to ourself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
