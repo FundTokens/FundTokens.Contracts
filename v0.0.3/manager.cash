@@ -1,7 +1,7 @@
 pragma cashscript ~0.13.0;
 
 // NFT Commitment
-// bytes fund token category
+// bytes fund category
 // bytes fund hash
 
 // Fund Hash
@@ -14,7 +14,7 @@ pragma cashscript ~0.13.0;
 // bytes assetNCategory
 // int assetNAmount
 
-contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract)
+contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract)
 {
     // i - inflow signal
     // i + 1 - fund manager
@@ -22,9 +22,10 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, byte
     // o - inflow manager
     // o + 1 - fund manager
     // o + 2 - asset 1
-    // o + 3 - asset 2
+    // ...
+    // o + M - asset N
     function inflow(int count, bytes data) {
-        // check input
+        // check input is inflow token for proper contract signalling
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
         // spend input back to the contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
@@ -38,7 +39,9 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, byte
         int fundInputIndex = this.activeInputIndex + 1;
         require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x00 + inflowToken + 0x00 + outflowToken + 0x00 + tx.inputs[this.activeInputIndex].nftCommitment + fundContract));
 
-        int fundAmount = tx.inputs[this.activeInputIndex].nftCommitment.slice(0, 8); // TODO, get from commitment
+        require(hash256(data) == tx.inputs[this.activeInputIndex].nftCommitment.slice(32, 32));
+
+        int fundAmount = data.slice(0, 8);
         
         // calculate the number of "whole" fund tokens is released
         int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - tx.outputs[fundInputIndex].tokenAmount;
@@ -47,27 +50,29 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, byte
 
         int assetIndex = 0;
         do {
-            bytes assetCategory, bytes rest = tx.inputs[this.activeInputIndex].nftCommitment.split(8 + ((8 + 32) * (assetIndex + 1)));
-
+            bytes assetData = data.slice(8 + (assetIndex * 1), 40);
+            bytes assetCategory, bytes asset = assetData.split(8);
             int assetAmount = int(rest.slice(0, 8));
 
             int assetOutputIndex = fundInputIndex + 1 + assetIndex;
-            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(asssetContract)); // TODO
+            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x00 + outflowToken + 0x00 + tx.inputs[this.activeInputIndex].nftCommitment + 0x00 + assetCategory + assetContract)); // TODO
             require(tx.outputs[assetOutputIndex].tokenCategory == assetCategory);
             require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount
             int assetCollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / assetAmount;
             require(assetCollectedAmount == fundReleasedAmount);
+            assetIndex = assetIndex + 1;
         } while(assetIndex < count);
     }
 
     // i - outflow signal
     // i + 1 - fund manager
-    // x - asset 1
-    // y - asset 2
+    // ? - asset 1
+    // ...
+    // ? - asset N
     //
     // o - inflow manager
     // o + 1 - fund manager
-    function outflow() {
+    function outflow(int count, bytes data) {
         // check input
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
         // spend input back to the contract
@@ -80,8 +85,10 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, byte
         // fund contract is next in the transaction
         int fundInputIndex = this.activeInputIndex + 1;
         require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x00 + inflowToken + 0x00 + outflowToken + 0x00 + tx.inputs[this.activeInputIndex].nftCommitment + fundContract));
-        
-        int fundAmount = tx.inputs[this.activeInputIndex].nftCommitment.slice(0, 8); // TODO, get from commitment
+
+        require(hash256(data) == tx.inputs[this.activeInputIndex].nftCommitment.slice(32, 32));
+
+        int fundAmount = data.slice(0, 8);
 
         int fundLockingAmount = tx.outputs[fundInputIndex].tokenAmount - tx.inputs[fundInputIndex].tokenAmount;
         require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount
@@ -89,13 +96,16 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, byte
 
         int assetIndex = 0;
         do {
-            bytes assetCategory, bytes rest = tx.inputs[this.activeInputIndex].nftCommitment.split(8 + ((8 + 32) * (assetIndex + 1)));
+            bytes assetData = data.slice(0, 40);
+            bytes assetCategory, bytes asset = assetData.split(8);
             int assetAmount = int(rest.slice(0, 8));
+
+            bytes assetLockingBytecode = new LockingBytecodeP2SH32(0x00 + outflowToken + 0x00 + tx.inputs[this.activeInputIndex].nftCommitment + 0x00 + assetCategory + assetContract); // TODO
 
             int inputIndex = 0;
             int assetReleaseAmount = 0;
             do {
-                if(tx.inputs[inputIndex].lockingBytecode == new LockingBytecodeP2SH32(assetContract) && tx.inputs[inputIndex].tokenCategory == assetCategory) { // TODO: Locking bytecode
+                if(tx.inputs[inputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[inputIndex].tokenCategory == assetCategory) {
                     assetReleaseAmount = assetReleaseAmount + tx.inputs[inputIndex].tokenAmount;
                 }
 
@@ -105,7 +115,7 @@ contract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, byte
             // account for change back to the contract
             int outputIndex = 0;
             do {
-                if(tx.outputs[outputIndex].lockingBytecode == assetContract && tx.outputs[outputIndex].tokenCategory == assetCategory) {
+                if(tx.outputs[outputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[outputIndex].tokenCategory == assetCategory) {
                     assetReleaseAmount = assetReleaseAmount - tx.outputs[outputIndex].tokenAmount;
                 }
 
