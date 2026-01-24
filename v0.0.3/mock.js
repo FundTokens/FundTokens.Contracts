@@ -41,6 +41,15 @@ const provider = new MockNetworkProvider({
 
 const wallet = generateWallet();
 
+const fundUtxo = randomUtxo({
+    satoshis: 1000n,
+    token: randomToken({
+        amount: 2n,
+    }),
+});
+
+const fundTokenCommitment = fundUtxo.token.category + ''; // TODO
+
 // system or fund setup
 const inflowUtxo = randomUtxo({
     satoshis: 1000n,
@@ -48,7 +57,7 @@ const inflowUtxo = randomUtxo({
         amount: 1n,
         nft: {
             capability: 'none',
-            commitment: '',
+            commitment: fundTokenCommitment,
         }
     }),
 });
@@ -59,17 +68,12 @@ const outflowUtxo = randomUtxo({
         amount: 1n,
         nft: {
             capability: 'none',
-            commitment: '',
+            commitment: fundTokenCommitment,
         }
     }),
 });
 
-const fundUtxo = randomUtxo({
-    satoshis: 1000n,
-    token: randomToken({
-        amount: 2n,
-    }),
-});
+
 
 
 

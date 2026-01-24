@@ -1,5 +1,9 @@
 pragma cashscript ~0.13.0;
 
+// max NFT commitment size, 128 bytes
+// 0x08 - push 8 bytes
+// 0x20 - push 32 bytes
+
 // NFT Commitment
 // bytes fund category
 // bytes fund hash
@@ -14,6 +18,15 @@ pragma cashscript ~0.13.0;
 // bytes assetNCategory
 // int assetNAmount
 
+// amount - 8 bytes
+// category - 32 bytes
+// hash - 32 bytes
+
+
+// inflow token -> token to show inflow validation occurred
+// outflow token -> token show outflow validation occurred
+// fund contract -> the fund's base contract used to hash next contracts
+// asset contract -> the asset's base contract, used to hash next contracts
 contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract)
 {
     // i - inflow signal
@@ -34,10 +47,12 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
 
+        // bytes tx.inputs[this.activeInputIndex].nftCommitment
+
         // fund contract is next in the transaction
         // contract already returns UTXO
         int fundInputIndex = this.activeInputIndex + 1;
-        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x00 + inflowToken + 0x00 + outflowToken + 0x00 + tx.inputs[this.activeInputIndex].nftCommitment + fundContract));
+        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x20 + inflowToken + 0x20 + outflowToken + 0x00 + tx.inputs[this.activeInputIndex].nftCommitment + fundContract));
 
         require(hash256(data) == tx.inputs[this.activeInputIndex].nftCommitment.slice(32, 32));
 

@@ -13,6 +13,10 @@ import assetJson from './art/asset.json' with { type: 'json' };
 
 const DustAmount = 1000n;
 
+const log = console.log;
+
+const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
+
 export class FundTokenTransactionBuilder extends TransactionBuilder {
     inflowCategory = '';
     inflowCategorySwapped = '';
@@ -74,7 +78,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             assets: fundAssets, // category, amount
         },
     }) {
-        console.log('transaction builder...adding minting transaction');
+        log('transaction builder...adding minting transaction');
 
         const { managerContract, fundContract, assetContracts } = this.buildContracts(fund);
 
@@ -115,7 +119,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                     }
                 })),
             ]);
-        console.log('finished adding mint transaction i/o');
+        log('finished adding mint transaction i/o');
         return this;
     }
 
@@ -127,53 +131,94 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         fund,
         fund: {
             category: fundCategory,
-            amount: fundAmount,
+            amount: fundAmount, // fund token amount
+            satoshi, // TODO: BCH being locked
             assets: fundAssets, // category, amount
         },
     }) {
-        console.log('transaction builder...adding redemption transaction');
+        log('transaction builder...adding redemption transaction');
 
         const { managerContract, fundContract, assetContracts } = this.buildContracts(fund);
 
-        const outflowUtxo = (await managerContract.getUtxos()).filter(u => u.token?.category === this.outflowCategory)[0];
-        // TODO: Iff no UTXO w/ at least one fund token, then still send the redeeming token to the empty UTXO or make one
-        const fundUtxo = (await fundContract.getUtxos()).filter(u => u.token?.category === fundCategory)[0];
+        //
+        const outflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.outflowCategory);
+        if (!outflowUtxos.length) {
+            throw new Error(`Missing required outflow ${this.outflowCategory} UTXO.`);
+        }
+        const outflowUtxo = outflowUtxos[0];
 
-        const temp = await fundContract.getUtxos();
-        console.log('testing', fund, temp);
 
-        const asset1Utxo = (await assetContracts[0].getUtxos())[0]; // TODO;
-        const asset2Utxo = (await assetContracts[1].getUtxos())[0];
+        //
+        const fundUtxos = await fundContract.getUtxos();
 
-        if (!outflowUtxo || !fundUtxo) {
-            throw new Error('Missing required UTXO');
+        if (!fundUtxos.length) {
+            throw new Error(`Missing required fund ${fundCategory} UTXO. Send dust UTXO to contract and redeem again.`)
         }
 
+        const existingFundUtxo = fundUtxos.filter(u => u.token?.category === fundCategory).sort(sortDecreasingTokenAmount);
+        const fundUtxo = existingFundUtxo.length ? existingFundUtxo[0] : fundUtxos[0];
+
+
+        //
         const redeemAmount = fundAmount * amount;
-        const updatedFundAmount = fundUtxo.token.amount + redeemAmount;
+        const updatedFundAmount = fundUtxo.token?.amount + redeemAmount;
 
         this.addInput(outflowUtxo, managerContract.unlock.outflow())
-            .addInput(fundUtxo, fundContract.unlock.redeem())
-            .addInput(asset1Utxo, assetContracts[0].unlock.release())
-            .addInput(asset2Utxo, assetContracts[1].unlock.release())
-            .addOutputs([
-                {
-                    to: managerContract.tokenAddress,
-                    amount: outflowUtxo.satoshis,
-                    token: {
-                        ...outflowUtxo.token,
-                    },
+            .addInput(fundUtxo, fundContract.unlock.redeem());
+
+
+        const assetChangeAmounts = [];
+        for (let i = 0; i < assetContracts.length; ++i) {
+            const assetUtxos = (await assetContracts[i].getUtxos()).filter(u => u.token?.category === fundAssets[i].category).sort(sortDecreasingTokenAmount);
+            if (!assetUtxos.length) {
+                throw new Error(`Missing required asset '${fundAssets[i].category}' UTXO`);
+            }
+            let tokenAmountAdded = 0n;
+            for(let j = 0; j < assetUtxos.length; ++j) {
+                this.addInput(assetUtxos[j], assetContracts[i].unlock.release());
+                tokenAmountAdded += assetUtxos[j].token.amount;
+                if(tokenAmountAdded >= amount * fundAssets[i].amount) {
+                    assetChangeAmounts.push(tokenAmountAdded - (amount * fundAssets[i].amount));
+                    break;
+                }
+            }
+        }
+
+        log('asset change amounts', assetChangeAmounts);
+
+        this.addOutputs([
+            {
+                to: managerContract.tokenAddress,
+                amount: outflowUtxo.satoshis,
+                token: {
+                    ...outflowUtxo.token,
                 },
-                {
-                    to: fundContract.tokenAddress,
-                    amount: fundUtxo.satoshis,
-                    token: {
-                        category: fundCategory,
-                        amount: updatedFundAmount,
-                    },
+            },
+            {
+                to: fundContract.tokenAddress,
+                amount: fundUtxo.satoshis,
+                token: {
+                    category: fundCategory,
+                    amount: updatedFundAmount,
                 },
-            ]);
-        console.log('finished adding redemption transaction i/o');
+            },
+        ]);
+
+        for(let i = 0; i < assetChangeAmounts.length; ++i) {
+            if(!assetChangeAmounts[i]) {
+                continue;
+            }
+            this.addOutput({
+                to: assetContracts[i].tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fundAssets[i].category,
+                    amount: assetChangeAmounts[i],
+                },
+            });
+        }
+
+        log('finished adding redemption transaction i/o');
         return this;
     }
 }
