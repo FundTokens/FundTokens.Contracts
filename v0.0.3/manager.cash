@@ -51,14 +51,18 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         // fund contract is next in the transaction
         // contract already returns UTXO
         int fundInputIndex = this.activeInputIndex + 1;
-        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x20 + inflowToken + 0x20 + outflowToken + 0x20 + fundCategory + 0x20 + fundHash + fundContract));
+        bytes fundContractBytecode = (0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract);
+        console.log('fund contract bytecode params', inflowToken, outflowToken, fundCategory, fundHash);
+        console.log('fund contract base', fundContract);
+        console.log('fund contract bytecode', fundContractBytecode);
+        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
         require(hash256(data) == fundHash);
         require(tx.inputs[this.activeInputIndex].nftCommitment == (fundCategory + fundHash));
 
-        int fundSats = data.slice(0, 8); // TODO: Implement
+        int fundSats = int(data.slice(0, 8)); // TODO: Implement
         require(int(fundSats) > 0); //only so we don't get complaints for not using variable
-        int fundAmount = data.slice(8, 16);
+        int fundAmount = int(data.slice(8, 16));
         
         // calculate the number of "whole" fund tokens is released
         int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - tx.outputs[fundInputIndex].tokenAmount;
@@ -69,10 +73,10 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         do {
             bytes assetData = data.slice(16 + (assetIndex * 1), 40);
             bytes assetCategory, bytes asset = assetData.split(8);
-            int assetAmount = int(rest.slice(0, 8));
+            int assetAmount = int(asset.slice(0, 8));
 
             int assetOutputIndex = fundInputIndex + 1 + assetIndex;
-            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x20 + outflowToken + 0x20 + fundCategory + 0x20 + fundHash + 0x20 + assetCategory + assetContract));
+            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + assetCategory + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + assetContract)));
             require(tx.outputs[assetOutputIndex].tokenCategory == assetCategory);
             require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount
             int assetCollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / assetAmount;
@@ -101,14 +105,14 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
 
         // fund contract is next in the transaction
         int fundInputIndex = this.activeInputIndex + 1;
-        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(0x20 + inflowToken + 0x20 + outflowToken + 0x20 + fundCategory + 0x20 + fundHash + fundContract));
+        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
         require(hash256(data) == fundHash);
         require(tx.inputs[this.activeInputIndex].nftCommitment == (fundCategory + fundHash));
 
-        int fundSats = data.slice(0, 8); // TODO: Implement
+        int fundSats = int(data.slice(0, 8)); // TODO: Implement
         require(int(fundSats) > 0); //only so we don't get complaints for not using variable
-        int fundAmount = data.slice(8, 16);
+        int fundAmount = int(data.slice(8, 16));
 
         int fundLockingAmount = tx.outputs[fundInputIndex].tokenAmount - tx.inputs[fundInputIndex].tokenAmount;
         require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount
@@ -118,9 +122,9 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         do {
             bytes assetData = data.slice(16 + (assetIndex * 1), 40);
             bytes assetCategory, bytes asset = assetData.split(8);
-            int assetAmount = int(rest.slice(0, 8));
+            int assetAmount = int(asset.slice(0, 8));
 
-            bytes assetLockingBytecode = new LockingBytecodeP2SH32(0x20 + outflowToken + 0x20 + fundCategory + 0x20 + fundHash + 0x20 + assetCategory + assetContract);
+            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + assetCategory + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + assetContract));
 
             int inputIndex = 0;
             int assetReleaseAmount = 0;

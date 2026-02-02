@@ -1,5 +1,5 @@
 {
-  "contractName": "Manager",
+  "contractName": "TransactionManager",
   "constructorInputs": [
     {
       "name": "inflowToken",
@@ -14,146 +14,216 @@
       "type": "bytes"
     },
     {
-      "name": "fundAmount",
-      "type": "int"
-    },
-    {
-      "name": "asset1Contract",
+      "name": "assetContract",
       "type": "bytes"
     },
     {
-      "name": "asset1Category",
+      "name": "fundCategory",
       "type": "bytes"
     },
     {
-      "name": "asset1Amount",
-      "type": "int"
-    },
-    {
-      "name": "asset2Contract",
+      "name": "fundHash",
       "type": "bytes"
-    },
-    {
-      "name": "asset2Category",
-      "type": "bytes"
-    },
-    {
-      "name": "asset2Amount",
-      "type": "int"
     }
   ],
   "abi": [
     {
       "name": "inflow",
-      "inputs": []
+      "inputs": [
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "data",
+          "type": "bytes"
+        }
+      ]
     },
     {
       "name": "outflow",
-      "inputs": []
+      "inputs": [
+        {
+          "name": "count",
+          "type": "int"
+        },
+        {
+          "name": "data",
+          "type": "bytes"
+        }
+      ]
     }
   ],
-  "bytecode": "OP_10 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOVALUE OP_INPUTINDEX OP_OUTPUTVALUE OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_DUP OP_UTXOBYTECODE OP_3 OP_ROLL OP_EQUALVERIFY OP_DUP OP_UTXOTOKENAMOUNT OP_OVER OP_OUTPUTTOKENAMOUNT OP_SUB OP_DUP OP_4 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_DUP OP_4 OP_ROLL OP_DIV OP_ROT OP_1ADD OP_DUP OP_OUTPUTBYTECODE OP_5 OP_ROLL OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_5 OP_ROLL OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_5 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_5 OP_ROLL OP_DIV OP_2 OP_PICK OP_NUMEQUALVERIFY OP_DUP OP_1ADD OP_DUP OP_OUTPUTBYTECODE OP_6 OP_ROLL OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_6 OP_ROLL OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_6 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_OUTPUTTOKENAMOUNT OP_5 OP_ROLL OP_DIV OP_ROT OP_NUMEQUALVERIFY OP_2DROP OP_2DROP OP_1 OP_ELSE OP_10 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOVALUE OP_INPUTINDEX OP_OUTPUTVALUE OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_DUP OP_UTXOBYTECODE OP_3 OP_ROLL OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_SWAP OP_UTXOTOKENAMOUNT OP_SUB OP_DUP OP_3 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_DUP OP_3 OP_ROLL OP_DIV OP_0 OP_0 OP_0 OP_BEGIN OP_2 OP_PICK OP_UTXOBYTECODE OP_7 OP_PICK OP_EQUAL OP_3 OP_PICK OP_UTXOTOKENCATEGORY OP_9 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_OVER OP_3 OP_PICK OP_UTXOTOKENAMOUNT OP_ADD OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_2 OP_PICK OP_UTXOBYTECODE OP_10 OP_PICK OP_EQUAL OP_3 OP_PICK OP_UTXOTOKENCATEGORY OP_12 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_DUP OP_3 OP_PICK OP_UTXOTOKENAMOUNT OP_ADD OP_NIP OP_ENDIF OP_2 OP_PICK OP_1ADD OP_3 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_2 OP_PICK OP_TXINPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_0 OP_BEGIN OP_DUP OP_OUTPUTBYTECODE OP_8 OP_PICK OP_EQUAL OP_OVER OP_OUTPUTTOKENCATEGORY OP_10 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_2 OP_PICK OP_OVER OP_OUTPUTTOKENAMOUNT OP_SUB OP_3 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_ENDIF OP_DUP OP_OUTPUTBYTECODE OP_11 OP_PICK OP_EQUAL OP_OVER OP_OUTPUTTOKENCATEGORY OP_13 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_2DUP OP_OUTPUTTOKENAMOUNT OP_SUB OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2 OP_PICK OP_10 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_ROT OP_9 OP_ROLL OP_DIV OP_4 OP_PICK OP_NUMEQUALVERIFY OP_OVER OP_11 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_SWAP OP_10 OP_ROLL OP_DIV OP_3 OP_ROLL OP_NUMEQUALVERIFY OP_2DROP OP_2DROP OP_2DROP OP_2DROP OP_1 OP_ENDIF",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract Manager(bytes inflowToken, bytes outflowToken, bytes fundContract, int fundAmount, bytes asset1Contract, bytes asset1Category, int asset1Amount, bytes asset2Contract, bytes asset2Category, int asset2Amount)\r\n{\r\n    // i - inflow manager\r\n    // i + 1 - fund manager\r\n    //\r\n    // o - inflow manager\r\n    // o + 1 - fund manager\r\n    // o + 2 - asset 1\r\n    // o + 3 - asset 2\r\n    function inflow() {\r\n        // check input\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);\r\n        // spend input back to the contract\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n\r\n\r\n        // fund contract is next in the transaction\r\n        // contract already returns UTXO\r\n        int fundInputIndex = this.activeInputIndex + 1;\r\n        require(tx.inputs[fundInputIndex].lockingBytecode == fundContract);\r\n        \r\n        int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - tx.outputs[fundInputIndex].tokenAmount;\r\n        require(fundReleasedAmount % fundAmount == 0); // ensure a multiple of the fund amount\r\n        fundReleasedAmount = fundReleasedAmount / fundAmount;\r\n\r\n        //\r\n        int assetOutputIndex = fundInputIndex + 1;\r\n        require(tx.outputs[assetOutputIndex].lockingBytecode == asset1Contract);\r\n        require(tx.outputs[assetOutputIndex].tokenCategory == asset1Category);\r\n        require(tx.outputs[assetOutputIndex].tokenAmount % asset1Amount == 0); // ensure a multiple of the asset amount\r\n        int asset1CollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / asset1Amount;\r\n        require(asset1CollectedAmount == fundReleasedAmount);\r\n\r\n        //\r\n        assetOutputIndex = assetOutputIndex + 1;\r\n        require(tx.outputs[assetOutputIndex].lockingBytecode == asset2Contract);\r\n        require(tx.outputs[assetOutputIndex].tokenCategory == asset2Category);\r\n        require(tx.outputs[assetOutputIndex].tokenAmount % asset2Amount == 0); // ensure a multiple of the asset amount\r\n        int asset2CollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / asset2Amount;\r\n        require(asset2CollectedAmount == fundReleasedAmount);\r\n    }\r\n\r\n    function outflow() {\r\n        // check input\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);\r\n        // spend input back to the contract\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n\r\n        // fund contract is next in the transaction\r\n        int fundInputIndex = this.activeInputIndex + 1;\r\n        require(tx.inputs[fundInputIndex].lockingBytecode == fundContract);\r\n        \r\n        int fundLockingAmount = tx.outputs[fundInputIndex].tokenAmount - tx.inputs[fundInputIndex].tokenAmount;\r\n        require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount\r\n        fundLockingAmount = fundLockingAmount / fundAmount;\r\n\r\n        int inputIndex = 0;\r\n        int asset1ReleaseAmount = 0;\r\n        int asset2ReleaseAmount = 0;\r\n        do {\r\n            if(tx.inputs[inputIndex].lockingBytecode == asset1Contract && tx.inputs[inputIndex].tokenCategory == asset1Category) {\r\n                asset1ReleaseAmount = asset1ReleaseAmount + tx.inputs[inputIndex].tokenAmount;\r\n            }\r\n\r\n            if(tx.inputs[inputIndex].lockingBytecode == asset2Contract && tx.inputs[inputIndex].tokenCategory == asset2Category) {\r\n                asset2ReleaseAmount = asset2ReleaseAmount + tx.inputs[inputIndex].tokenAmount;\r\n            }\r\n\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length);\r\n\r\n        int outputIndex = 0;\r\n        do {\r\n            if(tx.outputs[outputIndex].lockingBytecode == asset1Contract && tx.outputs[outputIndex].tokenCategory == asset1Category) {\r\n                asset1ReleaseAmount = asset1ReleaseAmount - tx.outputs[outputIndex].tokenAmount;\r\n            }\r\n\r\n            if(tx.outputs[outputIndex].lockingBytecode == asset2Contract && tx.outputs[outputIndex].tokenCategory == asset2Category) {\r\n                asset2ReleaseAmount = asset2ReleaseAmount - tx.outputs[outputIndex].tokenAmount;\r\n            }\r\n\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n\r\n        require(asset1ReleaseAmount % asset1Amount == 0); // ensure a multiple of the fund amount\r\n        require(asset1ReleaseAmount / asset1Amount == fundLockingAmount);\r\n\r\n        require(asset2ReleaseAmount % asset2Amount == 0); // ensure a multiple of the fund amount\r\n        require(asset2ReleaseAmount / asset2Amount == fundLockingAmount);\r\n    }\r\n}\r\n",
+  "bytecode": "OP_6 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOVALUE OP_INPUTINDEX OP_OUTPUTVALUE OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD 20 OP_7 OP_PICK OP_CAT 20 OP_CAT OP_6 OP_PICK OP_CAT 20 OP_CAT OP_3 OP_PICK OP_CAT 20 OP_CAT OP_2 OP_PICK OP_CAT OP_4 OP_PICK OP_CAT OP_OVER OP_UTXOBYTECODE aa20 20 OP_10 OP_PICK OP_CAT 20 OP_CAT OP_9 OP_PICK OP_CAT 20 OP_CAT OP_6 OP_PICK OP_CAT 20 OP_CAT OP_5 OP_ROLL OP_CAT OP_6 OP_ROLL OP_CAT OP_HASH256 OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_8 OP_PICK OP_HASH256 OP_6 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_5 OP_PICK OP_7 OP_PICK OP_CAT OP_EQUALVERIFY OP_8 OP_PICK OP_8 OP_SPLIT OP_DROP OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_8 OP_PICK OP_16 OP_SPLIT OP_DROP OP_8 OP_SPLIT OP_NIP OP_BIN2NUM OP_2 OP_PICK OP_UTXOTOKENAMOUNT OP_3 OP_PICK OP_OUTPUTTOKENAMOUNT OP_SUB OP_2DUP OP_SWAP OP_MOD OP_0 OP_NUMEQUALVERIFY OP_DUP OP_ROT OP_DIV OP_0 OP_BEGIN OP_11 OP_PICK 28 OP_SPLIT OP_DROP OP_16 OP_2 OP_PICK OP_1 OP_MUL OP_ADD OP_SPLIT OP_NIP OP_DUP OP_8 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_DROP OP_BIN2NUM OP_8 OP_PICK OP_1ADD OP_5 OP_PICK OP_ADD OP_DUP OP_OUTPUTBYTECODE aa20 20 OP_13 OP_PICK OP_CAT 20 OP_CAT OP_15 OP_PICK OP_CAT 20 OP_CAT OP_16 OP_PICK OP_CAT 20 OP_CAT OP_6 OP_PICK OP_CAT OP_14 OP_PICK OP_CAT OP_HASH256 OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_2 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_2 OP_PICK OP_DIV OP_DUP OP_8 OP_PICK OP_NUMEQUALVERIFY OP_6 OP_PICK OP_1ADD OP_7 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_2DROP OP_2DROP OP_2DROP OP_DUP OP_11 OP_PICK OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_2DROP OP_2DROP OP_2DROP OP_2DROP OP_1 OP_ELSE OP_6 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_2 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOVALUE OP_INPUTINDEX OP_OUTPUTVALUE OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_DUP OP_UTXOBYTECODE aa20 20 OP_4 OP_ROLL OP_CAT 20 OP_CAT OP_4 OP_PICK OP_CAT 20 OP_CAT OP_7 OP_PICK OP_CAT 20 OP_CAT OP_8 OP_PICK OP_CAT OP_5 OP_ROLL OP_CAT OP_HASH256 OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_6 OP_PICK OP_HASH256 OP_5 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_4 OP_PICK OP_6 OP_PICK OP_CAT OP_EQUALVERIFY OP_6 OP_PICK OP_8 OP_SPLIT OP_DROP OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_6 OP_PICK OP_16 OP_SPLIT OP_DROP OP_8 OP_SPLIT OP_NIP OP_BIN2NUM OP_OVER OP_OUTPUTTOKENAMOUNT OP_ROT OP_UTXOTOKENAMOUNT OP_SUB OP_2DUP OP_SWAP OP_MOD OP_0 OP_NUMEQUALVERIFY OP_DUP OP_ROT OP_DIV OP_0 OP_BEGIN OP_8 OP_PICK 28 OP_SPLIT OP_DROP OP_16 OP_2 OP_PICK OP_1 OP_MUL OP_ADD OP_SPLIT OP_NIP OP_DUP OP_8 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_DROP OP_BIN2NUM aa20 20 OP_9 OP_PICK OP_CAT 20 OP_CAT OP_11 OP_PICK OP_CAT 20 OP_CAT OP_12 OP_PICK OP_CAT 20 OP_CAT OP_4 OP_PICK OP_CAT OP_10 OP_PICK OP_CAT OP_HASH256 OP_CAT 87 OP_CAT OP_0 OP_0 OP_BEGIN OP_OVER OP_UTXOBYTECODE OP_3 OP_PICK OP_EQUAL OP_2 OP_PICK OP_UTXOTOKENCATEGORY OP_7 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_2DUP OP_SWAP OP_UTXOTOKENAMOUNT OP_ADD OP_NIP OP_ENDIF OP_OVER OP_1ADD OP_ROT OP_DROP OP_SWAP OP_OVER OP_TXINPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_0 OP_BEGIN OP_DUP OP_OUTPUTBYTECODE OP_4 OP_PICK OP_EQUAL OP_OVER OP_OUTPUTTOKENCATEGORY OP_8 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_2DUP OP_OUTPUTTOKENAMOUNT OP_SUB OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_OVER OP_5 OP_PICK OP_MOD OP_0 OP_NUMEQUALVERIFY OP_OVER OP_5 OP_PICK OP_DIV OP_10 OP_PICK OP_NUMEQUALVERIFY OP_2DROP OP_2DROP OP_2DROP OP_2DROP OP_DUP OP_8 OP_PICK OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_2DROP OP_2DROP OP_DROP OP_1 OP_ENDIF",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n// max NFT commitment size, 128 bytes\r\n// 0x08 - push 8 bytes\r\n// 0x20 - push 32 bytes\r\n\r\n// NFT Commitment\r\n// bytes fund category\r\n// bytes fund hash\r\n\r\n// Fund Hash\r\n// int satoshi\r\n// int fundAmount\r\n// bytes asset1Category\r\n// int asset1Amount\r\n// ...\r\n// bytes assetNContract\r\n// int assetNAmount\r\n\r\n// amount - 8 bytes\r\n// category - 32 bytes\r\n// hash - 32 bytes\r\n\r\n\r\n// inflow token -> token to show inflow validation occurred\r\n// outflow token -> token show outflow validation occurred\r\n// fund contract -> the fund's base contract used to hash next contracts\r\n// asset contract -> the asset's base contract, used to hash next contracts\r\ncontract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)\r\n{\r\n    // i - inflow signal\r\n    // i + 1 - fund manager\r\n    //\r\n    // o - inflow manager\r\n    // o + 1 - fund manager\r\n    // o + 2 - asset 1\r\n    // ...\r\n    // o + M - asset N\r\n    function inflow(int count, bytes data) {\r\n        // check input is inflow token for proper contract signalling\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);\r\n        // spend input back to the contract\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?\r\n\r\n        \r\n\r\n        // fund contract is next in the transaction\r\n        // contract already returns UTXO\r\n        int fundInputIndex = this.activeInputIndex + 1;\r\n        bytes fundContractBytecode = (0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract);\r\n        console.log('fund contract bytecode params', inflowToken, outflowToken, fundCategory, fundHash);\r\n        console.log('fund contract base', fundContract);\r\n        console.log('fund contract bytecode', fundContractBytecode);\r\n        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));\r\n\r\n        require(hash256(data) == fundHash);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == (fundCategory + fundHash));\r\n\r\n        int fundSats = int(data.slice(0, 8)); // TODO: Implement\r\n        require(int(fundSats) > 0); //only so we don't get complaints for not using variable\r\n        int fundAmount = int(data.slice(8, 16));\r\n        \r\n        // calculate the number of \"whole\" fund tokens is released\r\n        int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - tx.outputs[fundInputIndex].tokenAmount;\r\n        require(fundReleasedAmount % fundAmount == 0); // ensure a multiple of the fund amount\r\n        fundReleasedAmount = fundReleasedAmount / fundAmount;\r\n\r\n        int assetIndex = 0;\r\n        do {\r\n            bytes assetData = data.slice(16 + (assetIndex * 1), 40);\r\n            bytes assetCategory, bytes asset = assetData.split(8);\r\n            int assetAmount = int(asset.slice(0, 8));\r\n\r\n            int assetOutputIndex = fundInputIndex + 1 + assetIndex;\r\n            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + outflowToken + 0x20 + fundCategory + 0x20 + fundHash + 0x20 + assetCategory + assetContract)));\r\n            require(tx.outputs[assetOutputIndex].tokenCategory == assetCategory);\r\n            require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount\r\n            int assetCollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / assetAmount;\r\n            require(assetCollectedAmount == fundReleasedAmount);\r\n            assetIndex = assetIndex + 1;\r\n        } while(assetIndex < count);\r\n    }\r\n\r\n    // i - outflow signal\r\n    // i + 1 - fund manager\r\n    // ? - asset 1\r\n    // ...\r\n    // ? - asset N\r\n    //\r\n    // o - inflow manager\r\n    // o + 1 - fund manager\r\n    function outflow(int count, bytes data) {\r\n        // check input\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);\r\n        // spend input back to the contract\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?\r\n\r\n        // fund contract is next in the transaction\r\n        int fundInputIndex = this.activeInputIndex + 1;\r\n        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + inflowToken + 0x20 + outflowToken + 0x20 + fundCategory + 0x20 + fundHash + fundContract)));\r\n\r\n        require(hash256(data) == fundHash);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == (fundCategory + fundHash));\r\n\r\n        int fundSats = int(data.slice(0, 8)); // TODO: Implement\r\n        require(int(fundSats) > 0); //only so we don't get complaints for not using variable\r\n        int fundAmount = int(data.slice(8, 16));\r\n\r\n        int fundLockingAmount = tx.outputs[fundInputIndex].tokenAmount - tx.inputs[fundInputIndex].tokenAmount;\r\n        require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount\r\n        fundLockingAmount = fundLockingAmount / fundAmount;\r\n\r\n        int assetIndex = 0;\r\n        do {\r\n            bytes assetData = data.slice(16 + (assetIndex * 1), 40);\r\n            bytes assetCategory, bytes asset = assetData.split(8);\r\n            int assetAmount = int(asset.slice(0, 8));\r\n\r\n            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + outflowToken + 0x20 + fundCategory + 0x20 + fundHash + 0x20 + assetCategory + assetContract));\r\n\r\n            int inputIndex = 0;\r\n            int assetReleaseAmount = 0;\r\n            do {\r\n                if(tx.inputs[inputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[inputIndex].tokenCategory == assetCategory) {\r\n                    assetReleaseAmount = assetReleaseAmount + tx.inputs[inputIndex].tokenAmount;\r\n                }\r\n\r\n                inputIndex = inputIndex + 1;\r\n            } while(inputIndex < tx.inputs.length);\r\n\r\n            // account for change back to the contract\r\n            int outputIndex = 0;\r\n            do {\r\n                if(tx.outputs[outputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[outputIndex].tokenCategory == assetCategory) {\r\n                    assetReleaseAmount = assetReleaseAmount - tx.outputs[outputIndex].tokenAmount;\r\n                }\r\n\r\n                outputIndex = outputIndex + 1;\r\n            } while(outputIndex < tx.outputs.length);\r\n\r\n            require(assetReleaseAmount % assetAmount == 0); // ensure a multiple of the fund amount\r\n            require(assetReleaseAmount / assetAmount == fundLockingAmount);\r\n        } while(assetIndex < count);\r\n    }\r\n}\r\n",
   "debug": {
-    "bytecode": "5a79009c63c0ce88c0c7c0cd88c0c6c0cc9dc0cec0d188c08b76c7537a8876d078d39476547997009d76547a967b8b76cd557a8876d1557a8876d3557997009d76d3557a9652799d768b76cd567a8876d1567a8876d3567997009dd3557a967b9d6d6d51675a7a519dc0ce7b88c0c7c0cd88c0c6c0cc9dc0cec0d188c08b76c7537a8876d37cd09476537997009d76537a96000000655279c75779875379ce5979879a63785379d0937b757c685279c75a79875379ce5c79879a63765379d093776852798b537a757c6b7c6c5279c3a266006576cd58798778d15a79879a63527978d394537a757c6b7c6c6876cd5b798778d15d79879a636ed3947b757c68768b7776c4a26652795a7997009d7b597a9654799d785b7997009d7c5a7a96537a9d6d6d6d6d5168",
-    "sourceMap": "12:4:45:5;;;;;14:26:14:47;:16::62:1;:8::79;16:26:16:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;17:26:17:47:0;:16::54:1;:69::90:0;:58::97:1;:8::99;18:26:18:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;23:29:23:50:0;:::54:1;24:26:24:40:0;:16::57:1;:61::73:0;;:8::75:1;26:43:26:57:0;:33::70:1;:84::98:0;:73::111:1;:33;27:16:27:34:0;:37::47;;:16:::1;:51::52:0;:8::54:1;28:29:28:47:0;:50::60;;:29:::1;31:31:31:45:0;:::49:1;32:27:32:43:0;:16::60:1;:64::78:0;;:8::80:1;33:27:33:43:0;:16::58:1;:62::76:0;;:8::78:1;34:27:34:43:0;:16::56:1;:59::71:0;;:16:::1;:75::76:0;:8::78:1;35:47:35:63:0;:36::76:1;:79::91:0;;:36:::1;36:41:36:59:0;;:8::61:1;39:27:39:43:0;:::47:1;40::40:43:0;:16::60:1;:64::78:0;;:8::80:1;41:27:41:43:0;:16::58:1;:62::76:0;;:8::78:1;42:27:42:43:0;:16::56:1;:59::71:0;;:16:::1;:75::76:0;:8::78:1;43:36:43:76;:79::91:0;;:36:::1;44:41:44:59:0;:8::61:1;12:4:45:5;;;;47::96::0;;;;49:26:49:47;:16::62:1;:66::78:0;:8::80:1;51:26:51:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;52:26:52:47:0;:16::54:1;:69::90:0;:58::97:1;:8::99;53:26:53:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;56:29:56:50:0;:::54:1;57:26:57:40:0;:16::57:1;:61::73:0;;:8::75:1;59:43:59:57:0;:32::70:1;:83::97:0;:73::110:1;:32;60:16:60:33:0;:36::46;;:16:::1;:50::51:0;:8::53:1;61:28:61:45:0;:48::58;;:28:::1;63:25:63:26:0;64:34:64:35;65::65;66:8:76:47;67:25:67:35;;:15::52:1;:56::70:0;;:15:::1;:84::94:0;;:74::109:1;:113::127:0;;:74:::1;:15;:129:69:13:0;68:38:68:57;:70::80;;:60::93:1;:38;:16::94;;;67:129:69:13;71:25:71:35:0;;:15::52:1;:56::70:0;;:15:::1;:84::94:0;;:74::109:1;:113::127:0;;:74:::1;:15;:129:73:13:0;72:38:72:57;:70::80;;:60::93:1;:38;:16::94;71:129:73:13;75:25:75:35:0;;:::39:1;:12::40;;;;;;;76:16:76:26:0;;:29::45;66:8::47:1;;78:26:78:27:0;79:8:89:49;80:26:80:37;:15::54:1;:58::72:0;;:15:::1;:87::98:0;:76::113:1;:117::131:0;;:76:::1;:15;:133:82:13:0;81:38:81:57;;:71::82;:60::95:1;:38;:16::96;;;;;;;80:133:82:13;84:26:84:37:0;:15::54:1;:58::72:0;;:15:::1;:87::98:0;:76::113:1;:117::131:0;;:76:::1;:15;:133:86:13:0;85:38:85:82;:60::95:1;:38;:16::96;;;84:133:86:13;88:26:88:37:0;:::41:1;:12::42;89:16:89:27:0;:30::47;79:8::49:1;;91:16:91:35:0;;:38::50;;:16:::1;:54::55:0;:8::57:1;92:16:92:35:0;:38::50;;:16:::1;:54::71:0;;:8::73:1;94:16:94:35:0;:38::50;;:16:::1;:54::55:0;:8::57:1;95:16:95:35:0;:38::50;;:16:::1;:54::71:0;;:8::73:1;47:4:96:5;;;;;3:0:97:1",
-    "logs": [],
+    "bytecode": "5679009c63c0ce7888c0c7c0cd88c0c6c0cc9dc0cec0d188c0d0c0d39dc0cfc0d288c08b012057797e01207e56797e01207e53797e01207e52797e54797e78c702aa2001205a797e01207e59797e01207e56797e01207e557a7e567a7eaa7e01877e885879aa567988c0cf557957797e885879587f758100a0695879607f75587f77815279d05379d3946e7c97009d767b9600655b7901287f756052795195937f7776587f76587f758158798b55799376cd02aa2001205d797e01207e5f797e01207e60797e01207e56797e5e797eaa7e01877e8876d154798876d3527997009d76d35279967658799d56798b577a757c6b7c6b7c6b7c6b7c6b7c6c6c6c6c6c6d6d6d765b79a2666d6d6d6d6d6d5167567a519dc0ce527988c0c7c0cd88c0c6c0cc9dc0cec0d188c0d0c0d39dc0cfc0d288c08b76c702aa200120547a7e01207e54797e01207e57797e01207e58797e557a7eaa7e01877e885679aa557988c0cf547956797e885679587f758100a0695679607f75587f778178d37bd0946e7c97009d767b960065587901287f756052795195937f7776587f76587f758102aa20012059797e01207e5b797e01207e5c797e01207e54797e5a797eaa7e01877e00006578c75379875279ce5779879a636e7cd0937768788b7b757c78c3a266006576cd54798778d15879879a636ed3947b757c68768b7776c4a26678557997009d785579965a799d6d6d6d6d765879a2666d6d6d6d755168",
+    "sourceMap": "39:4:86:5;;;;;41:26:41:47;:16::62:1;:66::77:0;:8::79:1;43:26:43:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;44:26:44:47:0;:16::54:1;:69::90:0;:58::97:1;:8::99;45:26:45:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;46:26:46:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;47:26:47:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;53:29:53:50:0;:::54:1;54:38:54:42:0;:45::53;;:38:::1;:56::60:0;:38:::1;:63::75:0;;:38:::1;:78::82:0;:38:::1;:85::97:0;;:38:::1;:100::104:0;:38:::1;:107::118:0;;:38:::1;:121::133:0;;:38:::1;58:26:58:40:0;:16::57:1;:61::192:0;:95::99;:102::110;;:95:::1;:113::117:0;:95:::1;:120::132:0;;:95:::1;:135::139:0;:95:::1;:142::154:0;;:95:::1;:157::161:0;:95:::1;:164::175:0;;:95:::1;:178::190:0;;:95:::1;:87::191;:61::192;;;:8::194;60:24:60:28:0;;:16::29:1;:33::41:0;;:8::43:1;61:26:61:47:0;:16::62:1;:67::79:0;;:82::90;;:67:::1;:8::93;63:27:63:31:0;;:41::42;:27::43:1;;:23::44;64:32:64:33:0;:16:::1;:8::35;65:29:65:33:0;;:43::45;:29::46:1;;:40::41:0;:29::46:1;;:25::47;68:43:68:57:0;;:33::70:1;:84::98:0;;:73::111:1;:33;69:16:69:47:0;;::::1;:51::52:0;:8::54:1;70:29:70:47:0;:50::60;:29:::1;72:25:72:26:0;73:8:85:36;74:30:74:34;;:64::66;:30::67:1;;:41::43:0;:47::57;;:60::61;:47:::1;:41::62;:30::67;;75:47:75:56:0;:63::64;:47::65:1;76:34:76:39:0;:49::50;:34::51:1;;:30::52;78:35:78:49:0;;:::53:1;:56::66:0;;:35:::1;79:31:79:47:0;:20::64:1;:68::202:0;:102::106;:109::121;;:102:::1;:124::128:0;:102:::1;:131::143:0;;:102:::1;:146::150:0;:102:::1;:153::161:0;;:102:::1;:164::168:0;:102:::1;:171::184:0;;:102:::1;:187::200:0;;:102:::1;:94::201;:68::202;;;:12::204;80:31:80:47:0;:20::62:1;:66::79:0;;:12::81:1;81:31:81:47:0;:20::60:1;:63::74:0;;:20:::1;:78::79:0;:12::81:1;82:50:82:66:0;:39::79:1;:82::93:0;;:39:::1;83:20:83:40:0;:44::62;;:12::64:1;84:25:84:35:0;;:::39:1;:12::40;;;;;;;;;;;;;;;;;;;73:11:85:9;;;85:16::26:0;:29::34;;73:8::36:1;;39:4:86:5;;;;;;;;96::152::0;;;;98:26:98:47;:16::62:1;:66::78:0;;:8::80:1;100:26:100:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;101:26:101:47:0;:16::54:1;:69::90:0;:58::97:1;:8::99;102:26:102:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;103:26:103:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;104:26:104:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;107:29:107:50:0;:::54:1;108:26:108:40:0;:16::57:1;:61::192:0;:95::99;:102::113;;:95:::1;:116::120:0;:95:::1;:123::135:0;;:95:::1;:138::142:0;:95:::1;:145::157:0;;:95:::1;:160::164:0;:95:::1;:167::175:0;;:95:::1;:178::190:0;;:95:::1;:87::191;:61::192;;;:8::194;110:24:110:28:0;;:16::29:1;:33::41:0;;:8::43:1;111:26:111:47:0;:16::62:1;:67::79:0;;:82::90;;:67:::1;:8::93;113:27:113:31:0;;:41::42;:27::43:1;;:23::44;114:32:114:33:0;:16:::1;:8::35;115:29:115:33:0;;:43::45;:29::46:1;;:40::41:0;:29::46:1;;:25::47;117:43:117:57:0;:32::70:1;:83::97:0;:73::110:1;:32;118:16:118:46:0;;::::1;:50::51:0;:8::53:1;119:28:119:45:0;:48::58;:28:::1;121:25:121:26:0;122:8:151:36;123:30:123:34;;:64::66;:30::67:1;;:41::43:0;:47::57;;:60::61;:47:::1;:41::62;:30::67;;124:47:124:56:0;:63::64;:47::65:1;125:34:125:39:0;:49::50;:34::51:1;;:30::52;127:41:127:175:0;:75::79;:82::94;;:75:::1;:97::101:0;:75:::1;:104::116:0;;:75:::1;:119::123:0;:75:::1;:126::134:0;;:75:::1;:137::141:0;:75:::1;:144::157:0;;:75:::1;:160::173:0;;:75:::1;:67::174;:41::175;;;129:29:129:30:0;130:37:130:38;131:12:137:51;132:29:132:39;:19::56:1;:60::80:0;;:19:::1;:94::104:0;;:84::119:1;:123::136:0;;:84:::1;:19;:138:134:17:0;133:41:133:82;;:62::95:1;:41;:20::96;132:138:134:17;136:29:136:39:0;:::43:1;:16::44;;;137:20:137:30:0;:33::49;131:12::51:1;;140:30:140:31:0;141:12:147:53;142:30:142:41;:19::58:1;:62::82:0;;:19:::1;:97::108:0;:86::123:1;:127::140:0;;:86:::1;:19;:142:144:17:0;143:41:143:84;:62::97:1;:41;:20::98;;;142:142:144:17;146:30:146:41:0;:::45:1;:16::46;147:20:147:31:0;:34::51;141:12::53:1;;149:20:149:38:0;:41::52;;:20:::1;:56::57:0;:12::59:1;150:20:150:38:0;:41::52;;:20:::1;:56::73:0;;:12::75:1;122:11:151:9;;;;151:16::26:0;:29::34;;122:8::36:1;;96:4:152:5;;;;;;29:0:153:1",
+    "logs": [
+      {
+        "ip": 64,
+        "line": 55,
+        "data": [
+          "fund contract bytecode params",
+          {
+            "stackIndex": 2,
+            "type": "bytes",
+            "ip": 64
+          },
+          {
+            "stackIndex": 3,
+            "type": "bytes",
+            "ip": 64
+          },
+          {
+            "stackIndex": 6,
+            "type": "bytes",
+            "ip": 64
+          },
+          {
+            "stackIndex": 7,
+            "type": "bytes",
+            "ip": 64
+          }
+        ]
+      },
+      {
+        "ip": 64,
+        "line": 56,
+        "data": [
+          "fund contract base",
+          {
+            "stackIndex": 4,
+            "type": "bytes",
+            "ip": 64
+          }
+        ]
+      },
+      {
+        "ip": 64,
+        "line": 57,
+        "data": [
+          "fund contract bytecode",
+          {
+            "stackIndex": 0,
+            "type": "bytes",
+            "ip": 64
+          }
+        ]
+      }
+    ],
     "requires": [
       {
-        "ip": 17,
-        "line": 14
-      },
-      {
-        "ip": 22,
-        "line": 16
-      },
-      {
-        "ip": 27,
-        "line": 17
-      },
-      {
-        "ip": 32,
-        "line": 18
-      },
-      {
-        "ip": 39,
-        "line": 24
-      },
-      {
-        "ip": 50,
-        "line": 27
-      },
-      {
-        "ip": 61,
-        "line": 32
-      },
-      {
-        "ip": 66,
-        "line": 33
-      },
-      {
-        "ip": 73,
-        "line": 34
-      },
-      {
-        "ip": 81,
-        "line": 36
-      },
-      {
-        "ip": 88,
-        "line": 40
-      },
-      {
-        "ip": 93,
+        "ip": 14,
         "line": 41
       },
       {
-        "ip": 100,
-        "line": 42
+        "ip": 19,
+        "line": 43
       },
       {
-        "ip": 106,
+        "ip": 24,
         "line": 44
       },
       {
-        "ip": 118,
-        "line": 49
+        "ip": 29,
+        "line": 45
       },
       {
-        "ip": 123,
-        "line": 51
+        "ip": 34,
+        "line": 46
       },
       {
-        "ip": 128,
-        "line": 52
+        "ip": 39,
+        "line": 47
       },
       {
-        "ip": 133,
-        "line": 53
+        "ip": 93,
+        "line": 58
       },
       {
-        "ip": 140,
-        "line": 57
-      },
-      {
-        "ip": 151,
+        "ip": 99,
         "line": 60
       },
       {
-        "ip": 278,
-        "line": 91
+        "ip": 107,
+        "line": 61
       },
       {
-        "ip": 285,
-        "line": 92
+        "ip": 116,
+        "line": 64
       },
       {
-        "ip": 291,
-        "line": 94
+        "ip": 137,
+        "line": 69
       },
       {
-        "ip": 298,
-        "line": 95
+        "ip": 199,
+        "line": 79
+      },
+      {
+        "ip": 204,
+        "line": 80
+      },
+      {
+        "ip": 211,
+        "line": 81
+      },
+      {
+        "ip": 220,
+        "line": 83
+      },
+      {
+        "ip": 267,
+        "line": 98
+      },
+      {
+        "ip": 272,
+        "line": 100
+      },
+      {
+        "ip": 277,
+        "line": 101
+      },
+      {
+        "ip": 282,
+        "line": 102
+      },
+      {
+        "ip": 287,
+        "line": 103
+      },
+      {
+        "ip": 292,
+        "line": 104
+      },
+      {
+        "ip": 324,
+        "line": 108
+      },
+      {
+        "ip": 330,
+        "line": 110
+      },
+      {
+        "ip": 338,
+        "line": 111
+      },
+      {
+        "ip": 347,
+        "line": 114
+      },
+      {
+        "ip": 366,
+        "line": 118
+      },
+      {
+        "ip": 484,
+        "line": 149
+      },
+      {
+        "ip": 491,
+        "line": 150
       }
     ]
   },
@@ -161,5 +231,5 @@
     "name": "cashc",
     "version": "0.13.0-next.1"
   },
-  "updatedAt": "2026-01-05T04:15:41.585Z"
+  "updatedAt": "2026-02-02T04:48:02.370Z"
 }

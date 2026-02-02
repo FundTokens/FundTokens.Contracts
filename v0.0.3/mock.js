@@ -116,16 +116,17 @@ const fundAssets = [{
     amount: asset2Amount,
 }];
 
-
+const fund = {
+    category: fundCategory,
+    amount: fundAmount,
+    satoshis: 0n,
+    assets: fundAssets,
+};
 
 ////// contract setup
 const { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider })
     .setFundTokenSystem({ inflowCategory, outflowCategory })
-    .buildContracts({
-        category: fundCategory,
-        amount: fundAmount,
-        assets: fundAssets,
-    });
+    .buildContracts(fund);
 
 
 // Initial Setup //
@@ -161,11 +162,7 @@ const inflowTransaction = (await new FundTokenTransactionBuilder({ provider })
     .setFundTokenSystem({ inflowCategory, outflowCategory })
     .addMint({
         amount: mintAmount,
-        fund: {
-            category: fundCategory,
-            amount: fundAmount,
-            assets: fundAssets,
-        },
+        fund,
     }))
     .addInputs([asset1Utxo, asset2Utxo, inflowTransactionFee], wallet.signatureTemplate.unlockP2PKH())
     .addOutputs([
@@ -204,11 +201,7 @@ const outflowTransaction = (await new FundTokenTransactionBuilder({ provider })
     .setFundTokenSystem({ inflowCategory, outflowCategory })
     .addRedeem({
         amount: redeemAmount,
-        fund: {
-            category: fundCategory,
-            amount: fundAmount,
-            assets: fundAssets,
-        }
+        fund,
     }))
     .addInput(fundToken, wallet.signatureTemplate.unlockP2PKH())
     .addOutputs([
