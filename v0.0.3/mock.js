@@ -48,35 +48,6 @@ const fundUtxo = randomUtxo({
     }),
 });
 
-const fundTokenCommitment = fundUtxo.token.category + ''; // TODO
-
-// system or fund setup
-const inflowUtxo = randomUtxo({
-    satoshis: 1000n,
-    token: randomNFT({
-        amount: 1n,
-        nft: {
-            capability: 'none',
-            commitment: fundTokenCommitment,
-        }
-    }),
-});
-
-const outflowUtxo = randomUtxo({
-    satoshis: 1000n,
-    token: randomNFT({
-        amount: 1n,
-        nft: {
-            capability: 'none',
-            commitment: fundTokenCommitment,
-        }
-    }),
-});
-
-
-
-
-
 const asset1Amount = 100n; // fund defined amount and category
 const asset1 = randomUtxo({
     satoshis: 1000n,
@@ -96,8 +67,7 @@ const inflowTransactionFee = randomUtxo({
     satoshis: 10000n + 1000n,
 });
 
-const inflowCategory = inflowUtxo.token.category;
-const outflowCategory = outflowUtxo.token.category;
+
 const asset1Category = asset1.token.category;
 //const asset1Amount = XXX; // already declared
 const asset2Category = asset2.token.category;
@@ -122,6 +92,37 @@ const fund = {
     satoshis: 0n,
     assets: fundAssets,
 };
+
+
+
+const fundTokenCommitment = new FundTokenTransactionBuilder({ provider }).hashFund(fund);
+
+// system or fund setup
+const inflowUtxo = randomUtxo({
+    satoshis: 1000n,
+    token: randomNFT({
+        amount: 1n,
+        nft: {
+            capability: 'none',
+            commitment: fundTokenCommitment,
+        }
+    }),
+});
+
+const outflowUtxo = randomUtxo({
+    satoshis: 1000n,
+    token: randomNFT({
+        amount: 1n,
+        nft: {
+            capability: 'none',
+            commitment: fundTokenCommitment,
+        }
+    }),
+});
+const inflowCategory = inflowUtxo.token.category;
+const outflowCategory = outflowUtxo.token.category;
+
+
 
 ////// contract setup
 const { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider })

@@ -6,7 +6,7 @@ pragma cashscript ~0.13.0;
 // fundCategory -> Verify the NFT being executed is for this fund
 // fundHash -> A has of the fund's details, stored in the NFT commitment
 // assetCategory -> Mostly to create distinct contracts for the assets
-contract AssetManager(bytes outflowManager, bytes fundCategory, bytes fundHash, bytes assetCategory) 
+contract AssetManager(bytes outflowManager, bytes fundHash, bytes assetCategory) 
 {
     // The asset manager is relying on the outflow manager to ensure this contract is spent correctly
     function release() {
@@ -14,7 +14,7 @@ contract AssetManager(bytes outflowManager, bytes fundCategory, bytes fundHash, 
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == outflowManager
-                && tx.inputs[inputIndex].nftCommitment == (fundCategory + fundHash)) {
+                && tx.inputs[inputIndex].nftCommitment == fundHash) {
                 outflowManagerCount = outflowManagerCount + 1;
             }
             inputIndex = inputIndex + 1;

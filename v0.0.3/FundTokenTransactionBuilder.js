@@ -45,7 +45,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
     // two = 128bytes
     // three = 168bytes
     // four = 208bytes
-    hashFund(fund) {
+    getFundHex(fund) {
         const {
             category,
             amount,
@@ -60,8 +60,10 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             hex.push(swapEndianness(asset.category)); // 32 bytes
             hex.push(binToHex(bigIntToBinUint64LEClamped(asset.amount))); // 8 bytes
         });
-        return binToHex(hash256(hexToBin(hex.join(''))));
+        return hexToBin(hex.join(''));
     }
+
+    hashFund = (fund) => binToHex(hash256(this.getFundHex(fund)));
 
     // build and get the contracts for this fund
     buildContracts(fund) {
@@ -76,25 +78,21 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         assets.forEach(a => {
             const fundAssetCategory = swapEndianness(a.category);
 
-            // 32 32 32 32
-            const assetContract = new Contract(assetJson, [this.outflowCategorySwapped, fundAssetCategory, fundHash, fundAssetCategory], { provider: this.provider });
-            console.log('asset testing', assetContract.bytecode);
+            // 32 32 32
+            const assetContract = new Contract(assetJson, [this.outflowCategorySwapped, fundHash, fundAssetCategory], { provider: this.provider });
+            console.log('asset bytecode', assetContract.bytecode);
 
             assetContracts.push(assetContract);
         });
 
         // 32 32 32 32 + 4 128 132 * 2 264
         const fundContract = new Contract(fundJson, [this.inflowCategorySwapped, this.outflowCategorySwapped, swapEndianness(category), fundHash], { provider: this.provider });
-
-        console.log('fund contract parameters', this.inflowCategorySwapped, this.outflowCategorySwapped, swapEndianness(category), fundHash);
-        console.log('fund contract bytecode base', fundContract.bytecode.slice(132 * 2));
-        console.log('fund contract', fundContract.bytecode);
         
         const managerContract = new Contract(managerJson, [
             this.inflowCategorySwapped,
             this.outflowCategorySwapped,
-            fundContract.bytecode.slice(264), // TODO: take off the parameters
-            assetContracts[0].bytecode.slice(264), // TODO: take off the parameters
+            fundContract.bytecode.slice(264),
+            assetContracts[0].bytecode.slice(198),
             swapEndianness(category),
             fundHash,
         ], { provider: this.provider });
@@ -127,7 +125,9 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const mintAmount = fundAmount * amount;
         const fundChangeAmount = fundUtxo.token.amount - mintAmount;
 
-        this.addInput(inflowUtxo, managerContract.unlock.inflow(2n, this.hashFund(fund)))
+        console.log('testing', fund);
+
+        this.addInput(inflowUtxo, managerContract.unlock.inflow(this.getFundHex(fund)))
             .addInput(fundUtxo, fundContract.unlock.mint())
             .addOutputs([
                 {

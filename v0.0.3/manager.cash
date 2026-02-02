@@ -36,7 +36,7 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
     // o + 2 - asset 1
     // ...
     // o + M - asset N
-    function inflow(int count, bytes data) {
+    function inflow(bytes data) {
         // check input is inflow token for proper contract signalling
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
         // spend input back to the contract
@@ -51,18 +51,22 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         // fund contract is next in the transaction
         // contract already returns UTXO
         int fundInputIndex = this.activeInputIndex + 1;
-        bytes fundContractBytecode = (0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract);
-        console.log('fund contract bytecode params', inflowToken, outflowToken, fundCategory, fundHash);
-        console.log('fund contract base', fundContract);
-        console.log('fund contract bytecode', fundContractBytecode);
         require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
         require(hash256(data) == fundHash);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == (fundCategory + fundHash));
+        require(tx.inputs[this.activeInputIndex].nftCommitment == fundHash);
 
-        int fundSats = int(data.slice(0, 8)); // TODO: Implement
-        require(int(fundSats) > 0); //only so we don't get complaints for not using variable
-        int fundAmount = int(data.slice(8, 16));
+        bytes nft_fundCategory, bytes nft_next1 = data.split(32);
+        require(nft_fundCategory == fundCategory);
+
+        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+        int fundAmount = int(nft_fundAmount);
+
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
+
+
+        int fundSats = int(nft_sats); // TODO: implement completely...
+        require(int(fundSats) >= 0); //only so we don't get complaints for not using variable
         
         // calculate the number of "whole" fund tokens is released
         int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - tx.outputs[fundInputIndex].tokenAmount;
@@ -70,19 +74,34 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         fundReleasedAmount = fundReleasedAmount / fundAmount;
 
         int assetIndex = 0;
+        bytes nft_assetData = nft_next3;
         do {
-            bytes assetData = data.slice(16 + (assetIndex * 1), 40);
-            bytes assetCategory, bytes asset = assetData.split(8);
-            int assetAmount = int(asset.slice(0, 8));
+            bytes nft_assetCategory, bytes nft_assetNext = nft_assetData.split(32);
+            bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
+            int assetAmount = int(nft_assetAmount);
 
             int assetOutputIndex = fundInputIndex + 1 + assetIndex;
-            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + assetCategory + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + assetContract)));
-            require(tx.outputs[assetOutputIndex].tokenCategory == assetCategory);
+
+
+
+            bytes temp = tx.outputs[assetOutputIndex].lockingBytecode;
+            bytes temp2 = new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
+            bytes temp3 = nft_assetCategory;
+            console.log('temp', temp, temp2, temp3, fundHash, fundCategory);
+
+            bytes temp4 = 0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract;
+            console.log('asset bytecode', temp4);
+
+
+
+            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
+            require(tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory);
             require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount
             int assetCollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / assetAmount;
             require(assetCollectedAmount == fundReleasedAmount);
+            nft_assetData = nft_remaining;
             assetIndex = assetIndex + 1;
-        } while(assetIndex < count);
+        } while(nft_assetData.length > 0);
     }
 
     // i - outflow signal
