@@ -230,5 +230,7 @@ const outflowTransaction = (await new FundTokenTransactionBuilder({ provider })
         amount: 5000n,
     });
 
+console.log('testing outflow', outflowTransaction);
+
 const outflowDetails = await outflowTransaction.send();
 console.log('outflow size:', outflowDetails.hex.length / 2);

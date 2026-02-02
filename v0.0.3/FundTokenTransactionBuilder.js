@@ -80,7 +80,6 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
 
             // 32 32 32
             const assetContract = new Contract(assetJson, [this.outflowCategorySwapped, fundHash, fundAssetCategory], { provider: this.provider });
-            console.log('asset bytecode', assetContract.bytecode);
 
             assetContracts.push(assetContract);
         });
@@ -167,7 +166,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         fund: {
             category: fundCategory,
             amount: fundAmount, // fund token amount
-            satoshi, // TODO: BCH being locked
+            satoshis, // TODO: BCH being locked
             assets: fundAssets, // category, amount
         },
     }) {
@@ -198,7 +197,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const redeemAmount = fundAmount * amount;
         const updatedFundAmount = fundUtxo.token?.amount + redeemAmount;
 
-        this.addInput(outflowUtxo, managerContract.unlock.outflow(2n, this.hashFund(fund)))
+        this.addInput(outflowUtxo, managerContract.unlock.outflow(this.getFundHex(fund)))
             .addInput(fundUtxo, fundContract.unlock.redeem());
 
 
@@ -211,6 +210,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             let tokenAmountAdded = 0n;
             for(let j = 0; j < assetUtxos.length; ++j) {
                 this.addInput(assetUtxos[j], assetContracts[i].unlock.release());
+                console.log('testing add input', assetUtxos[j]);
                 tokenAmountAdded += assetUtxos[j].token.amount;
                 if(tokenAmountAdded >= amount * fundAssets[i].amount) {
                     assetChangeAmounts.push(tokenAmountAdded - (amount * fundAssets[i].amount));
@@ -243,6 +243,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             if(!assetChangeAmounts[i]) {
                 continue;
             }
+            console.log('adding output change');
             this.addOutput({
                 to: assetContracts[i].tokenAddress,
                 amount: DustAmount,
