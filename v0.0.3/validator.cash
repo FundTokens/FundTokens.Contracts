@@ -1,0 +1,49 @@
+pragma cashscript ~0.13.0;
+
+contract FundValidation()
+{
+    // fund is expected to be sorted based on the nft category
+    function validate(bytes fund) {
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+        require(int(nft_fundAmount) > 0);
+        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
+        require(nft_assets.length > 0);
+        require(nft_assets.length % 40 == 0); // short circuit
+
+        bytes lastAssetCategory = 0x;
+        do {
+            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
+            bytes nft_assetAmount, bytes nft_next4 = nft_assets.split(8);
+            require(int(nft_assetAmount) > 0);
+
+            if(lastAssetCategory != 0x) {
+                require(lastAssetCategory > nft_assetCategory);
+            }
+
+            nft_assets = nft_next4;
+            lastAssetCategory = nft_assetCategory;
+        } while(nft_assets.length > 0);
+
+        
+        // verify fees paid
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        bytes fee_destination, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
+        bytes fee_satoshis = int(fee_next1);
+
+        require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
+        require(tx.outputs[this.activeInputIndex + 1].value == fee_satoshis);
+
+
+        // TODO: Ensure broadcase manager in transaction
+        // TODO: Verify payment, consume from NFT
+        // TODO: Verify fund is encoded in the commitments
+        // TODO: Verify no extra NFTs minted
+    }
+
+    function updateFee() {
+    }
+}

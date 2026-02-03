@@ -36,7 +36,7 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
     // o + 2 - asset 1
     // ...
     // o + M - asset N
-    function inflow(bytes data) {
+    function inflow(bytes fund) {
         // check input is inflow token for proper contract signalling
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
         // spend input back to the contract
@@ -53,10 +53,10 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         int fundInputIndex = this.activeInputIndex + 1;
         require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
-        require(hash256(data) == fundHash);
+        require(hash256(fund) == fundHash);
         require(tx.inputs[this.activeInputIndex].nftCommitment == fundHash);
 
-        bytes nft_fundCategory, bytes nft_next1 = data.split(32);
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
         require(nft_fundCategory == fundCategory);
 
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
@@ -99,7 +99,7 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
     //
     // o - inflow manager
     // o + 1 - fund manager
-    function outflow(bytes data) {
+    function outflow(bytes fund) {
         // check input
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
         // spend input back to the contract
@@ -113,10 +113,10 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         int fundInputIndex = this.activeInputIndex + 1;
         require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
-        require(hash256(data) == fundHash);
+        require(hash256(fund) == fundHash);
         require(tx.inputs[this.activeInputIndex].nftCommitment == fundHash);
 
-        bytes nft_fundCategory, bytes nft_next1 = data.split(32);
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
         require(nft_fundCategory == fundCategory);
 
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
