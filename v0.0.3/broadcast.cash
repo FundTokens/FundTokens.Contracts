@@ -1,11 +1,11 @@
 pragma cashscript ~0.13.0;
 
 // contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)
-
-contract FundBroadcaster(bytes inflowToken, bytes outflowToken, bytes next)
+contract FundBroadcaster(bytes validator, bytes inflowToken, bytes outflowToken, bytes next)
 {
     // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]
     function broadcastInflow() {
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == validator);
 
         // this UTXO
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
@@ -15,20 +15,23 @@ contract FundBroadcaster(bytes inflowToken, bytes outflowToken, bytes next)
         require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
 
-        // mint a new token to the next contract
-        int nextOutput = this.activeInputIndex + 1;
-        require(tx.outputs[nextOutput].lockingBytecode == next); // TODO next
-        require(tx.outputs[nextOutput].tokenCategory == inflowToken); // TODO change capability
 
         // outflow token
-        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == outflowToken);
-        require(tx.inputs[this.activeInputIndex + 2].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == outflowToken);
+        require(tx.inputs[this.activeInputIndex + 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+
+
+        // mint a new token to the next contract
+        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next
+        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == inflowToken); // TODO change capability
     }
 
     function broadcastOutflow() {
+        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == validator);
+
         // inflow token
-        require(tx.inputs[this.activeInputIndex - 2].tokenCategory == inflowToken);
-        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
 
         // new inflow token
 
@@ -41,7 +44,7 @@ contract FundBroadcaster(bytes inflowToken, bytes outflowToken, bytes next)
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
 
         // mint a new token to the next contract
-        require(tx.outputs[nextOutput + 1].lockingBytecode == next); // TODO next
-        require(tx.outputs[nextOutput + 1].tokenCategory == outflowToken); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next
+        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == outflowToken); // TODO change capability
     }
 }

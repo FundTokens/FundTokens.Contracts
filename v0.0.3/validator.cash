@@ -1,6 +1,6 @@
 pragma cashscript ~0.13.0;
 
-contract FundValidation()
+contract FundValidation(pubkey owner, bytes inflowMint, bytes outflowMint)
 {
     // fund is expected to be sorted based on the nft category
     function validate(bytes fund) {
@@ -25,6 +25,14 @@ contract FundValidation()
             lastAssetCategory = nft_assetCategory;
         } while(nft_assets.length > 0);
 
+        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == inflowMint);
+        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == outflowMint);
+
+        require(tx.inputs[this.activeInputIndex + 4].tokenCategory == inflowMint); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 4].nftCommitment == hash256(fund));
+        require(tx.inputs[this.activeInputIndex + 5].tokenCategory == outflowMint); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 5].nftCommitment == hash256(fund));
+
         
         // TODO: Verify payment, consume from NFT
         // verify fees paid
@@ -33,28 +41,38 @@ contract FundValidation()
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         if(tx.inputs[this.activeInputIndex].nftCommitment != 0x) {
-            bytes fee_destination, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
-            bytes fee_satoshis = int(fee_next1);
-            
-            // 40 - satoshis
-            // 72 - fungible token
+            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
+            bytes fee_amount, bytes fee_sig = fee_next1.split(8);
 
-            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
-            require(tx.outputs[this.activeInputIndex + 1].value == fee_satoshis);
+            require(checkDataSig(bytes(fee_category + fee_amount), fee_sig, owner));
+            
+            require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2PKH(owner));
+            if(int(fee_category) == 0) {
+                require(tx.outputs[this.activeInputIndex + 3].value == fee_amount);
+            } else {
+                require(tx.outputs[this.activeInputIndex + 3].tokenCategory == fee_category);
+                require(tx.outputs[this.activeInputIndex + 3].tokenAmount == fee_amount);
+            }
         } else {
             // default
-            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
-            require(tx.outputs[this.activeInputIndex + 1].value == 100000 sats);
+            require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2PKH(owner));
+            require(tx.outputs[this.activeInputIndex + 3].value == 100000 sats);
         }
 
+        
 
-
-        // TODO: Ensure broadcase manager in transaction
-        // TODO: Verify fund is encoded in the commitments
         // TODO: Verify no extra NFTs minted
-        // TODO: fallback to a hardcoded amount...ppl will know this they can always use our system no matter what
     }
 
-    function updateFee() {
+    // we can update threads, end sales
+    function updateFee(sig ownerSig) {
+        require(checkSig(ownerSig, owner));
+    }
+
+    function closeThread(sig ownerSig) {
+        require(checkSig(ownerSig, owner));
+        if(tx.inputs.length > this.activeInputIndex + 1) {
+            require(tx.inputs[this.activeInputIndex + 1].tokenCategory != inflowMint);
+        }
     }
 }

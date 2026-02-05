@@ -94,6 +94,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         return { managerContract, fundContract, assetContracts };
     }
 
+    // return a new transaction builder with a built mint transaction
     async newMintTransaction({
         fund,
         // user: { // add user utxos and change to the address
