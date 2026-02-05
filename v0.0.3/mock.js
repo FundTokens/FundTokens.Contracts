@@ -143,8 +143,7 @@ const outflowCategory = outflowUtxo.token.category;
 
 
 ////// contract setup
-const { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider })
-    .setFundTokenSystem({ inflowCategory, outflowCategory })
+const { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider, inflowCategory, outflowCategory })
     .buildContracts(fund);
 
 
@@ -179,8 +178,7 @@ let asset3Utxo = userUtxoArray.filter(u => u.token?.category == asset3Category &
 const mintAmount = 1n;
 
 // mint a fund token
-const inflowTransaction = (await new FundTokenTransactionBuilder({ provider })
-    .setFundTokenSystem({ inflowCategory, outflowCategory })
+const inflowTransaction = (await new FundTokenTransactionBuilder({ provider, inflowCategory, outflowCategory })
     .addMint({
         amount: mintAmount,
         fund,
@@ -218,8 +216,7 @@ const fundToken = updated.filter(u => !!u.token)[0];
 const redeemAmount = 1n;
 
 // redeem a fund token
-const outflowTransaction = (await new FundTokenTransactionBuilder({ provider })
-    .setFundTokenSystem({ inflowCategory, outflowCategory })
+const outflowTransaction = (await new FundTokenTransactionBuilder({ provider, inflowCategory, outflowCategory })
     .addRedeem({
         amount: redeemAmount,
         fund,

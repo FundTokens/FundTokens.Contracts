@@ -4,7 +4,6 @@ import {
 } from 'cashscript';
 import {
     swapEndianness,
-    cashAddressToLockingBytecode,
     hash256,
     bigIntToBinUint64LEClamped,
     hexToBin,
@@ -17,8 +16,6 @@ import assetJson from './art/asset.json' with { type: 'json' };
 
 const DustAmount = 1000n;
 
-const log = console.log;
-
 const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
 
 export class FundTokenTransactionBuilder extends TransactionBuilder {
@@ -26,17 +23,15 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
     inflowCategorySwapped = '';
     outflowCategory = '';
     outflowCategorySwapped = '';
+    #logger = null;
 
-    // set higher order settings for the fund system
-    setFundTokenSystem({
-        inflowCategory,
-        outflowCategory,
-    }) {
+    constructor({ provider, inflowCategory, outflowCategory, logger }) {
+        super({ provider });
         this.inflowCategory = inflowCategory;
-        this.inflowCategorySwapped = swapEndianness(inflowCategory);
+        this.inflowCategorySwapped = swapEndianness(inflowCategory ?? '');
         this.outflowCategory = outflowCategory;
-        this.outflowCategorySwapped = swapEndianness(outflowCategory);
-        return this;
+        this.outflowCategorySwapped = swapEndianness(outflowCategory ?? '');
+        this.#logger = logger ?? console;
     }
 
     // base - 48bytes
@@ -99,6 +94,18 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         return { managerContract, fundContract, assetContracts };
     }
 
+    async newMintTransaction({
+        fund,
+        // user: { // add user utxos and change to the address
+        //     utxos,
+        //     address,
+        // }
+    }) {
+        const transactionBuilder = new FundTokenTransactionBuilder({ provider });
+        await transactionBuilder.addMint(fund);
+        return transactionBuilder;
+    }
+
     // This method should be called while the transaction has same transaction input and output lengths
     // The consuming app is responsible for adding an output for Bitcoin change, fund token minted, and token change
     async addMint({
@@ -110,7 +117,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             assets: fundAssets, // category, amount
         },
     }) {
-        log('transaction builder...adding minting transaction');
+        this.#logger.log('transaction builder...adding minting transaction');
 
         const { managerContract, fundContract, assetContracts } = this.buildContracts(fund);
 
@@ -124,7 +131,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const mintAmount = fundAmount * amount;
         const fundChangeAmount = fundUtxo.token.amount - mintAmount;
 
-        console.log('testing', fund);
+        this.#logger.log('testing', fund);
 
         this.addInput(inflowUtxo, managerContract.unlock.inflow(this.getFundHex(fund)))
             .addInput(fundUtxo, fundContract.unlock.mint())
@@ -153,7 +160,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                     }
                 })),
             ]);
-        log('finished adding mint transaction i/o');
+        this.#logger.log('finished adding mint transaction i/o');
         return this;
     }
 
@@ -170,7 +177,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             assets: fundAssets, // category, amount
         },
     }) {
-        log('transaction builder...adding redemption transaction');
+        this.#logger.log('transaction builder...adding redemption transaction');
 
         const { managerContract, fundContract, assetContracts } = this.buildContracts(fund);
 
@@ -210,7 +217,6 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             let tokenAmountAdded = 0n;
             for(let j = 0; j < assetUtxos.length; ++j) {
                 this.addInput(assetUtxos[j], assetContracts[i].unlock.release());
-                console.log('testing add input', assetUtxos[j]);
                 tokenAmountAdded += assetUtxos[j].token.amount;
                 if(tokenAmountAdded >= amount * fundAssets[i].amount) {
                     assetChangeAmounts.push(tokenAmountAdded - (amount * fundAssets[i].amount));
@@ -219,7 +225,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             }
         }
 
-        log('asset change amounts', assetChangeAmounts);
+        this.#logger.log('asset change amounts', assetChangeAmounts);
 
         this.addOutputs([
             {
@@ -243,7 +249,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             if(!assetChangeAmounts[i]) {
                 continue;
             }
-            console.log('adding output change');
+            this.#logger.log('adding output change');
             this.addOutput({
                 to: assetContracts[i].tokenAddress,
                 amount: DustAmount,
@@ -254,7 +260,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             });
         }
 
-        log('finished adding redemption transaction i/o');
+        this.#logger.log('finished adding redemption transaction i/o');
         return this;
     }
 }

@@ -26,22 +26,33 @@ contract FundValidation()
         } while(nft_assets.length > 0);
 
         
+        // TODO: Verify payment, consume from NFT
         // verify fees paid
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
-        bytes fee_destination, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
-        bytes fee_satoshis = int(fee_next1);
+        if(tx.inputs[this.activeInputIndex].nftCommitment != 0x) {
+            bytes fee_destination, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
+            bytes fee_satoshis = int(fee_next1);
+            
+            // 40 - satoshis
+            // 72 - fungible token
 
-        require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
-        require(tx.outputs[this.activeInputIndex + 1].value == fee_satoshis);
+            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
+            require(tx.outputs[this.activeInputIndex + 1].value == fee_satoshis);
+        } else {
+            // default
+            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
+            require(tx.outputs[this.activeInputIndex + 1].value == 100000 sats);
+        }
+
 
 
         // TODO: Ensure broadcase manager in transaction
-        // TODO: Verify payment, consume from NFT
         // TODO: Verify fund is encoded in the commitments
         // TODO: Verify no extra NFTs minted
+        // TODO: fallback to a hardcoded amount...ppl will know this they can always use our system no matter what
     }
 
     function updateFee() {
