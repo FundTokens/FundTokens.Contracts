@@ -1,50 +1,56 @@
 pragma cashscript ~0.13.0;
 
-// contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)
-contract FundBroadcaster(bytes validator, bytes inflowToken, bytes outflowToken, bytes next)
+contract FundBroadcast(bytes inflowMint, bytes outflowMint)
 {
-    // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]
-    function broadcastInflow() {
-        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == validator);
+    // fund is expected to be sorted based on the nft category
+    function broadcast(bytes fund) {
+        require(this.activeInputIndex == 1);
 
-        // this UTXO
-        require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
+        require(tx.inputs[this.activeInputIndex - 1].outpointIndex == 0);
+        require(tx.inputs[this.activeInputIndex - 1].outpointTransactionHash == tx.outputs[this.activeInputIndex + 7].tokenCategory);
 
+        //
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
 
-        // outflow token
-        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == outflowToken);
-        require(tx.inputs[this.activeInputIndex + 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
 
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+        require(int(nft_fundAmount) > 0);
+        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
+        require(within(int(nft_satoshis), 0, 2100000000000000));
+        require(nft_assets.length > 0);
+        require(nft_assets.length % 40 == 0); // short circuit
 
-        // mint a new token to the next contract
-        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next
-        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == inflowToken); // TODO change capability
-    }
+        bytes lastAssetCategory = 0x;
+        do {
+            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
+            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
+            require(int(nft_assetAmount) > 0);
 
-    function broadcastOutflow() {
-        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == validator);
+            if(lastAssetCategory != 0x) {
+                require(int(lastAssetCategory) > int(nft_assetCategory));
+            }
 
-        // inflow token
-        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);
-        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+            nft_assets = nft_next4;
+            lastAssetCategory = nft_assetCategory;
+        } while(nft_assets.length > 0);
 
-        // new inflow token
+        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == inflowMint);
+        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == outflowMint);
 
-        // this UTXO
-        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
+        require(tx.inputs[this.activeInputIndex + 4].tokenCategory == inflowMint); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 4].nftCommitment == hash256(fund));
+        require(tx.inputs[this.activeInputIndex + 5].tokenCategory == outflowMint); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 5].nftCommitment == hash256(fund));
 
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
+        require(tx.outputs[this.activeInputIndex + 6].tokenCategory == nft_fundCategory); // TODO
+        
 
-        // mint a new token to the next contract
-        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next
-        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == outflowToken); // TODO change capability
+        
+
+        // TODO: Verify no extra NFTs minted
     }
 }

@@ -26,7 +26,7 @@ pragma cashscript ~0.13.0;
 // outflow token -> token show outflow validation occurred
 // fund contract -> the fund's base contract used to hash next contracts
 // asset contract -> the asset's base contract, used to hash next contracts
-contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)
+contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)
 {
     // i - inflow signal
     // i + 1 - fund manager
@@ -73,6 +73,10 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         require(fundReleasedAmount % fundAmount == 0); // ensure a multiple of the fund amount
         fundReleasedAmount = fundReleasedAmount / fundAmount;
 
+        //
+        int feeInputIndex = fundInputIndex + 1;
+        require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
+
         int assetIndex = 0;
         bytes nft_assetData = nft_next3;
         do {
@@ -80,7 +84,7 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
             bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
             int assetAmount = int(nft_assetAmount);
 
-            int assetOutputIndex = fundInputIndex + 1 + assetIndex;
+            int assetOutputIndex = feeInputIndex + 1 + assetIndex;
             require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
             require(tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory);
             require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount
@@ -131,6 +135,10 @@ contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundCon
         int fundLockingAmount = tx.outputs[fundInputIndex].tokenAmount - tx.inputs[fundInputIndex].tokenAmount;
         require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount
         fundLockingAmount = fundLockingAmount / fundAmount;
+
+        //
+        int feeInputIndex = fundInputIndex + 1;
+        require(tx.inputs[feeInputIndex].tokenCategory == fee);
 
         bytes nft_assetData = nft_next3;
         do {

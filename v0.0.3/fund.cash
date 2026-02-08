@@ -41,12 +41,6 @@ contract FundManager(bytes inflowManager, bytes outflowManager, bytes fundCatego
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenAmount < tx.outputs[this.activeInputIndex].tokenAmount);
         require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);
-
-        // TODO: Add a cost to redeem to an empty UTXO
-        // if(tx.inputs[this.activeInputIndex].tokenAmount == 0) {
-        //     // require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == 0x); // TODO 
-        //     require(tx.outputs[this.activeInputIndex + 1].value == 1000 sats);
-        // }
     }
 }
 

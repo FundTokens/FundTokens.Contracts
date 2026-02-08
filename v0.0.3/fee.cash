@@ -1,0 +1,42 @@
+pragma cashscript ~0.13.0;
+
+contract FeeManager(pubkey owner, bytes ownerNft, int defaultValue)
+{
+    function CloseFee(sig signature) {
+        require(checkSig(signature, owner)); // verify owner
+        int outputIndex = 0;
+        do {
+            bytes thisContract = tx.inputs[this.activeInputIndex].lockingBytecode;
+            require(tx.outputs[outputIndex].lockingBytecode != thisContract); // unable to spend back to this contract
+            require(tx.outputs[outputIndex].tokenCategory == ownerNft); // the fee NFT is burned
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+    }
+
+    function PayFee() {
+        // can't change this UTXO
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        // if a token, it must be the owner's 
+        if(tx.inputs[this.activeInputIndex].tokenCategory == ownerNft) {
+            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
+            bytes fee_amount, bytes fee_destination = fee_next1.split(8);
+            
+            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(bytes20(fee_destination)));
+            if(int(fee_category) == 0) {
+                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));
+            } else {
+                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);
+                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));
+            }
+        } else {
+            // "default"
+            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));
+            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);
+        }
+    }
+}
