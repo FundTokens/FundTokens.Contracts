@@ -75,7 +75,10 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
 
         //
         int feeInputIndex = fundInputIndex + 1;
+        bytes temp = new LockingBytecodeP2SH32(fee);
+        console.log('testing', feeInputIndex, fee, temp);
         require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
 
         int assetIndex = 0;
         bytes nft_assetData = nft_next3;

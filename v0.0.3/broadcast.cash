@@ -1,10 +1,12 @@
 pragma cashscript ~0.13.0;
 
-contract FundBroadcast(bytes inflowMint, bytes outflowMint)
+contract FundBroadcast(bytes32 fee, bytes20 bcmrDestination, bytes inflowMint, bytes outflowMint)
 {
     // fund is expected to be sorted based on the nft category
     function broadcast(bytes fund) {
-        require(this.activeInputIndex == 1);
+        require(tx.inputs[0].outpointIndex == 0);
+        require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(bcmrDestination));
+        require(tx.outputs[0].tokenCategory == 0x);
 
         require(tx.inputs[this.activeInputIndex - 1].outpointIndex == 0);
         require(tx.inputs[this.activeInputIndex - 1].outpointTransactionHash == tx.outputs[this.activeInputIndex + 7].tokenCategory);
@@ -38,18 +40,28 @@ contract FundBroadcast(bytes inflowMint, bytes outflowMint)
             lastAssetCategory = nft_assetCategory;
         } while(nft_assets.length > 0);
 
-        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == inflowMint);
-        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == outflowMint);
+        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == bytes(inflowMint + 0x02));
+        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == bytes(outflowMint + 0x02));
 
-        require(tx.inputs[this.activeInputIndex + 4].tokenCategory == inflowMint); // TODO change capability
-        require(tx.outputs[this.activeInputIndex + 4].nftCommitment == hash256(fund));
-        require(tx.inputs[this.activeInputIndex + 5].tokenCategory == outflowMint); // TODO change capability
+        require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(fee));
+
+        require(tx.inputs[this.activeInputIndex + 5].tokenCategory == inflowMint); // TODO change capability
         require(tx.outputs[this.activeInputIndex + 5].nftCommitment == hash256(fund));
+        require(tx.inputs[this.activeInputIndex + 6].tokenCategory == outflowMint); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 6].nftCommitment == hash256(fund));
 
-        require(tx.outputs[this.activeInputIndex + 6].tokenCategory == nft_fundCategory); // TODO
+        require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);
+        require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory); // TODO
         
 
-        
+        int outputIndex = 1;
+        do {
+            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7)) {
+                require(tx.outputs[outputIndex].tokenCategory != inflowMint);
+                require(tx.outputs[outputIndex].tokenCategory != outflowMint);
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
 
         // TODO: Verify no extra NFTs minted
     }

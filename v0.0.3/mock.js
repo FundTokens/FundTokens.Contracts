@@ -12,7 +12,11 @@ import {
     generatePrivateKey,
     binToHex,
     encodeCashAddress,
+    swapEndianness,
 } from '@bitauth/libauth';
+import {
+    hashFund,
+} from './utils.js';
 
 import { FundTokenTransactionBuilder } from './FundTokenTransactionBuilder.js';
 
@@ -44,6 +48,14 @@ const generateWallet = () => {
 const provider = new MockNetworkProvider({
     updateUtxoSet: true,
 });
+
+const systemOwnerWallet = generateWallet();
+
+const systemFeeNft = randomUtxo({
+    token: randomNFT(),
+});
+
+const defaultSystemFeeUtxo = randomUtxo();
 
 const wallet = generateWallet();
 
@@ -113,7 +125,7 @@ const fund = {
 
 
 
-const fundTokenCommitment = new FundTokenTransactionBuilder({ provider }).hashFund(fund);
+const fundTokenCommitment = hashFund(fund);
 
 // system or fund setup
 const inflowUtxo = randomUtxo({
@@ -137,13 +149,21 @@ const outflowUtxo = randomUtxo({
         }
     }),
 });
-const inflowCategory = inflowUtxo.token.category;
-const outflowCategory = outflowUtxo.token.category;
+
+const system = {
+    inflow: inflowUtxo.token.category,
+    outflow: outflowUtxo.token.category,
+    fee: {
+        pubKey: systemOwnerWallet.pubKeyHex,
+        nft: systemFeeNft.token.category,
+        value: 1000n,
+    },
+};
 
 
 
 ////// contract setup
-const { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider, inflowCategory, outflowCategory })
+const { managerContract, fundContract, feeContract } = new FundTokenTransactionBuilder({ provider, system })
     .buildContracts(fund);
 
 
@@ -154,6 +174,8 @@ provider.addUtxo(managerContract.tokenAddress, outflowUtxo);
 
 // hydrate fund contract
 provider.addUtxo(fundContract.tokenAddress, fundUtxo);
+
+provider.addUtxo(feeContract.tokenAddress, defaultSystemFeeUtxo);
 
 // hydrate wallet w/ UTXOs
 provider.addUtxo(wallet.address, asset1);
@@ -178,7 +200,7 @@ let asset3Utxo = userUtxoArray.filter(u => u.token?.category == asset3Category &
 const mintAmount = 1n;
 
 // mint a fund token
-const inflowTransaction = (await new FundTokenTransactionBuilder({ provider, inflowCategory, outflowCategory })
+const inflowTransaction = (await new FundTokenTransactionBuilder({ provider, system })
     .addMint({
         amount: mintAmount,
         fund,
@@ -216,7 +238,7 @@ const fundToken = updated.filter(u => !!u.token)[0];
 const redeemAmount = 1n;
 
 // redeem a fund token
-const outflowTransaction = (await new FundTokenTransactionBuilder({ provider, inflowCategory, outflowCategory })
+const outflowTransaction = (await new FundTokenTransactionBuilder({ provider, system })
     .addRedeem({
         amount: redeemAmount,
         fund,

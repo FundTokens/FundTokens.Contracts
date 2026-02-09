@@ -2,7 +2,7 @@ pragma cashscript ~0.13.0;
 
 contract FeeManager(pubkey owner, bytes ownerNft, int defaultValue)
 {
-    function CloseFee(sig signature) {
+    function close(sig signature) {
         require(checkSig(signature, owner)); // verify owner
         int outputIndex = 0;
         do {
@@ -13,7 +13,7 @@ contract FeeManager(pubkey owner, bytes ownerNft, int defaultValue)
         } while(outputIndex < tx.outputs.length);
     }
 
-    function PayFee() {
+    function pay() {
         // can't change this UTXO
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
