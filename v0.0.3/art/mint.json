@@ -3,7 +3,7 @@
   "constructorInputs": [
     {
       "name": "validator",
-      "type": "bytes"
+      "type": "bytes32"
     },
     {
       "name": "inflowToken",
@@ -28,91 +28,91 @@
       "inputs": []
     }
   ],
-  "bytecode": "OP_4 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_1SUB OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_UTXOTOKENCATEGORY OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_UTXOBYTECODE OP_INPUTINDEX OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTBYTECODE OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTTOKENCATEGORY OP_EQUAL OP_NIP OP_ELSE OP_4 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_2 OP_SUB OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_1SUB OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_1SUB OP_UTXOBYTECODE OP_INPUTINDEX OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTBYTECODE OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTTOKENCATEGORY OP_EQUAL OP_ENDIF",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\n// contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)\r\ncontract FundMint(bytes validator, bytes inflowToken, bytes outflowToken, bytes next)\r\n{\r\n    // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]\r\n    function mintInflow() {\r\n        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == validator);\r\n\r\n        // this UTXO\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?\r\n\r\n\r\n        // outflow token\r\n        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == outflowToken);\r\n        require(tx.inputs[this.activeInputIndex + 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);\r\n\r\n\r\n        // mint a new token to the next contract\r\n        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next\r\n        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == inflowToken); // TODO change capability\r\n    }\r\n\r\n    function mintOutflow() {\r\n        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == validator);\r\n\r\n        // inflow token\r\n        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);\r\n        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);\r\n\r\n        // new inflow token\r\n\r\n        // this UTXO\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?\r\n\r\n        // mint a new token to the next contract\r\n        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next\r\n        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == outflowToken); // TODO change capability\r\n    }\r\n}",
+  "bytecode": "OP_4 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_1SUB OP_UTXOBYTECODE aa20 OP_ROT OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_UTXOTOKENCATEGORY OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_UTXOBYTECODE OP_INPUTINDEX OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTBYTECODE OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTTOKENCATEGORY OP_EQUAL OP_NIP OP_ELSE OP_4 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_2 OP_SUB OP_UTXOBYTECODE aa20 OP_ROT OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_1SUB OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_1SUB OP_UTXOBYTECODE OP_INPUTINDEX OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTBYTECODE OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_OUTPUTTOKENCATEGORY OP_EQUAL OP_ENDIF",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n// contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)\r\ncontract FundMint(bytes32 validator, bytes inflowToken, bytes outflowToken, bytes next)\r\n{\r\n    // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]\r\n    function mintInflow() {\r\n        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == new LockingBytecodeP2SH32(validator));\r\n\r\n        // this UTXO\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?\r\n\r\n\r\n        // outflow token\r\n        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == outflowToken);\r\n        require(tx.inputs[this.activeInputIndex + 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);\r\n\r\n\r\n        // mint a new token to the next contract\r\n        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next\r\n        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == inflowToken); // TODO change capability\r\n    }\r\n\r\n    function mintOutflow() {\r\n        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == new LockingBytecodeP2SH32(validator));\r\n\r\n        // inflow token\r\n        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);\r\n        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);\r\n\r\n        // new inflow token\r\n\r\n        // this UTXO\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?\r\n\r\n        // mint a new token to the next contract\r\n        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == next); // TODO next\r\n        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == outflowToken); // TODO change capability\r\n    }\r\n}",
   "debug": {
-    "bytecode": "5479009c63c08cc788c0ce7888c0c7c0cd88c0cec0d188c0d0c0d39dc0cfc0d288c08bce7b88c08bc7c0c788c05393cd7b88c05393d1877767547a519dc05294c788c08cce88c08cc7c0c788c0ce7888c0c7c0cd88c0cec0d188c0d0c0d39dc0cfc0d288c05393cd7b88c05393d18768",
-    "sourceMap": "7:4:27:5;;;;;8:26:8:47;:::51:1;:16::68;:8::83;11:26:11:47:0;:16::62:1;:66::77:0;:8::79:1;13:26:13:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;14:26:14:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;15:26:15:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;16:26:16:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;20:26:20:47:0;:::51:1;:16::66;:70::82:0;:8::84:1;21:26:21:47:0;:::51:1;:16::68;:82::103:0;:72::120:1;:8::122;25:27:25:48:0;:51::52;:27:::1;:16::69;:73::77:0;:8::79:1;26:27:26:48:0;:51::52;:27:::1;:16::67;:8::84;7:4:27:5;;29::49::0;;;;30:26:30:47;:50::51;:26:::1;:16::68;:8::83;33:26:33:47:0;:::51:1;:16::66;:8::83;34:26:34:47:0;:::51:1;:16::68;:82::103:0;:72::120:1;:8::122;39:26:39:47:0;:16::62:1;:66::78:0;:8::80:1;41:26:41:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;42:26:42:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;43:26:43:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;44:26:44:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;47:27:47:48:0;:51::52;:27:::1;:16::69;:73::77:0;:8::79:1;48:27:48:48:0;:51::52;:27:::1;:16::67;:8::85;4:0:50:1",
+    "bytecode": "5479009c63c08cc702aa207b7e01877e88c0ce7888c0c7c0cd88c0cec0d188c0d0c0d39dc0cfc0d288c08bce7b88c08bc7c0c788c05393cd7b88c05393d1877767547a519dc05294c702aa207b7e01877e88c08cce88c08cc7c0c788c0ce7888c0c7c0cd88c0cec0d188c0d0c0d39dc0cfc0d288c05393cd7b88c05393d18768",
+    "sourceMap": "7:4:27:5;;;;;8:26:8:47;:::51:1;:16::68;:72::108:0;:98::107;:72::108:1;;;:8::110;11:26:11:47:0;:16::62:1;:66::77:0;:8::79:1;13:26:13:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;14:26:14:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;15:26:15:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;16:26:16:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;20:26:20:47:0;:::51:1;:16::66;:70::82:0;:8::84:1;21:26:21:47:0;:::51:1;:16::68;:82::103:0;:72::120:1;:8::122;25:27:25:48:0;:51::52;:27:::1;:16::69;:73::77:0;:8::79:1;26:27:26:48:0;:51::52;:27:::1;:16::67;:8::84;7:4:27:5;;29::49::0;;;;30:26:30:47;:50::51;:26:::1;:16::68;:72::108:0;:98::107;:72::108:1;;;:8::110;33:26:33:47:0;:::51:1;:16::66;:8::83;34:26:34:47:0;:::51:1;:16::68;:82::103:0;:72::120:1;:8::122;39:26:39:47:0;:16::62:1;:66::78:0;:8::80:1;41:26:41:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;42:26:42:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;43:26:43:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;44:26:44:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;47:27:47:48:0;:51::52;:27:::1;:16::69;:73::77:0;:8::79:1;48:27:48:48:0;:51::52;:27:::1;:16::67;:8::85;4:0:50:1",
     "logs": [],
     "requires": [
       {
-        "ip": 12,
+        "ip": 17,
         "line": 8
       },
       {
-        "ip": 16,
+        "ip": 21,
         "line": 11
       },
       {
-        "ip": 21,
+        "ip": 26,
         "line": 13
       },
       {
-        "ip": 26,
+        "ip": 31,
         "line": 14
       },
       {
-        "ip": 31,
+        "ip": 36,
         "line": 15
       },
       {
-        "ip": 36,
+        "ip": 41,
         "line": 16
       },
       {
-        "ip": 41,
+        "ip": 46,
         "line": 20
       },
       {
-        "ip": 47,
+        "ip": 52,
         "line": 21
       },
       {
-        "ip": 53,
+        "ip": 58,
         "line": 25
       },
       {
-        "ip": 59,
+        "ip": 64,
         "line": 26
       },
       {
-        "ip": 69,
+        "ip": 79,
         "line": 30
       },
       {
-        "ip": 73,
+        "ip": 83,
         "line": 33
       },
       {
-        "ip": 79,
+        "ip": 89,
         "line": 34
       },
       {
-        "ip": 83,
+        "ip": 93,
         "line": 39
       },
       {
-        "ip": 88,
+        "ip": 98,
         "line": 41
       },
       {
-        "ip": 93,
+        "ip": 103,
         "line": 42
       },
       {
-        "ip": 98,
+        "ip": 108,
         "line": 43
       },
       {
-        "ip": 103,
+        "ip": 113,
         "line": 44
       },
       {
-        "ip": 109,
+        "ip": 119,
         "line": 47
       },
       {
-        "ip": 115,
+        "ip": 125,
         "line": 48
       }
     ]
@@ -121,5 +121,5 @@
     "name": "cashc",
     "version": "0.13.0-next.1"
   },
-  "updatedAt": "2026-02-10T15:42:31.585Z"
+  "updatedAt": "2026-02-10T17:26:52.338Z"
 }

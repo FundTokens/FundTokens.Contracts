@@ -1,10 +1,19 @@
 import {
+    Network,
+} from 'cashscript';
+import {
     swapEndianness,
     hash256,
     bigIntToBinUint64LEClamped,
     hexToBin,
     binToHex,
+    instantiateRipemd160,
+    instantiateSha256,
+    encodeCashAddress,
 } from '@bitauth/libauth';
+
+const ripemd160 = await instantiateRipemd160();
+const sha256 = await instantiateSha256();
 
 // base - 48bytes
 // per asset - 40bytes
@@ -31,3 +40,55 @@ export function getFundHex(fund) {
 }
 
 export const hashFund = fund => binToHex(hash256(getFundHex(fund)));
+
+export async function getBestFee({ feeContract, payBy, fee }) {
+    const network = feeContract.provider.network;
+    const {
+        pubKey,
+        nft,
+        value: defaultValue,
+    } = fee;
+    const feeUtxos = (await feeContract.getUtxos()).filter(u => {
+        const payByBitcoin = !payBy || payBy === '';
+        if(!!u.token && u.token.category === nft) {
+            const feeType = u.token.nftCommittment; // TODO
+            if(feeType === '000000') {
+                return payByBitcoin;
+            } else {
+                return !payByBitcoin;
+            }
+        }
+        return payByBitcoin && !u.token;
+    }).sort((a, b) => {
+        let aAmount = a.satoshis;
+        let bAmount = b.satoshis;
+        if(a.token) {
+            aAmount = a.token.nftCommittment; // TODO: split
+        }
+        if(b.token) {
+            bAmount = b.token.nftCommittment; // TODO: split
+        }
+        return aAmount > bAmount;
+    }); // TODO need to verify sort func and check nfts too
+
+    if(!feeUtxos) {
+        return null;
+    }
+
+    const feeUtxo = feeUtxos[0];
+
+    const pubKeyBin = hexToBin(pubKey);
+    const pubKeyHash = ripemd160.hash(sha256.hash(pubKeyBin));
+    const encoded = encodeCashAddress({ prefix: network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
+    const address = typeof encoded === 'string' ? encoded : encoded.address;
+
+    
+    const bestFee = { //TODO
+        isBitcoin: true,
+        category: null,
+        amount: feeUtxo.token ? 0 : defaultValue,
+        destination: address,
+        utxo: feeUtxo,
+    };
+    return bestFee;
+}

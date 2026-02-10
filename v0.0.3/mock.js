@@ -13,6 +13,7 @@ import {
     binToHex,
     encodeCashAddress,
     swapEndianness,
+    bigIntToBinUint64LEClamped,
 } from '@bitauth/libauth';
 import {
     hashFund,
@@ -54,8 +55,23 @@ const systemOwnerWallet = generateWallet();
 const systemFeeNft = randomUtxo({
     token: randomNFT(),
 });
-
+// amount: bigint;
+//     category: string;
+//     nft?: {
+//         capability: 'none' | 'mutable' | 'minting';
+//         commitment: string;
+//     };
 const defaultSystemFeeUtxo = randomUtxo();
+// const bestFeeUtxo = randomUtxo({
+//     token: {
+//         category: systemFeeNft.token.category,
+//         amount: 1n,
+//         nft: {
+//             capability: 'none',
+//             commitment: binToHex(bigIntToBinUint64LEClamped(1000n)) + systemOwnerWallet.pubKeyHex,
+//         }
+//     }
+// });
 
 const wallet = generateWallet();
 
@@ -160,11 +176,10 @@ const system = {
     },
 };
 
-
+const fundTokenTransactionBuilder = new FundTokenTransactionBuilder({ provider, system });
 
 ////// contract setup
-const { managerContract, fundContract, feeContract } = new FundTokenTransactionBuilder({ provider, system })
-    .buildContracts(fund);
+const { managerContract, fundContract, feeContract } = fundTokenTransactionBuilder.buildFundContracts(fund);
 
 
 // Initial Setup //
@@ -200,8 +215,8 @@ let asset3Utxo = userUtxoArray.filter(u => u.token?.category == asset3Category &
 const mintAmount = 1n;
 
 // mint a fund token
-const inflowTransaction = (await new FundTokenTransactionBuilder({ provider, system })
-    .addMint({
+const inflowTransaction = (await fundTokenTransactionBuilder
+    .newMintTransaction({
         amount: mintAmount,
         fund,
     }))
@@ -238,8 +253,8 @@ const fundToken = updated.filter(u => !!u.token)[0];
 const redeemAmount = 1n;
 
 // redeem a fund token
-const outflowTransaction = (await new FundTokenTransactionBuilder({ provider, system })
-    .addRedeem({
+const outflowTransaction = (await fundTokenTransactionBuilder
+    .newRedeemTransaction({
         amount: redeemAmount,
         fund,
     }))
@@ -276,8 +291,6 @@ const outflowTransaction = (await new FundTokenTransactionBuilder({ provider, sy
         to: wallet.address,
         amount: 5000n,
     });
-
-console.log('testing outflow', outflowTransaction);
 
 const outflowDetails = await outflowTransaction.send();
 console.log('outflow size:', outflowDetails.hex.length / 2);

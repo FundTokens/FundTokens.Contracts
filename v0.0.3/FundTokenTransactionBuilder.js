@@ -7,14 +7,11 @@ import {
     hash256,
     hexToBin,
     binToHex,
-    encodeCashAddress,
-    instantiateRipemd160,
-    instantiateSha256,
-    cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 import {
     getFundHex,
     hashFund,
+    getBestFee,
 } from './utils.js';
 
 import managerJson from './art/manager.json' with { type: 'json' };
@@ -25,10 +22,6 @@ import feeJson from './art/fee.json' with { type: 'json' };
 const DustAmount = 1000n;
 
 const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
-
-// const secp256k1 = await instantiateSecp256k1();
-const ripemd160 = await instantiateRipemd160();
-const sha256 = await instantiateSha256();
 
 export class FundTokenTransactionBuilder extends TransactionBuilder {
     #system = {
@@ -51,7 +44,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         system,
         logger,
     }) {
-        if(!system) {
+        if (!system) {
             throw new Error('No system configuration provided, unable to continue');
         }
         super({ provider });
@@ -65,7 +58,19 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
     }
 
     // build and get the contracts for this fund
-    buildContracts(fund) {
+    buildFeeContract() {
+        const {
+            pubKey,
+            nftSwapped,
+            value,
+        } = this.#system.fee;
+        const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
+
+        return { feeContract };
+    }
+
+    // build and get the contracts for this fund
+    buildFundContracts(fund) {
         const {
             category,
             assets,
@@ -84,13 +89,8 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
 
         // 32 32 32 32 + 4 128 132 * 2 264
         const fundContract = new Contract(fundJson, [this.#system.inflowSwapped, this.#system.outflowSwapped, swapEndianness(category), fundHash], { provider: this.provider });
-        
-        const {
-            pubKey,
-            nftSwapped,
-            value,
-        } = this.#system.fee;
-        const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
+
+        const { feeContract } = this.buildFeeContract();
 
         const managerContract = new Contract(managerJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
@@ -107,62 +107,17 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
 
     // return a new transaction builder with a built mint transaction
     async newMintTransaction({
+        amount,
         fund,
+        payBy,
         // user: { // add user utxos and change to the address
         //     utxos,
         //     address,
         // }
     }) {
-        const transactionBuilder = new FundTokenTransactionBuilder({ provider });
-        await transactionBuilder.addMint(fund);
+        const transactionBuilder = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
+        await transactionBuilder.addMint({ amount, fund, payBy });
         return transactionBuilder;
-    }
-
-    async getBestFee({ fund, payBy }) { // TODO: fund isn't needed, need to uncouple contract building
-        const { feeContract } = this.buildContracts(fund)
-        const feeUtxos = (await feeContract.getUtxos()).filter(u => {
-            const payByBitcoin = !payBy || payBy === '';
-            if(!!u.token && u.token.category === this.#system.fee.nft) {
-                const feeType = u.token.nftCommittment; // TODO
-                if(feeType === '000000') {
-                    return payByBitcoin;
-                } else {
-                    return !payByBitcoin;
-                }
-            }
-            return payByBitcoin && !u.token;
-        }).sort((a, b) => {
-            let aAmount = a.satoshis;
-            let bAmount = b.satoshis;
-            if(a.token) {
-                aAmount = a.token.nftCommittment; // TODO: split
-            }
-            if(b.token) {
-                bAmount = b.token.nftCommittment; // TODO: split
-            }
-            return aAmount > bAmount;
-        }); // TODO need to verify sort func and check nfts too
-
-        if(!feeUtxos) {
-            return null;
-        }
-
-        const feeUtxo = feeUtxos[0];
-
-        const pubKeyBin = hexToBin(this.#system.fee.pubKey);
-        const pubKeyHash = ripemd160.hash(sha256.hash(pubKeyBin));
-        const encoded = encodeCashAddress({ prefix: this.provider.network === 'mainnet' ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
-        const address = typeof encoded === 'string' ? encoded : encoded.address;
-
-        
-        const bestFee = { //TODO
-            isBitcoin: true,
-            category: null,
-            amount: feeUtxo.token ? 0 : this.#system.fee.value,
-            destination: address,
-            utxo: feeUtxo,
-        };
-        return bestFee;
     }
 
     // This method should be called while the transaction has same transaction input and output lengths
@@ -179,11 +134,11 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
     }) {
         this.#logger.log('transaction builder...adding minting transaction');
 
-        const { managerContract, fundContract, assetContracts, feeContract } = this.buildContracts(fund);
+        const { managerContract, fundContract, assetContracts, feeContract } = this.buildFundContracts(fund);
 
         const inflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.inflow);
         const fundUtxos = (await fundContract.getUtxos()).filter(u => u.token?.category === fundCategory);
-        const bestFee = await this.getBestFee({ fund, payBy });
+        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee });
 
         if (!inflowUtxos?.length || !fundUtxos?.length || !bestFee) {
             this.#logger.error('Missing required UTXO', !inflowUtxos?.length, !fundUtxos?.length, !bestFee);
@@ -244,6 +199,21 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         return this;
     }
 
+    // return a new transaction builder with a built redeem transaction
+    async newRedeemTransaction({
+        amount,
+        fund,
+        payBy,
+        // user: { // add user utxos and change to the address
+        //     utxos,
+        //     address,
+        // }
+    }) {
+        const transactionBuilder = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
+        await transactionBuilder.addRedeem({ amount, fund, payBy });
+        return transactionBuilder;
+    }
+
     // This method should be called while the transaction has same transaction input and output lengths
     // The consuming user is responsible for adding inputs for the fund token
     // The consuming app is responsible for adding an outputs for Bitcoin change and token change
@@ -260,7 +230,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
     }) {
         this.#logger.log('transaction builder...adding redemption transaction');
 
-        const { managerContract, fundContract, assetContracts, feeContract } = this.buildContracts(fund);
+        const { managerContract, fundContract, assetContracts, feeContract } = this.buildFundContracts(fund);
 
         //
         const outflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.outflow);
@@ -285,10 +255,8 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const redeemAmount = fundAmount * amount;
         const updatedFundAmount = fundUtxo.token?.amount + redeemAmount;
 
-        const bestFee = await this.getBestFee({ fund, payBy })
+        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee });
         const feeUtxo = bestFee.utxo;
-
-        console.log('testing', bestFee);
 
         this.addInput(outflowUtxo, managerContract.unlock.outflow(getFundHex(fund)))
             .addInput(fundUtxo, fundContract.unlock.redeem())
@@ -302,17 +270,15 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                 throw new Error(`Missing required asset '${fundAssets[i].category}' UTXO`);
             }
             let tokenAmountAdded = 0n;
-            for(let j = 0; j < assetUtxos.length; ++j) {
+            for (let j = 0; j < assetUtxos.length; ++j) {
                 this.addInput(assetUtxos[j], assetContracts[i].unlock.release());
                 tokenAmountAdded += assetUtxos[j].token.amount;
-                if(tokenAmountAdded >= amount * fundAssets[i].amount) {
+                if (tokenAmountAdded >= amount * fundAssets[i].amount) {
                     assetChangeAmounts.push(tokenAmountAdded - (amount * fundAssets[i].amount));
                     break;
                 }
             }
         }
-
-        this.#logger.log('asset change amounts', assetChangeAmounts);
 
         this.addOutputs([
             {
@@ -347,8 +313,8 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             },
         ]);
 
-        for(let i = 0; i < assetChangeAmounts.length; ++i) {
-            if(!assetChangeAmounts[i]) {
+        for (let i = 0; i < assetChangeAmounts.length; ++i) {
+            if (!assetChangeAmounts[i]) {
                 continue;
             }
             this.#logger.log('adding output change');

@@ -1,11 +1,11 @@
 pragma cashscript ~0.13.0;
 
 // contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)
-contract FundMint(bytes validator, bytes inflowToken, bytes outflowToken, bytes next)
+contract FundMint(bytes32 validator, bytes inflowToken, bytes outflowToken, bytes next)
 {
     // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]
     function mintInflow() {
-        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == validator);
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == new LockingBytecodeP2SH32(validator));
 
         // this UTXO
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
@@ -27,7 +27,7 @@ contract FundMint(bytes validator, bytes inflowToken, bytes outflowToken, bytes 
     }
 
     function mintOutflow() {
-        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == validator);
+        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == new LockingBytecodeP2SH32(validator));
 
         // inflow token
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);
