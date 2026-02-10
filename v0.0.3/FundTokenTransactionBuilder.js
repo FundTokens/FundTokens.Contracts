@@ -93,7 +93,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
 
         const managerContract = new Contract(managerJson, [
-            swapEndianness(binToHex(hash256(feeContract.bytecode))),
+            binToHex(hash256(hexToBin(feeContract.bytecode))),
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
             fundContract.bytecode.slice(264),
@@ -118,7 +118,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         return transactionBuilder;
     }
 
-    async getBestFee({ fund, payBy }) {
+    async getBestFee({ fund, payBy }) { // TODO: fund isn't needed, need to uncouple contract building
         const { feeContract } = this.buildContracts(fund)
         const feeUtxos = (await feeContract.getUtxos()).filter(u => {
             const payByBitcoin = !payBy || payBy === '';

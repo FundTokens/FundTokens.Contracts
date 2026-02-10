@@ -22,6 +22,7 @@ pragma cashscript ~0.13.0;
 // hash - 32 bytes
 
 
+// fee contract -> contract to prove fees have been paid
 // inflow token -> token to show inflow validation occurred
 // outflow token -> token show outflow validation occurred
 // fund contract -> the fund's base contract used to hash next contracts
@@ -75,8 +76,6 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
 
         //
         int feeInputIndex = fundInputIndex + 1;
-        bytes temp = new LockingBytecodeP2SH32(fee);
-        console.log('testing', feeInputIndex, fee, temp);
         require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
         feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
 
