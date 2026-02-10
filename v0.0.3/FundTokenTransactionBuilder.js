@@ -154,8 +154,6 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const encoded = encodeCashAddress({ prefix: this.provider.network === 'mainnet' ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
         const address = typeof encoded === 'string' ? encoded : encoded.address;
 
-        console.log('pulled fee utxo from', feeContract.tokenAddress, binToHex(cashAddressToLockingBytecode(feeContract.tokenAddress).bytecode));
-
         
         const bestFee = { //TODO
             isBitcoin: true,
@@ -258,10 +256,11 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             satoshis, // TODO: BCH being locked
             assets: fundAssets, // category, amount
         },
+        payBy,
     }) {
         this.#logger.log('transaction builder...adding redemption transaction');
 
-        const { managerContract, fundContract, assetContracts } = this.buildContracts(fund);
+        const { managerContract, fundContract, assetContracts, feeContract } = this.buildContracts(fund);
 
         //
         const outflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.outflow);
@@ -286,8 +285,14 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const redeemAmount = fundAmount * amount;
         const updatedFundAmount = fundUtxo.token?.amount + redeemAmount;
 
+        const bestFee = await this.getBestFee({ fund, payBy })
+        const feeUtxo = bestFee.utxo;
+
+        console.log('testing', bestFee);
+
         this.addInput(outflowUtxo, managerContract.unlock.outflow(getFundHex(fund)))
-            .addInput(fundUtxo, fundContract.unlock.redeem());
+            .addInput(fundUtxo, fundContract.unlock.redeem())
+            .addInput(feeUtxo, feeContract.unlock.pay());
 
 
         const assetChangeAmounts = [];
@@ -324,6 +329,21 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                     category: fundCategory,
                     amount: updatedFundAmount,
                 },
+            },
+            {
+                to: feeContract.tokenAddress,
+                amount: feeUtxo.satoshis,
+                // token: !feeUtxo.token ? null : {
+                //     ...feeUtxo.token,
+                // }
+            },
+            { // TODO verify IMPLEMENTATION
+                to: bestFee.destination ? bestFee.destination : this.#system.fee.pubKey,
+                amount: bestFee.isBitcoin ? bestFee.amount : DustAmount,
+                // token: bestFee.isBitcoin ? null : {
+                //     category: bestFee.category,
+                //     amount: bestFee.amount,
+                // }
             },
         ]);
 

@@ -90,7 +90,7 @@ const asset3 = randomUtxo({
 });
 
 const inflowTransactionFee = randomUtxo({
-    satoshis: 10000n + 1000n,
+    satoshis: 10000n + 1000n + 1000n,
 });
 
 

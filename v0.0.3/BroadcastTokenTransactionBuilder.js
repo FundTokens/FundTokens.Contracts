@@ -19,7 +19,7 @@ const DustAmount = 1000n;
 
 const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
 
-export class FundTokenTransactionBuilder extends TransactionBuilder {
+export class BroadcastTokenTransactionBuilder extends TransactionBuilder {
     inflowCategory = '';
     inflowCategorySwapped = '';
     outflowCategory = '';
