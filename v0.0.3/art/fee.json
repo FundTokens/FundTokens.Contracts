@@ -29,11 +29,11 @@
       "inputs": []
     }
   ],
-  "bytecode": "OP_3 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_4 OP_ROLL OP_SWAP OP_CHECKSIGVERIFY OP_0 OP_BEGIN OP_INPUTINDEX OP_UTXOBYTECODE OP_OVER OP_OUTPUTBYTECODE OP_OVER OP_EQUAL OP_NOT OP_VERIFY OP_OVER OP_OUTPUTTOKENCATEGORY OP_3 OP_PICK OP_EQUALVERIFY OP_OVER OP_1ADD OP_ROT OP_DROP OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_1 OP_ELSE OP_3 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOVALUE OP_INPUTINDEX OP_OUTPUTVALUE OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_ROT OP_EQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT 20 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE 76a914 OP_2 OP_PICK OP_CAT 88ac OP_CAT OP_EQUALVERIFY OP_3 OP_PICK OP_BIN2NUM OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENAMOUNT OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_2DROP OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE 76a914 OP_2 OP_PICK OP_HASH160 OP_CAT 88ac OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_2 OP_PICK OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_1 OP_ENDIF",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract FeeManager(pubkey owner, bytes ownerNft, int defaultValue)\r\n{\r\n    function close(sig signature) {\r\n        require(checkSig(signature, owner)); // verify owner\r\n        int outputIndex = 0;\r\n        do {\r\n            bytes thisContract = tx.inputs[this.activeInputIndex].lockingBytecode;\r\n            require(tx.outputs[outputIndex].lockingBytecode != thisContract); // unable to spend back to this contract\r\n            require(tx.outputs[outputIndex].tokenCategory == ownerNft); // the fee NFT is burned\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n\r\n    function pay() {\r\n        // can't change this UTXO\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        // if a token, it must be the owner's \r\n        if(tx.inputs[this.activeInputIndex].tokenCategory == ownerNft) {\r\n            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);\r\n            bytes fee_amount, bytes fee_destination = fee_next1.split(8);\r\n            \r\n            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(bytes20(fee_destination)));\r\n            if(int(fee_category) == 0) {\r\n                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));\r\n            } else {\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));\r\n            }\r\n        } else {\r\n            // \"default\"\r\n            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));\r\n            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);\r\n        }\r\n    }\r\n}",
+  "bytecode": "OP_3 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_4 OP_ROLL OP_SWAP OP_CHECKSIGVERIFY OP_0 OP_BEGIN OP_INPUTINDEX OP_UTXOBYTECODE OP_OVER OP_OUTPUTBYTECODE OP_OVER OP_EQUAL OP_NOT OP_VERIFY OP_OVER OP_OUTPUTTOKENCATEGORY OP_3 OP_PICK OP_EQUALVERIFY OP_OVER OP_1ADD OP_ROT OP_DROP OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_1 OP_ELSE OP_3 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOVALUE OP_INPUTINDEX OP_OUTPUTVALUE OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_ROT OP_EQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT 20 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE OP_OVER OP_EQUALVERIFY OP_3 OP_PICK OP_BIN2NUM OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENAMOUNT OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_2DROP OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE 76a914 OP_2 OP_PICK OP_HASH160 OP_CAT 88ac OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_2 OP_PICK OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_1 OP_ENDIF",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract FeeManager(pubkey owner, bytes ownerNft, int defaultValue)\r\n{\r\n    function close(sig signature) {\r\n        require(checkSig(signature, owner)); // verify owner\r\n        int outputIndex = 0;\r\n        do {\r\n            bytes thisContract = tx.inputs[this.activeInputIndex].lockingBytecode;\r\n            require(tx.outputs[outputIndex].lockingBytecode != thisContract); // unable to spend back to this contract\r\n            require(tx.outputs[outputIndex].tokenCategory == ownerNft); // the fee NFT is burned\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n\r\n    function pay() {\r\n        // can't change this UTXO\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        // if a token, it must be the owner's \r\n        if(tx.inputs[this.activeInputIndex].tokenCategory == ownerNft) {\r\n            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);\r\n            bytes fee_amount, bytes fee_destination = fee_next1.split(8);\r\n\r\n            // OR should this just checking locking bytecode?\r\n            // if (fee_destination.length == 20) {\r\n            //     require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(bytes20(fee_destination)));\r\n            // } else if(fee_destination.length == 32) {\r\n            //     require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(bytes32(fee_destination)));\r\n            // } else {\r\n            //     require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);\r\n            // }\r\n\r\n            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);\r\n            \r\n            if(int(fee_category) == 0) {\r\n                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));\r\n            } else {\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));\r\n            }\r\n        } else {\r\n            // \"default\"\r\n            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));\r\n            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);\r\n        }\r\n    }\r\n}\r\n",
   "debug": {
-    "bytecode": "5379009c63547a7cad0065c0c778cd7887916978d1537988788b7b757776c4a2666d6d5167537a519dc0c7c0cd88c0c6c0cc9dc0cec0d188c0d0c0d39dc0cfc0d288c0ce7b8763c0cf01207f76587fc08bcd0376a91452797e0288ac7e88537981009c63c08bcc5279819d67c08bd1547988c08bd35279819d686d6d67c08bcd0376a9145279a97e0288ac7e88c08bcc52799d686d5168",
-    "sourceMap": "5:4:14:5;;;;;6:25:6:34;;:36::41;:8::44:1;7:26:7:27:0;8:8:13:49;9:43:9:64;:33::81:1;10:31:10:42:0;:20::59:1;:63::75:0;:20:::1;;:12::77;11:31:11:42:0;:20::57:1;:61::69:0;;:12::71:1;12:26:12:37:0;:::41:1;:12::42;;8:11:13:9;13:16::27:0;:30::47;8:8::49:1;;5:4:14:5;;;;16::41::0;;;;18:26:18:47;:16::64:1;:79::100:0;:68::117:1;:8::119;19:26:19:47:0;:16::54:1;:69::90:0;:58::97:1;:8::99;20:26:20:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;21:26:21:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;22:26:22:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;25:21:25:42:0;:11::57:1;:61::69:0;:11:::1;:71:36:9:0;26:60:26:81;:50::96:1;:103::105:0;:50::106:1;27:54:27:63:0;:70::71;:54::72:1;29:31:29:52:0;:::56:1;:20::73;:77::127:0;:110::125;;:77::127:1;;;:12::129;30:19:30:31:0;;:15::32:1;:36::37:0;:15:::1;:39:32:13:0;31:35:31:56;:::60:1;:24::67;:75::85:0;;:71::86:1;:16::88;32:19:35:13:0;33:35:33:56;:::60:1;:24::75;:79::91:0;;:16::93:1;34:35:34:56:0;:::60:1;:24::73;:81::91:0;;:77::92:1;:16::94;32:19:35:13;25:71:36:9;;36:15:40::0;38:31:38:52;:::56:1;:20::73;:77::117:0;:110::115;;:102::116:1;:77::117;;;:12::119;39:31:39:52:0;:::56:1;:20::63;:67::79:0;;:12::81:1;36:15:40:9;16:4:41:5;;3:0:42:1",
+    "bytecode": "5379009c63547a7cad0065c0c778cd7887916978d1537988788b7b757776c4a2666d6d5167537a519dc0c7c0cd88c0c6c0cc9dc0cec0d188c0d0c0d39dc0cfc0d288c0ce7b8763c0cf01207f76587fc08bcd7888537981009c63c08bcc5279819d67c08bd1547988c08bd35279819d686d6d67c08bcd0376a9145279a97e0288ac7e88c08bcc52799d686d5168",
+    "sourceMap": "5:4:14:5;;;;;6:25:6:34;;:36::41;:8::44:1;7:26:7:27:0;8:8:13:49;9:43:9:64;:33::81:1;10:31:10:42:0;:20::59:1;:63::75:0;:20:::1;;:12::77;11:31:11:42:0;:20::57:1;:61::69:0;;:12::71:1;12:26:12:37:0;:::41:1;:12::42;;8:11:13:9;13:16::27:0;:30::47;8:8::49:1;;5:4:14:5;;;;16::51::0;;;;18:26:18:47;:16::64:1;:79::100:0;:68::117:1;:8::119;19:26:19:47:0;:16::54:1;:69::90:0;:58::97:1;:8::99;20:26:20:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;21:26:21:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;22:26:22:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;25:21:25:42:0;:11::57:1;:61::69:0;:11:::1;:71:46:9:0;26:60:26:81;:50::96:1;:103::105:0;:50::106:1;27:54:27:63:0;:70::71;:54::72:1;38:31:38:52:0;:::56:1;:20::73;:77::92:0;:12::94:1;40:19:40:31:0;;:15::32:1;:36::37:0;:15:::1;:39:42:13:0;41:35:41:56;:::60:1;:24::67;:75::85:0;;:71::86:1;:16::88;42:19:45:13:0;43:35:43:56;:::60:1;:24::75;:79::91:0;;:16::93:1;44:35:44:56:0;:::60:1;:24::73;:81::91:0;;:77::92:1;:16::94;42:19:45:13;25:71:46:9;;46:15:50::0;48:31:48:52;:::56:1;:20::73;:77::117:0;:110::115;;:102::116:1;:77::117;;;:12::119;49:31:49:52:0;:::56:1;:20::63;:67::79:0;;:12::81:1;46:15:50:9;16:4:51:5;;3:0:52:1",
     "logs": [],
     "requires": [
       {
@@ -69,28 +69,28 @@
         "line": 22
       },
       {
-        "ip": 90,
-        "line": 29
-      },
-      {
-        "ip": 103,
-        "line": 31
-      },
-      {
-        "ip": 110,
-        "line": 33
-      },
-      {
-        "ip": 117,
-        "line": 34
-      },
-      {
-        "ip": 132,
+        "ip": 85,
         "line": 38
       },
       {
-        "ip": 138,
-        "line": 39
+        "ip": 98,
+        "line": 41
+      },
+      {
+        "ip": 105,
+        "line": 43
+      },
+      {
+        "ip": 112,
+        "line": 44
+      },
+      {
+        "ip": 127,
+        "line": 48
+      },
+      {
+        "ip": 133,
+        "line": 49
       }
     ]
   },
@@ -98,5 +98,5 @@
     "name": "cashc",
     "version": "0.13.0-next.1"
   },
-  "updatedAt": "2026-02-10T17:26:52.095Z"
+  "updatedAt": "2026-02-12T04:20:08.281Z"
 }

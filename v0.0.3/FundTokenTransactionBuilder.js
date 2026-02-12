@@ -23,6 +23,8 @@ const DustAmount = 1000n;
 
 const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
 
+const getRandomInt = max => Math.floor(Math.random() * max);
+
 export class FundTokenTransactionBuilder extends TransactionBuilder {
     #system = {
         inflow: '',
@@ -145,8 +147,8 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             throw new Error('Missing required UTXO');
         }
 
-        const inflowUtxo = inflowUtxos[0];
-        const fundUtxo = fundUtxos[0];
+        const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
+        const fundUtxo = fundUtxos[getRandomInt(fundUtxos.length)];
         const feeUtxo = bestFee.utxo;
 
         const mintAmount = fundAmount * amount;
@@ -248,7 +250,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         }
 
         const existingFundUtxo = fundUtxos.filter(u => u.token?.category === fundCategory).sort(sortDecreasingTokenAmount);
-        const fundUtxo = existingFundUtxo.length ? existingFundUtxo[0] : fundUtxos[0];
+        const fundUtxo = existingFundUtxo.length ? existingFundUtxo[getRandomInt(existingFundUtxo.length)] : fundUtxos[getRandomInt(fundUtxos.length)];
 
 
         //
