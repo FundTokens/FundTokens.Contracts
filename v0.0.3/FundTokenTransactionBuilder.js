@@ -98,7 +98,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             binToHex(hash256(hexToBin(feeContract.bytecode))),
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
-            fundContract.bytecode.slice(264),
+            binToHex(hash256(hexToBin(fundContract.bytecode.slice(264)))),
             assetContracts[0].bytecode.slice(198),
             swapEndianness(category),
             fundHash,
