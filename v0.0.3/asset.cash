@@ -6,7 +6,7 @@ pragma cashscript ~0.13.0;
 // fundCategory -> Verify the NFT being executed is for this fund
 // fundHash -> A has of the fund's details, stored in the NFT commitment
 // assetCategory -> Mostly to create distinct contracts for the assets
-contract AssetManager(bytes outflowManager, bytes fundHash, bytes assetCategory) 
+contract AssetManager(bytes32 outflowManager, bytes32 fundHash, bytes32 assetCategory) 
 {
     // The asset manager is relying on the outflow manager to ensure this contract is spent correctly
     function release() {
@@ -23,6 +23,10 @@ contract AssetManager(bytes outflowManager, bytes fundHash, bytes assetCategory)
         
         // need to use all params...
         // so this seems reasonale check to ensure the UTXO is the correct token asset for the fund
-        require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
+        if(assetCategory == bytes32(0)) {
+            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
+        } else {
+            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
+        }
     }
 }

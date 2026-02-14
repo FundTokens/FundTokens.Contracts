@@ -39,6 +39,24 @@ export function getFundHex(fund) {
     return hexToBin(hex.join(''));
 }
 
+export function getFund(hex) {
+    if(typeof hex !== 'string' && typeof hex !== 'number') {
+        throw new Error('provide the fund hex as a string or number');
+    }
+    hex = typeof hex === 'number' ? hex.toString(16) : hex;
+
+    const fund = {
+        category: hex.substring(0, 32),
+        amount: hex.substring(32, 40),
+        satoshis: hex.substring(40, 48),
+        assets: hex.slice(48),
+    };
+
+    // TODO assets
+
+    return fund;
+}
+
 export const hashFund = fund => binToHex(hash256(getFundHex(fund)));
 
 export async function getBestFee({ feeContract, payBy, fee }) {

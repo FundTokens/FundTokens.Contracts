@@ -84,7 +84,7 @@ export class BroadcastTokenTransactionBuilder extends TransactionBuilder {
             binToHex(hash256(hexToBin(broadcastContract.bytecode))),
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
-            0x00,
+            binToHex(managerJson.bytecode),
         ], { provider: this.provider });
 
         return { feeContract, broadcastContract, mintContract };
@@ -114,17 +114,48 @@ export class BroadcastTokenTransactionBuilder extends TransactionBuilder {
         const broadcastUtxo = broadcastUtxos[getRandomInt(broadcastUtxos.length)];
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
-        
-        // broadcast
-        this.addInput(broadcastUtxo, broadcastContract.unlock.broadcast(getFundHex(fund)));
 
-        // inflow mint
-        this.addInput(inflowUtxo, mintContract.unlock.mintInflow());
-
-        // outflow mint
-        this.addInput(outflowUtxo, mintContract.unlock.mintOutflow());
+        this.addInputs([
+            {
+                ...broadcastUtxo,
+                unlocker: broadcastContract.unlock.broadcast(getFundHex(fund)),
+            }, 
+            {
+                ...inflowUtxo,
+                unlocker: mintContract.unlock.mintInflow(),
+            }, 
+            {
+                ...outflowUtxo,
+                unlocker: mintContract.unlock.mintOutflow(),
+            }
+        ])
+        .addOutputs([
+            {
+                to: broadcastContract.tokenAddress,
+                amount: broadcastUtxo.satoshis,
+                token: {
+                    ...broadcastUtxo.token,
+                }
+            },
+            {
+                to: mintContract.tokenAddress,
+                amount: inflowUtxo.satoshis,
+                token: {
+                    ...inflowUtxo.token,
+                }
+            },
+            {
+                to: mintContract.tokenAddress,
+                amount: outflowUtxo.satoshis,
+                token: {
+                    ...outflowUtxo.token,
+                }
+            }
+        ]);
 
         // fee manager
+
+
 
         // fee
         // new fund manager

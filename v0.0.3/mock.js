@@ -97,13 +97,13 @@ const asset2 = randomUtxo({
     }),
 });
 
-// const asset3Amount = 300n; // fund defined amount and category
-// const asset3 = randomUtxo({
-//     satoshis: 1000n,
-//     token: randomToken({
-//         amount: asset3Amount,
-//     }),
-// });
+const asset3Amount = 300n; // fund defined amount and category
+const asset3 = randomUtxo({
+    satoshis: 1000n,
+    token: randomToken({
+        amount: asset3Amount,
+    }),
+});
 
 const inflowTransactionFee = randomUtxo({
     satoshis: 10000n + 1000n + 1000n,
@@ -114,7 +114,7 @@ const asset1Category = asset1.token.category;
 //const asset1Amount = XXX; // already declared
 const asset2Category = asset2.token.category;
 //const asset2Amount = XXX; // already declared
-// const asset3Category = asset3.token.category;
+const asset3Category = asset3.token.category;
 
 
 
@@ -127,6 +127,9 @@ const fundAssets = [{
 }, {
     category: asset2Category,
     amount: asset2Amount,
+}, {
+    category: asset3Category,
+    amount: asset3Amount,
 }];
 
 const fund = {
@@ -192,7 +195,7 @@ provider.addUtxo(feeContract.tokenAddress, defaultSystemFeeUtxo);
 // hydrate wallet w/ UTXOs
 provider.addUtxo(wallet.address, asset1);
 provider.addUtxo(wallet.address, asset2);
-// provider.addUtxo(wallet.address, asset3);
+provider.addUtxo(wallet.address, asset3);
 provider.addUtxo(wallet.address, inflowTransactionFee);
 
 // End of initial setup
@@ -207,7 +210,7 @@ provider.addUtxo(wallet.address, inflowTransactionFee);
 const userUtxoArray = await provider.getUtxos(wallet.tokenAddress);
 let asset1Utxo = userUtxoArray.filter(u => u.token?.category == asset1Category && u.token?.amount >= asset1Amount)[0];
 let asset2Utxo = userUtxoArray.filter(u => u.token?.category == asset2Category && u.token?.amount >= asset2Amount)[0];
-// let asset3Utxo = userUtxoArray.filter(u => u.token?.category == asset3Category && u.token?.amount >= asset3Amount)[0];
+let asset3Utxo = userUtxoArray.filter(u => u.token?.category == asset3Category && u.token?.amount >= asset3Amount)[0];
 
 const mintAmount = 1n;
 
@@ -217,7 +220,7 @@ const inflowTransaction = (await fundTokenTransactionBuilder
         amount: mintAmount,
         fund,
     }))
-    .addInputs([asset1Utxo, asset2Utxo, inflowTransactionFee], wallet.signatureTemplate.unlockP2PKH())
+    .addInputs([asset1Utxo, asset2Utxo, asset3Utxo, inflowTransactionFee], wallet.signatureTemplate.unlockP2PKH())
     .addOutputs([
         {
             to: wallet.address,
@@ -271,6 +274,14 @@ const outflowTransaction = (await fundTokenTransactionBuilder
             token: {
                 category: asset2Category,
                 amount: asset2Amount * redeemAmount,
+            }
+        },
+        {
+            to: wallet.address,
+            amount: DustAmount,
+            token: {
+                category: asset3Category,
+                amount: asset3Amount * redeemAmount,
             }
         }
     ])

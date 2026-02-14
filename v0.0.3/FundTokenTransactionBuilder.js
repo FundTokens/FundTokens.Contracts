@@ -112,10 +112,6 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         amount,
         fund,
         payBy,
-        // user: { // add user utxos and change to the address
-        //     utxos,
-        //     address,
-        // }
     }) {
         const transactionBuilder = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
         await transactionBuilder.addMint({ amount, fund, payBy });
@@ -154,49 +150,60 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const mintAmount = fundAmount * amount;
         const fundChangeAmount = fundUtxo.token.amount - mintAmount;
 
-        this.addInput(inflowUtxo, managerContract.unlock.inflow(getFundHex(fund)))
-            .addInput(fundUtxo, fundContract.unlock.mint())
-            .addInput(feeUtxo, feeContract.unlock.pay())
-            .addOutputs([
-                {
-                    to: managerContract.tokenAddress,
-                    amount: inflowUtxo.satoshis,
-                    token: {
-                        ...inflowUtxo.token,
-                    },
+        this.addInputs([
+            {
+                ...inflowUtxo,
+                unlocker: managerContract.unlock.inflow(getFundHex(fund)),
+            },
+            {
+                ...fundUtxo,
+                unlocker: fundContract.unlock.mint(),
+            },
+            {
+                ...feeUtxo,
+                unlocker: feeContract.unlock.pay(),
+            }
+        ])
+        .addOutputs([
+            {
+                to: managerContract.tokenAddress,
+                amount: inflowUtxo.satoshis,
+                token: {
+                    ...inflowUtxo.token,
                 },
-                {
-                    to: fundContract.tokenAddress,
-                    amount: fundUtxo.satoshis,
-                    token: fundChangeAmount <= 0 ? null : { // TODO: bug here?!
-                        category: fundCategory,
-                        amount: fundChangeAmount,
-                    },
+            },
+            {
+                to: fundContract.tokenAddress,
+                amount: fundUtxo.satoshis,
+                token: fundChangeAmount <= 0 ? null : { // TODO: bug here?!
+                    category: fundCategory,
+                    amount: fundChangeAmount,
                 },
-                {
-                    to: feeContract.tokenAddress,
-                    amount: feeUtxo.satoshis,
-                    // token: !feeUtxo.token ? null : {
-                    //     ...feeUtxo.token,
-                    // }
-                },
-                { // TODO verify IMPLEMENTATION
-                    to: bestFee.destination ? bestFee.destination : this.#system.fee.pubKey,
-                    amount: bestFee.isBitcoin ? bestFee.amount : DustAmount,
-                    // token: bestFee.isBitcoin ? null : {
-                    //     category: bestFee.category,
-                    //     amount: bestFee.amount,
-                    // }
-                },
-                ...assetContracts.map((assetContract, i) => ({
-                    to: assetContract.tokenAddress,
-                    amount: DustAmount,
-                    token: {
-                        category: fundAssets[i].category,
-                        amount: fundAssets[i].amount,
-                    }
-                })),
-            ]);
+            },
+            {
+                to: feeContract.tokenAddress,
+                amount: feeUtxo.satoshis,
+                // token: !feeUtxo.token ? null : {
+                //     ...feeUtxo.token,
+                // }
+            },
+            { // TODO verify IMPLEMENTATION
+                to: bestFee.destination ? bestFee.destination : this.#system.fee.pubKey,
+                amount: bestFee.isBitcoin ? bestFee.amount : DustAmount,
+                // token: bestFee.isBitcoin ? null : {
+                //     category: bestFee.category,
+                //     amount: bestFee.amount,
+                // }
+            },
+            ...assetContracts.map((assetContract, i) => ({
+                to: assetContract.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fundAssets[i].category,
+                    amount: fundAssets[i].amount,
+                }
+            })),
+        ]);
         this.#logger.log('finished adding mint transaction i/o');
         return this;
     }
@@ -206,10 +213,6 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         amount,
         fund,
         payBy,
-        // user: { // add user utxos and change to the address
-        //     utxos,
-        //     address,
-        // }
     }) {
         const transactionBuilder = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
         await transactionBuilder.addRedeem({ amount, fund, payBy });
@@ -260,11 +263,10 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee });
         const feeUtxo = bestFee.utxo;
 
-        this.addInput(outflowUtxo, managerContract.unlock.outflow(getFundHex(fund)))
-            .addInput(fundUtxo, fundContract.unlock.redeem())
-            .addInput(feeUtxo, feeContract.unlock.pay());
+        const assetInputs = [];
+        const assetOutputs = [];
 
-
+        
         const assetChangeAmounts = [];
         for (let i = 0; i < assetContracts.length; ++i) {
             const assetUtxos = (await assetContracts[i].getUtxos()).filter(u => u.token?.category === fundAssets[i].category).sort(sortDecreasingTokenAmount);
@@ -273,7 +275,10 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             }
             let tokenAmountAdded = 0n;
             for (let j = 0; j < assetUtxos.length; ++j) {
-                this.addInput(assetUtxos[j], assetContracts[i].unlock.release());
+                assetInputs.push({
+                    ...assetUtxos[j],
+                    unlocker: assetContracts[i].unlock.release()
+                });
                 tokenAmountAdded += assetUtxos[j].token.amount;
                 if (tokenAmountAdded >= amount * fundAssets[i].amount) {
                     assetChangeAmounts.push(tokenAmountAdded - (amount * fundAssets[i].amount));
@@ -281,8 +286,38 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                 }
             }
         }
+        
+        for (let i = 0; i < assetChangeAmounts.length; ++i) {
+            if (!assetChangeAmounts[i]) {
+                continue;
+            }
+            this.#logger.log('adding output change');
+            assetOutputs.push({
+                to: assetContracts[i].tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fundAssets[i].category,
+                    amount: assetChangeAmounts[i],
+                },
+            });
+        }
 
-        this.addOutputs([
+        this.addInputs([
+            {
+                ...outflowUtxo,
+                unlocker: managerContract.unlock.outflow(getFundHex(fund))
+            },
+            {
+                ...fundUtxo,
+                unlocker: fundContract.unlock.redeem()
+            },
+            {
+                ...feeUtxo,
+                unlocker: feeContract.unlock.pay()
+            },
+            ...assetInputs
+        ])
+        .addOutputs([
             {
                 to: managerContract.tokenAddress,
                 amount: outflowUtxo.satoshis,
@@ -313,22 +348,8 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                 //     amount: bestFee.amount,
                 // }
             },
+            ...assetOutputs
         ]);
-
-        for (let i = 0; i < assetChangeAmounts.length; ++i) {
-            if (!assetChangeAmounts[i]) {
-                continue;
-            }
-            this.#logger.log('adding output change');
-            this.addOutput({
-                to: assetContracts[i].tokenAddress,
-                amount: DustAmount,
-                token: {
-                    category: fundAssets[i].category,
-                    amount: assetChangeAmounts[i],
-                },
-            });
-        }
 
         this.#logger.log('finished adding redemption transaction i/o');
         return this;
