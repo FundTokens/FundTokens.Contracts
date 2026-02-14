@@ -133,15 +133,14 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
         require(nft_fundCategory == fundCategory);
 
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+
         int fundAmount = int(nft_fundAmount);
-
-        bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
-
         int fundLockingAmount = tx.outputs[fundInputIndex].tokenAmount - tx.inputs[fundInputIndex].tokenAmount;
         require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount
         fundLockingAmount = fundLockingAmount / fundAmount;
 
         //
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
         int feeInputIndex = fundInputIndex + 1;
         require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
         feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
@@ -170,7 +169,6 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
             require((satoshiReleaseAmount % fundSats) == 0); // ensure a multiple of the fund amount
             require((satoshiReleaseAmount / fundSats) == fundLockingAmount);
         }
-
 
         bytes nft_assetData = nft_next3;
         do {
