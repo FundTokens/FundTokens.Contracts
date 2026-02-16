@@ -13,9 +13,6 @@ import {
     binToHex,
     encodeCashAddress,
 } from '@bitauth/libauth';
-import {
-    hashFund,
-} from './utils.js';
 
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 import BroadcastTokenTransactionBuilder from './BroadcastTokenTransactionBuilder.js';
@@ -77,7 +74,7 @@ const defaultSystemFeeUtxo = randomUtxo();
 
 const inflowMintUtxo = randomUtxo({
     token: randomNFT({
-        amount: 1n,
+        amount: 0n,
         nft: {
             capability: 'minting',
             commitment: '',
@@ -86,7 +83,7 @@ const inflowMintUtxo = randomUtxo({
 });
 const outflowMintUtxo = randomUtxo({
     token: randomNFT({
-        amount: 1n,
+        amount: 0n,
         nft: {
             capability: 'minting',
             commitment: '',
@@ -102,6 +99,11 @@ const broadcastSystem = {
         pubKey: systemOwnerWallet.pubKeyHex,
         nft: systemFeeNft.token.category,
         value: 1000000n,
+    },
+    fundFee: {
+        pubKey: systemOwnerWallet.pubKeyHex,
+        nft: systemFeeNft.token.category,
+        value: 1000n
     }
 };
 
@@ -130,7 +132,7 @@ provider.addUtxo(broadcastFeeContract.tokenAddress, broadcastFeeUtxo); // defaul
 const wallet = generateWallet();
 
 const genesisUtxo = randomUtxo({
-    satoshis: 1000n,
+    satoshis: 1020000n,
     vout: 0,
 });
 
@@ -138,12 +140,6 @@ const genesisUtxo = randomUtxo({
 provider.addUtxo(wallet.tokenAddress, genesisUtxo);
 ///
 
-const fundUtxo = randomUtxo({
-    satoshis: 1000n,
-    token: randomToken({
-        amount: 2n,
-    }),
-});
 
 const asset1Amount = 100n; // fund defined amount and category
 const asset1 = randomUtxo({
@@ -182,7 +178,7 @@ const asset3Category = asset3.token.category;
 
 
 // fund defined settings
-const fundCategory = fundUtxo.token.category;
+const fundCategory = genesisUtxo.txid; // fundUtxo.token.category;
 const fundAmount = 1n; // user-defined at mint/redeem
 const fundAssets = [{
     category: asset1Category,
@@ -209,45 +205,14 @@ const broadcastDetails = await broadcastTransaction.send();
 console.log('broadcast size:', broadcastDetails.hex.length / 2);
 
 
+//
+//
+//
 
-throw new Error('EOF');
-
-
-
-
-
-
-
-
-
-const fundTokenCommitment = hashFund(fund);
-
-// system or fund setup
-const inflowUtxo = randomUtxo({
-    satoshis: 1000n,
-    token: randomNFT({
-        amount: 1n,
-        nft: {
-            capability: 'none',
-            commitment: fundTokenCommitment,
-        }
-    }),
-});
-
-const outflowUtxo = randomUtxo({
-    satoshis: 1000n,
-    token: randomNFT({
-        amount: 1n,
-        nft: {
-            capability: 'none',
-            commitment: fundTokenCommitment,
-        }
-    }),
-});
 
 const system = {
-    inflow: inflowUtxo.token.category,
-    outflow: outflowUtxo.token.category,
+    inflow: inflowMintUtxo.token.category,
+    outflow: outflowMintUtxo.token.category,
     fee: {
         pubKey: systemOwnerWallet.pubKeyHex,
         nft: systemFeeNft.token.category,
@@ -255,20 +220,18 @@ const system = {
     },
 };
 
+console.log('testing', system);
+
 const fundTokenTransactionBuilder = new FundTokenTransactionBuilder({ provider, system });
 
 ////// contract setup
-const { managerContract, fundContract, feeContract } = fundTokenTransactionBuilder.buildFundContracts(fund);
+const { managerContract, feeContract } = fundTokenTransactionBuilder.buildFundContracts(fund);
+
+console.log('utxos', managerContract.tokenAddress, await managerContract.getUtxos());
 
 
-// Initial Setup //
-// hydrate inflow contracts w/ UTXOs
-provider.addUtxo(managerContract.tokenAddress, inflowUtxo);
-provider.addUtxo(managerContract.tokenAddress, outflowUtxo);
 
 // hydrate fund contract
-provider.addUtxo(fundContract.tokenAddress, fundUtxo);
-
 provider.addUtxo(feeContract.tokenAddress, defaultSystemFeeUtxo);
 
 // hydrate wallet w/ UTXOs

@@ -39,6 +39,13 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
             nftSwapped: '',
             value: -1,
         },
+        fundFee: {
+            pubKey: '',
+            pubKeySwapped: '',
+            nft: '',
+            nftSwapped: '',
+            value: -1,
+        },
     };
     #logger = null;
 
@@ -56,6 +63,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
         this.#system.outflowSwapped = swapEndianness(system.outflow);
         this.#system.pubKeySwapped = swapEndianness(system.fee.pubKey);
         this.#system.fee.nftSwapped = swapEndianness(system.fee.nft);
+        this.#system.fundFee.nftSwapped = swapEndianness(system.fundFee.nft);
 
         this.#logger = logger ?? console;
     }
@@ -139,7 +147,11 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
 
-        var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system }).buildFundContracts(fund);
+        console.log('again testing', { ...this.#system, fee: this.#system.fundFee }, fund);
+
+        var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: { ...this.#system, fee: this.#system.fundFee } }).buildFundContracts(fund);
+
+        console.log('testing', managerContract.tokenAddress, fundContract.tokenAddress);
 
         const authHeadTokenAddress = encodeCashAddress({ prefix: this.provider.network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: hexToBin(this.#system.authHead) });
 
