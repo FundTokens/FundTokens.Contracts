@@ -24,7 +24,7 @@ contract FundBroadcast(bytes32 fee, bytes20 bcmrDestination, bytes inflowMint, b
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
         require(within(int(nft_satoshis), 0, 2100000000000000));
         require(nft_assets.length > 0);
-        require(nft_assets.length % 40 == 0); // short circuit
+        require(nft_assets.length % 40 == 0); // quick assert
 
         bytes lastAssetCategory = 0x;
         do {
@@ -33,7 +33,7 @@ contract FundBroadcast(bytes32 fee, bytes20 bcmrDestination, bytes inflowMint, b
             require(int(nft_assetAmount) > 0);
 
             if(lastAssetCategory != 0x) {
-                require(int(lastAssetCategory) > int(nft_assetCategory));
+                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
             }
 
             nft_assets = nft_next4;
@@ -45,9 +45,9 @@ contract FundBroadcast(bytes32 fee, bytes20 bcmrDestination, bytes inflowMint, b
 
         require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(fee));
 
-        require(tx.inputs[this.activeInputIndex + 5].tokenCategory == inflowMint); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowMint);
         require(tx.outputs[this.activeInputIndex + 5].nftCommitment == hash256(fund));
-        require(tx.inputs[this.activeInputIndex + 6].tokenCategory == outflowMint); // TODO change capability
+        require(tx.outputs[this.activeInputIndex + 6].tokenCategory == outflowMint);
         require(tx.outputs[this.activeInputIndex + 6].nftCommitment == hash256(fund));
 
         require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);

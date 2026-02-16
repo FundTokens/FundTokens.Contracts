@@ -15,6 +15,12 @@ import {
 const ripemd160 = await instantiateRipemd160();
 const sha256 = await instantiateSha256();
 
+const categoryAscending = (a, b) => {
+    const aValue = BigInt(`0x${a.category}`);
+    const bValue = BigInt(`0x${b.category}`);
+    return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+};
+
 // base - 48bytes
 // per asset - 40bytes
 //
@@ -32,7 +38,7 @@ export function getFundHex(fund) {
     hex.push(swapEndianness(category)); // 32 bytes
     hex.push(binToHex(bigIntToBinUint64LEClamped(amount))); // 8 bytes
     hex.push(binToHex(bigIntToBinUint64LEClamped(satoshis))); // 8 bytes TODO: consider trimming in size
-    assets.map(asset => {
+    assets.sort(categoryAscending).map(asset => {
         hex.push(swapEndianness(asset.category)); // 32 bytes
         hex.push(binToHex(bigIntToBinUint64LEClamped(asset.amount))); // 8 bytes
     });

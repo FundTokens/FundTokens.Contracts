@@ -25,7 +25,7 @@ const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
 
 const getRandomInt = max => Math.floor(Math.random() * max);
 
-export class FundTokenTransactionBuilder extends TransactionBuilder {
+export default class FundTokenTransactionBuilder extends TransactionBuilder {
     #system = {
         inflow: '',
         inflowSwapped: '',

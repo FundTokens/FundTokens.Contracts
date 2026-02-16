@@ -1,34 +1,37 @@
 import {
     Contract,
+    Network,
     TransactionBuilder,
 } from 'cashscript';
 import {
     swapEndianness,
     hash256,
-    bigIntToBinUint64LEClamped,
     hexToBin,
     binToHex,
+    encodeCashAddress,
 } from '@bitauth/libauth';
 import {
     getBestFee,
     getFundHex,
-} from './utils';
+} from './utils.js';
+import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 
 import feeJson from './art/fee.json' with { type: 'json' };
 import broadcastJson from './art/broadcast.json' with { type: 'json' };
-import mintJson from './art/mint.json.json' with { type: 'json' };
+import mintJson from './art/mint.json' with { type: 'json' };
 import managerJson from './art/manager.json' with { type: 'json' };
 
 const DustAmount = 1000n;
 
 const getRandomInt = max => Math.floor(Math.random() * max);
 
-export class BroadcastTokenTransactionBuilder extends TransactionBuilder {
+export default class BroadcastTokenTransactionBuilder extends TransactionBuilder {
     #system = {
         inflow: '',
         inflowSwapped: '',
         outflow: '',
         outflowSwapped: '',
+        authHead: '',
         fee: {
             pubKey: '',
             pubKeySwapped: '',
@@ -75,19 +78,34 @@ export class BroadcastTokenTransactionBuilder extends TransactionBuilder {
         //bytes32 fee, bytes20 bcmrDestination, bytes inflowMint, bytes outflowMint
         const broadcastContract = new Contract(broadcastJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
-            this.#system.fee.pubKey,
+            this.#system.authHead,
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
         ], { provider: this.provider });
+
         //bytes32 validator, bytes inflowToken, bytes outflowToken, bytes next
         const mintContract = new Contract(mintJson, [
             binToHex(hash256(hexToBin(broadcastContract.bytecode))),
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
-            binToHex(managerJson.bytecode),
+            managerJson.debug.bytecode,
         ], { provider: this.provider });
 
         return { feeContract, broadcastContract, mintContract };
+    }
+
+    async newBroadcastTransaction({
+        fund,
+        payBy,
+        genesis: {
+            utxo,
+            unlocker,
+        },
+    }) {
+        const transactionBuilder = new BroadcastTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
+        transactionBuilder.addInput(utxo, unlocker);
+        await transactionBuilder.addBroadcast({ fund, payBy });
+        return transactionBuilder;
     }
 
     async addBroadcast({
@@ -96,24 +114,34 @@ export class BroadcastTokenTransactionBuilder extends TransactionBuilder {
     }) {
         const { feeContract, broadcastContract, mintContract } = this.buildContracts();
 
-        const bestFee = await getBestFee({ feeContract, payBy });
+        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee });
 
         const broadcastUtxos = await broadcastContract.getUtxos();
-        const mintUtxos = await broadcastContract.getUtxos();
+        const mintUtxos = await mintContract.getUtxos();
         const inflowUtxos = mintUtxos.filter(u => u.token?.category == this.#system.inflow);
         const outflowUtxos = mintUtxos.filter(u => u.token?.category == this.#system.outflow);
-
+        
         if(this.inputs.length === 0) {
             throw new Error('User genesis input is expected to be added prior to calling this function');
         }
+        
+        if(this.outputs.length > 0) {
+            throw new Error('No outputs should be added to the transaction');
+        }
 
-        if(this.inputs[0].vout !== 0 || this.inputs[0].token) {
+        const genesisUtxo = this.inputs[0];
+
+        if(genesisUtxo.vout !== 0 || genesisUtxo.token) {
             throw new Error('First input must be a genesis input with no tokens');
         }
 
         const broadcastUtxo = broadcastUtxos[getRandomInt(broadcastUtxos.length)];
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
+
+        var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system }).buildFundContracts(fund);
+
+        const authHeadTokenAddress = encodeCashAddress({ prefix: this.provider.network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: hexToBin(this.#system.authHead) });
 
         this.addInputs([
             {
@@ -127,39 +155,81 @@ export class BroadcastTokenTransactionBuilder extends TransactionBuilder {
             {
                 ...outflowUtxo,
                 unlocker: mintContract.unlock.mintOutflow(),
+            },
+            {
+                ...bestFee.utxo,
+                unlocker: feeContract.unlock.pay(),
             }
         ])
         .addOutputs([
             {
+                to: authHeadTokenAddress.address,
+                amount: DustAmount,
+            },
+            {
                 to: broadcastContract.tokenAddress,
                 amount: broadcastUtxo.satoshis,
-                token: {
-                    ...broadcastUtxo.token,
-                }
+                token: broadcastUtxo.token,
+                // token: {
+                //     ...broadcastUtxo.token,
+                // }
             },
             {
                 to: mintContract.tokenAddress,
                 amount: inflowUtxo.satoshis,
-                token: {
-                    ...inflowUtxo.token,
-                }
+                token: inflowUtxo.token,
+                // token: {
+                //     ...inflowUtxo.token,
+                // }
             },
             {
                 to: mintContract.tokenAddress,
                 amount: outflowUtxo.satoshis,
+                token: outflowUtxo.token,
+            }, 
+            {
+                to: feeContract.tokenAddress,
+                amount: bestFee.utxo.satoshis,
+                // token: {
+                //     ...bestFee.utxo.
+                // }
+            },
+            {
+                to: bestFee.destination,
+                amount: bestFee.amount,
+                // token // TODO
+            },
+            {
+                to: managerContract.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    ...inflowUtxo.token,
+                    nft: {
+                        capability: 'none',
+                        commitment: binToHex(hash256(getFundHex(fund))),
+                    }
+                }
+            },
+            {
+                to: managerContract.tokenAddress,
+                amount: DustAmount,
                 token: {
                     ...outflowUtxo.token,
+                    nft: {
+                        capability: 'none',
+                        commitment: binToHex(hash256(getFundHex(fund))),
+                    }
+                }
+            },
+            {
+                to: fundContract.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: genesisUtxo.txid,
+                    amount: 10000n, // TODO
+                    nft: undefined,
                 }
             }
         ]);
-
-        // fee manager
-
-
-
-        // fee
-        // new fund manager
-        // new fund manager
-        // new fund tokens
     }
 }

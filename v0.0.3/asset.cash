@@ -11,15 +11,15 @@ contract AssetManager(bytes32 outflowManager, bytes32 fundHash, bytes32 assetCat
     // The asset manager is relying on the outflow manager to ensure this contract is spent correctly
     function release() {
         bool outflowManagerSeen = false;
-        int inputIndex = 0;
+        int inputIndex = this.activeInputIndex;
         do {
             if(tx.inputs[inputIndex].tokenCategory == outflowManager
                 && tx.inputs[inputIndex].nftCommitment == fundHash) {
-                require(!outflowManagerSeen);
                 outflowManagerSeen = true;
             }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length);
+            inputIndex = inputIndex - 1;
+        } while(inputIndex >= 0);
+        require(outflowManagerSeen);
         
         if(assetCategory == bytes32(0)) {
             require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);

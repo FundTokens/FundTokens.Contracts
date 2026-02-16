@@ -12,14 +12,13 @@ import {
     generatePrivateKey,
     binToHex,
     encodeCashAddress,
-    swapEndianness,
-    bigIntToBinUint64LEClamped,
 } from '@bitauth/libauth';
 import {
     hashFund,
 } from './utils.js';
 
-import { FundTokenTransactionBuilder } from './FundTokenTransactionBuilder.js';
+import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
+import BroadcastTokenTransactionBuilder from './BroadcastTokenTransactionBuilder.js';
 
 const secp256k1 = await instantiateSecp256k1();
 const ripemd160 = await instantiateRipemd160();
@@ -41,9 +40,10 @@ const generateWallet = () => {
     const pubKeyHex = binToHex(pubKeyBin);
     const signatureTemplate = new SignatureTemplate(privateKey);
     const pubKeyHash = ripemd160.hash(sha256.hash(pubKeyBin));
+    const pubKeyHashHex = binToHex(pubKeyHash);
     const encoded = encodeCashAddress({ prefix: network === 'mainnet' ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
     const address = typeof encoded === 'string' ? encoded : encoded.address;
-    return { privateKey, pubKeyHex, pubKeyHash, signatureTemplate, address, tokenAddress: address };
+    return { privateKey, pubKeyHex, pubKeyHash, pubKeyHashHex, signatureTemplate, address, tokenAddress: address };
 };
 
 const provider = new MockNetworkProvider({
@@ -51,6 +51,8 @@ const provider = new MockNetworkProvider({
 });
 
 const systemOwnerWallet = generateWallet();
+
+const authHeadOwnerWallet = generateWallet();
 
 const systemFeeNft = randomUtxo({
     token: randomNFT(),
@@ -73,7 +75,68 @@ const defaultSystemFeeUtxo = randomUtxo();
 //     }
 // });
 
+const inflowMintUtxo = randomUtxo({
+    token: randomNFT({
+        amount: 1n,
+        nft: {
+            capability: 'minting',
+            commitment: '',
+        }
+    })
+});
+const outflowMintUtxo = randomUtxo({
+    token: randomNFT({
+        amount: 1n,
+        nft: {
+            capability: 'minting',
+            commitment: '',
+        }
+    })
+});
+
+const broadcastSystem = {
+    inflow: inflowMintUtxo.token.category,
+    outflow: outflowMintUtxo.token.category,
+    authHead: authHeadOwnerWallet.pubKeyHashHex,
+    fee: {
+        pubKey: systemOwnerWallet.pubKeyHex,
+        nft: systemFeeNft.token.category,
+        value: 1000000n,
+    }
+};
+
+const broadcastUtxo = randomUtxo();
+const broadcastFeeUtxo = randomUtxo();
+
+
+const broadcastBuilder = new BroadcastTokenTransactionBuilder({ provider, system: broadcastSystem });
+
+
+// mock setup
+const { broadcastContract, mintContract, feeContract: broadcastFeeContract } = broadcastBuilder.buildContracts();
+
+provider.addUtxo(broadcastContract.tokenAddress, broadcastUtxo);
+provider.addUtxo(mintContract.tokenAddress, inflowMintUtxo);
+provider.addUtxo(mintContract.tokenAddress, outflowMintUtxo);
+provider.addUtxo(broadcastFeeContract.tokenAddress, broadcastFeeUtxo); // default fee
+
+//
+
+
+///
+///
+///
+
 const wallet = generateWallet();
+
+const genesisUtxo = randomUtxo({
+    satoshis: 1000n,
+    vout: 0,
+});
+
+///
+provider.addUtxo(wallet.tokenAddress, genesisUtxo);
+///
 
 const fundUtxo = randomUtxo({
     satoshis: 1000n,
@@ -138,6 +201,22 @@ const fund = {
     satoshis: 0n,
     assets: fundAssets,
 };
+
+
+const broadcastTransaction = await broadcastBuilder.newBroadcastTransaction({ fund, genesis: { utxo: genesisUtxo, unlocker: wallet.signatureTemplate.unlockP2PKH() } });
+
+const broadcastDetails = await broadcastTransaction.send();
+console.log('broadcast size:', broadcastDetails.hex.length / 2);
+
+
+
+throw new Error('EOF');
+
+
+
+
+
+
 
 
 

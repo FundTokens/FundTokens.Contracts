@@ -54,7 +54,11 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
         // fund contract is next in the transaction
         // contract already returns UTXO
         int fundInputIndex = this.activeInputIndex + 1;
-        require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract);
+        bytes temp1 = bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken);
+        bytes temp2 = tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 132);
+        console.log('testing', temp1, temp2);
+        // require(tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 135) == bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken));
+        require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract); // TODO verify parameters?
         // require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
 
@@ -72,13 +76,13 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
         fundReleasedAmount = fundReleasedAmount / fundAmount;
 
         //
-        int feeInputIndex = fundInputIndex + 1;
-        require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
-        feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
+        // int feeInputIndex = fundInputIndex + 1;
+        require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        // feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
 
         bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
         int fundSats = int(nft_sats);
-        int satoshiOutputIndex = feeInputIndex;
+        int satoshiOutputIndex = fundInputIndex + 2;
         if(fundSats > 0) {
             satoshiOutputIndex = satoshiOutputIndex + 1;
             require(tx.outputs[satoshiOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + bytes32(int(0)) + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
@@ -125,6 +129,10 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
 
         // fund contract is next in the transaction
         int fundInputIndex = this.activeInputIndex + 1;
+        bytes temp1 = bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken);
+        bytes temp2 = tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 132);
+        console.log('testing', temp1, temp2);
+        // require(tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 132) == bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken));
         require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract);
         // require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
@@ -143,9 +151,9 @@ contract TransactionManager(bytes32 fee, bytes inflowToken, bytes outflowToken, 
 
         //
         bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
-        int feeInputIndex = fundInputIndex + 1;
-        require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
-        feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
+        // int feeInputIndex = fundInputIndex + 1;
+        require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        // feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
 
         int fundSats = int(nft_sats);
         if(fundSats > 0) {
