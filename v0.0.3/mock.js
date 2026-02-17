@@ -220,14 +220,10 @@ const system = {
     },
 };
 
-console.log('testing', system);
-
 const fundTokenTransactionBuilder = new FundTokenTransactionBuilder({ provider, system });
 
 ////// contract setup
 const { managerContract, feeContract } = fundTokenTransactionBuilder.buildFundContracts(fund);
-
-console.log('utxos', managerContract.tokenAddress, await managerContract.getUtxos());
 
 
 

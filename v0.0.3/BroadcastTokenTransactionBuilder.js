@@ -20,6 +20,8 @@ import feeJson from './art/fee.json' with { type: 'json' };
 import broadcastJson from './art/broadcast.json' with { type: 'json' };
 import mintJson from './art/mint.json' with { type: 'json' };
 import managerJson from './art/manager.json' with { type: 'json' };
+import fundJson from './art/fund.json' with { type: 'json' };
+import assetJson from './art/asset.json' with { type: 'json' };
 
 const DustAmount = 1000n;
 
@@ -69,20 +71,19 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
     }
 
     // build and get the contracts for this fund
-    buildFeeContract() {
-        const {
-            pubKey,
-            nftSwapped,
-            value,
-        } = this.#system.fee;
+    buildFeeContract({
+        pubKey,
+        nftSwapped,
+        value,
+    }) {
         const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
-
         return { feeContract };
     }
 
     // build and get the contracts
     buildContracts() {
-        const { feeContract } = this.buildFeeContract();
+        const { feeContract } = this.buildFeeContract(this.#system.fee);
+        const { feeContract: fundFeeContract } = this.buildFeeContract(this.#system.fundFee);
         //bytes32 fee, bytes20 bcmrDestination, bytes inflowMint, bytes outflowMint
         const broadcastContract = new Contract(broadcastJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
@@ -91,12 +92,14 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
             this.#system.outflowSwapped,
         ], { provider: this.provider });
 
-        //bytes32 validator, bytes inflowToken, bytes outflowToken, bytes next
         const mintContract = new Contract(mintJson, [
             binToHex(hash256(hexToBin(broadcastContract.bytecode))),
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
-            managerJson.debug.bytecode,
+            binToHex(hash256(hexToBin(fundFeeContract.bytecode))),
+            hexToBin(managerJson.debug.bytecode),
+            hexToBin(fundJson.debug.bytecode),
+            hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
         return { feeContract, broadcastContract, mintContract };
@@ -150,6 +153,8 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
         var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: { ...this.#system, fee: this.#system.fundFee } }).buildFundContracts(fund);
 
         const authHeadTokenAddress = encodeCashAddress({ prefix: this.provider.network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: hexToBin(this.#system.authHead) });
+
+        const fundTokenAmount = 9223372036854775807n;
 
         this.addInputs([
             {
@@ -234,7 +239,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                 amount: DustAmount,
                 token: {
                     category: genesisUtxo.txid,
-                    amount: 10000n, // TODO
+                    amount: fundTokenAmount,
                     nft: undefined,
                 }
             }

@@ -27,7 +27,7 @@ pragma cashscript ~0.13.0;
 // outflow token -> token show outflow validation occurred
 // fund contract -> the fund's base contract used to hash next contracts
 // asset contract -> the asset's base contract, used to hash next contracts
-contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken, bytes fundContract, bytes assetContract, bytes32 fundCategory, bytes fundHash)
+contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken, bytes32 fundCategory, bytes32 fundHash, bytes fundContract, bytes assetContract)
 {
     // i - inflow signal
     // i + 1 - fund manager
@@ -55,8 +55,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // contract already returns UTXO
         int fundInputIndex = this.activeInputIndex + 1;
         // require(tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 135) == bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken));
-        require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract); // TODO verify parameters?
-        // require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
+        // require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract); // TODO verify parameters?
+        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
 
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
@@ -129,7 +129,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // fund contract is next in the transaction
         int fundInputIndex = this.activeInputIndex + 1;
         // require(tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 132) == bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken));
-        require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract);
+        //require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract);
+        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
         // require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
 

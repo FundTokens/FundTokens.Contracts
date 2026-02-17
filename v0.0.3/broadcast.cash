@@ -24,7 +24,6 @@ contract FundBroadcast(bytes32 broadcastFee, bytes20 bcmrDestination, bytes32 in
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
         require(within(int(nft_satoshis), 0, 2100000000000000));
         require(nft_assets.length > 0);
-        require(nft_assets.length % 40 == 0); // quick assert
 
         bytes lastAssetCategory = 0x;
         do {
@@ -45,29 +44,28 @@ contract FundBroadcast(bytes32 broadcastFee, bytes20 bcmrDestination, bytes32 in
 
         require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(broadcastFee));
 
-        bytes temp = tx.outputs[this.activeInputIndex + 5].nftCommitment;
-        bytes temp2 = hash256(fund);
-        console.log('testing nft', temp);
-        console.log('right side', nft_fundCategory, temp2);
-
         require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowToken);
         require(tx.outputs[this.activeInputIndex + 5].nftCommitment == bytes(nft_fundCategory + hash256(fund)));
         require(tx.outputs[this.activeInputIndex + 6].tokenCategory == outflowToken);
         require(tx.outputs[this.activeInputIndex + 6].nftCommitment == bytes(nft_fundCategory + hash256(fund)));
 
         require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);
-        require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory); // TODO
-        
+        require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory);
+        require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?
 
-        int outputIndex = 1;
+        int outputIndex = 1; // 0 is already validated
         do {
-            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7)) {
-                require(tx.outputs[outputIndex].tokenCategory != inflowToken);
-                require(tx.outputs[outputIndex].tokenCategory != outflowToken);
+            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 8)) {
+                if(tx.outputs[outputIndex].tokenCategory.length == 33) {
+                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);
+                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);
+                } else {
+                    require(tx.outputs[outputIndex].tokenCategory != inflowToken);
+                    require(tx.outputs[outputIndex].tokenCategory != outflowToken);
+                    require(tx.outputs[outputIndex].tokenCategory != nft_fundCategory);
+                }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
-
-        // TODO: Verify no extra NFTs minted
     }
 }
