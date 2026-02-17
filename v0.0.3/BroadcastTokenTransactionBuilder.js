@@ -147,11 +147,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
 
-        console.log('again testing', { ...this.#system, fee: this.#system.fundFee }, fund);
-
         var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: { ...this.#system, fee: this.#system.fundFee } }).buildFundContracts(fund);
-
-        console.log('testing', managerContract.tokenAddress, fundContract.tokenAddress);
 
         const authHeadTokenAddress = encodeCashAddress({ prefix: this.provider.network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: hexToBin(this.#system.authHead) });
 

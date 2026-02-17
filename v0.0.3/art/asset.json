@@ -2,7 +2,7 @@
   "contractName": "AssetManager",
   "constructorInputs": [
     {
-      "name": "outflowManager",
+      "name": "outflowToken",
       "type": "bytes32"
     },
     {
@@ -21,10 +21,10 @@
     }
   ],
   "bytecode": "OP_0 OP_INPUTINDEX OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_OVER OP_UTXOTOKENCOMMITMENT OP_5 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_DUP OP_1SUB OP_NIP OP_DUP OP_0 OP_LESSTHAN OP_UNTIL OP_SWAP OP_VERIFY OP_3 OP_PICK OP_0 20 OP_NUM2BIN OP_EQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_0 OP_EQUALVERIFY OP_ELSE OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_ENDIF OP_2DROP OP_2DROP OP_1",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\n// hold the token assets that make-up a fund token\r\n\r\n// outflowManager -> NFT category held to show outflow manager in transaction\r\n// fundCategory -> Verify the NFT being executed is for this fund\r\n// fundHash -> A has of the fund's details, stored in the NFT commitment\r\n// assetCategory -> Mostly to create distinct contracts for the assets\r\ncontract AssetManager(bytes32 outflowManager, bytes32 fundHash, bytes32 assetCategory) \r\n{\r\n    // The asset manager is relying on the outflow manager to ensure this contract is spent correctly\r\n    function release() {\r\n        bool outflowManagerSeen = false;\r\n        int inputIndex = this.activeInputIndex;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == outflowManager\r\n                && tx.inputs[inputIndex].nftCommitment == fundHash) {\r\n                outflowManagerSeen = true;\r\n            }\r\n            inputIndex = inputIndex - 1;\r\n        } while(inputIndex >= 0);\r\n        require(outflowManagerSeen);\r\n        \r\n        if(assetCategory == bytes32(0)) {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);\r\n        } else {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);\r\n        }\r\n    }\r\n}",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n// hold the token assets that make-up a fund token\r\n\r\n// outflowToken -> NFT category held to show outflow manager in transaction\r\n// fundCategory -> Verify the NFT being executed is for this fund\r\n// fundHash -> A has of the fund's details, stored in the NFT commitment\r\n// assetCategory -> Mostly to create distinct contracts for the assets\r\ncontract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory) \r\n{\r\n    // The asset manager is relying on the outflow manager to ensure this contract is spent correctly\r\n    function release() {\r\n        bool outflowTokenSeen = false;\r\n        int inputIndex = this.activeInputIndex;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == outflowToken\r\n                && tx.inputs[inputIndex].nftCommitment == fundHash) {\r\n                outflowTokenSeen = true;\r\n            }\r\n            inputIndex = inputIndex - 1;\r\n        } while(inputIndex >= 0);\r\n        require(outflowTokenSeen);\r\n        \r\n        if(assetCategory == bytes32(0)) {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);\r\n        } else {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);\r\n        }\r\n    }\r\n}",
   "debug": {
     "bytecode": "00c06576ce53798778cf5579879a63517b757c68768c7776009f667c695379000120808763c0ce008867c0ce547988686d6d51",
-    "sourceMap": "13:34:13:39;14:25:14:46;15:8:21:33;16:25:16:35;:15::50:1;:54::68:0;;:15:::1;17:29:17:39:0;:19::54:1;:58::66:0;;:19:::1;16:15;17:68:19:13:0;18:37:18:41;:16::42:1;;;17:68:19:13;20:25:20:35:0;:::39:1;:12::40;21:16:21:26:0;:30::31;15:8::33:1;;22:16:22:34:0;:8::36:1;24:11:24:24:0;;:36::37;:28::38:1;;:11;:40:26:9:0;25:30:25:51;:20::66:1;:70::72:0;:12::74:1;26:15:28:9:0;27:30:27:51;:20::66:1;:70::83:0;;:12::85:1;26:15:28:9;12:4:29:5;;",
+    "sourceMap": "13:32:13:37;14:25:14:46;15:8:21:33;16:25:16:35;:15::50:1;:54::66:0;;:15:::1;17:29:17:39:0;:19::54:1;:58::66:0;;:19:::1;16:15;17:68:19:13:0;18:35:18:39;:16::40:1;;;17:68:19:13;20:25:20:35:0;:::39:1;:12::40;21:16:21:26:0;:30::31;15:8::33:1;;22:16:22:32:0;:8::34:1;24:11:24:24:0;;:36::37;:28::38:1;;:11;:40:26:9:0;25:30:25:51;:20::66:1;:70::72:0;:12::74:1;26:15:28:9:0;27:30:27:51;:20::66:1;:70::83:0;;:12::85:1;26:15:28:9;12:4:29:5;;",
     "logs": [],
     "requires": [
       {
@@ -45,5 +45,5 @@
     "name": "cashc",
     "version": "0.13.0-next.1"
   },
-  "updatedAt": "2026-02-16T05:06:03.831Z"
+  "updatedAt": "2026-02-17T19:19:47.931Z"
 }
