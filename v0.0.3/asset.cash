@@ -14,8 +14,10 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
         int inputIndex = this.activeInputIndex;
         do {
             if(tx.inputs[inputIndex].tokenCategory == outflowToken
-                && tx.inputs[inputIndex].nftCommitment == fundHash) {
-                outflowTokenSeen = true;
+                && tx.inputs[inputIndex].nftCommitment.length == 64) {
+                    if(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash) {
+                        outflowTokenSeen = true;
+                    }
             }
             inputIndex = inputIndex - 1;
         } while(inputIndex >= 0);

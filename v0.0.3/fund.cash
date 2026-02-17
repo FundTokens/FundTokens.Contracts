@@ -16,7 +16,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
     // if all fund tokens are redeemed, then spend a no token output back to the contract (for future redemption)
     function mint() {
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);
-        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == fundHash);
+        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));
 
         // make sure we spend our input back to ourself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
@@ -35,7 +35,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
     // redeem the fund token by sending it back to this contract
     function redeem() {
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowToken);
-        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == fundHash);
+        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));
 
         // make sure we spend out input back to ourself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);

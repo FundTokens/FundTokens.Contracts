@@ -214,7 +214,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                     ...inflowUtxo.token,
                     nft: {
                         capability: 'none',
-                        commitment: binToHex(hash256(getFundHex(fund))),
+                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundHex(fund))),
                     }
                 }
             },
@@ -225,7 +225,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                     ...outflowUtxo.token,
                     nft: {
                         capability: 'none',
-                        commitment: binToHex(hash256(getFundHex(fund))),
+                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundHex(fund))),
                     }
                 }
             },

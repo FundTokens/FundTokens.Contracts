@@ -1,7 +1,7 @@
 pragma cashscript ~0.13.0;
 
 // contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)
-contract FundMint(bytes32 validator, bytes inflowToken, bytes outflowToken, bytes fundContract)
+contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, bytes fundContract)
 {
     // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]
     function mintInflow() {
