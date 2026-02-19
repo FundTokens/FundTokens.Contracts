@@ -1,6 +1,5 @@
 pragma cashscript ~0.13.0;
 
-// contract TransactionManager(bytes inflowToken, bytes outflowToken, bytes fundContract, bytes assetContract, bytes fundCategory, bytes fundHash)
 contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, bytes32 fee, bytes managerContract, bytes fundContract, bytes assetContract)
 {
     // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]
@@ -23,12 +22,12 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
 
         int assetContractStart = 0;
-        int assetContractStop = assetContractStart + assetContract.length + 1;
+        int assetContractStop = assetContractStart + assetContract.length + 1; // <= 75 bytes
         bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
 
 
         int fundContractStart = assetContractStop;
-        int fundContractStop = fundContractStart + fundContract.length + 2; // fragile way to get the push bytes
+        int fundContractStop = fundContractStart + fundContract.length + 2; // > 75 bytes
         bytes fundContractParam = this.activeBytecode.slice(fundContractStart, fundContractStop);
 
         require(tx.outputs[this.activeInputIndex + 4].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
