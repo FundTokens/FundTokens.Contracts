@@ -8,9 +8,6 @@ contract FundBroadcast(bytes32 broadcastFee, bytes20 bcmrDestination, bytes32 in
         require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(bcmrDestination));
         require(tx.outputs[0].tokenCategory == 0x);
 
-        require(tx.inputs[this.activeInputIndex - 1].outpointIndex == 0);
-        require(tx.inputs[this.activeInputIndex - 1].outpointTransactionHash == tx.outputs[this.activeInputIndex + 7].tokenCategory);
-
         //
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
@@ -22,7 +19,6 @@ contract FundBroadcast(bytes32 broadcastFee, bytes20 bcmrDestination, bytes32 in
         require(int(nft_fundAmount) > 0);
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
         require(within(int(nft_satoshis), 0, 2100000000000000));
-        require(nft_assets.length > 0);
 
         bytes lastAssetCategory = 0x;
         do {
@@ -52,6 +48,8 @@ contract FundBroadcast(bytes32 broadcastFee, bytes20 bcmrDestination, bytes32 in
         require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory);
         require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?
 
+
+        // verify no more outputs mint tokens or fund tokens
         int outputIndex = 1; // 0 is already validated
         do {
             if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 8)) {

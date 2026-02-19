@@ -128,10 +128,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         // fund contract is next in the transaction
         int fundInputIndex = this.activeInputIndex + 1;
-        // require(tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 132) == bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken));
-        //require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract);
         require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
-        // require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
 
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
@@ -146,9 +143,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         //
         bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
-        // int feeInputIndex = fundInputIndex + 1;
         require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
-        // feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
+        // skip over paid fee, fee contract will verify
 
         int fundSats = int(nft_sats);
         if(fundSats > 0) {

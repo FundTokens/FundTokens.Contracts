@@ -2,7 +2,6 @@ pragma cashscript ~0.13.0;
 
 contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, bytes32 fee, bytes managerContract, bytes fundContract, bytes assetContract)
 {
-    // 32 category, 8 amount, 8 satoshi, [32 category, 8 amount]
     function mintInflow() {
         require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == new LockingBytecodeP2SH32(validator));
 
@@ -41,8 +40,6 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == (inflowToken + 0x02));
         require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
 
-        // new inflow token
-
         // this UTXO
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken + 0x02);
 
@@ -53,7 +50,6 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
 
         // mint a new token to the next contract
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
-
         
         int assetContractStart = 0;
         int assetContractStop = assetContractStart + assetContract.length + 1; // <= 75 bytes

@@ -34,12 +34,12 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
     // check for the outflow manager token to redeem fund tokens
     // redeem the fund token by sending it back to this contract
     function redeem() {
-        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowToken);
+        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));
 
         // make sure we spend out input back to ourself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);
         require(tx.inputs[this.activeInputIndex].tokenAmount < tx.outputs[this.activeInputIndex].tokenAmount);
-        // require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);
     }
 }

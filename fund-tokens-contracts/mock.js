@@ -11,7 +11,9 @@ import {
     instantiateSha256,
     generatePrivateKey,
     binToHex,
+    hexToBin,
     encodeCashAddress,
+    decodeTransaction,
 } from '@bitauth/libauth';
 
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
@@ -24,12 +26,6 @@ const sha256 = await instantiateSha256();
 const network = 'mocknet';
 
 const DustAmount = 1000n;
-
-// 2 assets - mint 2119 - redeem 2251
-// 3 assets - mint 2381 - redeem 2543
-
-// mint + 262
-// redeem + 292
 
 const generateWallet = () => {
     const privateKey = generatePrivateKey();
@@ -48,29 +44,12 @@ const provider = new MockNetworkProvider({
 });
 
 const systemOwnerWallet = generateWallet();
-
 const authHeadOwnerWallet = generateWallet();
 
 const systemFeeNft = randomUtxo({
     token: randomNFT(),
 });
-// amount: bigint;
-//     category: string;
-//     nft?: {
-//         capability: 'none' | 'mutable' | 'minting';
-//         commitment: string;
-//     };
 const defaultSystemFeeUtxo = randomUtxo();
-// const bestFeeUtxo = randomUtxo({
-//     token: {
-//         category: systemFeeNft.token.category,
-//         amount: 1n,
-//         nft: {
-//             capability: 'none',
-//             commitment: binToHex(bigIntToBinUint64LEClamped(1000n)) + systemOwnerWallet.pubKeyHex,
-//         }
-//     }
-// });
 
 const inflowMintUtxo = randomUtxo({
     token: randomNFT({
@@ -113,8 +92,9 @@ const broadcastFeeUtxo = randomUtxo();
 
 const broadcastBuilder = new BroadcastTokenTransactionBuilder({ provider, system: broadcastSystem });
 
-
+///
 // mock setup
+///
 const { broadcastContract, mintContract, feeContract: broadcastFeeContract } = broadcastBuilder.buildContracts();
 
 provider.addUtxo(broadcastContract.tokenAddress, broadcastUtxo);
@@ -122,14 +102,10 @@ provider.addUtxo(mintContract.tokenAddress, inflowMintUtxo);
 provider.addUtxo(mintContract.tokenAddress, outflowMintUtxo);
 provider.addUtxo(broadcastFeeContract.tokenAddress, broadcastFeeUtxo); // default fee
 
-//
-
-
 ///
+// create a new fund
 ///
-///
-
-const wallet = generateWallet();
+const userWallet = generateWallet();
 
 const genesisUtxo = randomUtxo({
     satoshis: 1020000n,
@@ -137,9 +113,15 @@ const genesisUtxo = randomUtxo({
 });
 
 ///
-provider.addUtxo(wallet.tokenAddress, genesisUtxo);
+// mock setup
 ///
+provider.addUtxo(userWallet.tokenAddress, genesisUtxo);
 
+
+///
+// fund configuration
+///
+const fundSatoshis = 0n;
 
 const asset1Amount = 100n; // fund defined amount and category
 const asset1 = randomUtxo({
@@ -164,21 +146,12 @@ const asset3 = randomUtxo({
     }),
 });
 
-const inflowTransactionFee = randomUtxo({
-    satoshis: 10000n + 1000n + 1000n,
-});
-
-
 const asset1Category = asset1.token.category;
-//const asset1Amount = XXX; // already declared
 const asset2Category = asset2.token.category;
-//const asset2Amount = XXX; // already declared
 const asset3Category = asset3.token.category;
 
-
-
 // fund defined settings
-const fundCategory = genesisUtxo.txid; // fundUtxo.token.category;
+const fundCategory = genesisUtxo.txid; // user provided UTXO
 const fundAmount = 1n; // user-defined at mint/redeem
 const fundAssets = [{
     category: asset1Category,
@@ -190,19 +163,21 @@ const fundAssets = [{
     category: asset3Category,
     amount: asset3Amount,
 }];
-
 const fund = {
     category: fundCategory,
     amount: fundAmount,
-    satoshis: 0n,
+    satoshis: fundSatoshis,
     assets: fundAssets,
 };
 
-
-const broadcastTransaction = await broadcastBuilder.newBroadcastTransaction({ fund, genesis: { utxo: genesisUtxo, unlocker: wallet.signatureTemplate.unlockP2PKH() } });
-
+///
+// broadcast a new fund transaction
+///
+const broadcastTransaction = await broadcastBuilder.newBroadcastTransaction({ fund, genesis: { utxo: genesisUtxo, unlocker: userWallet.signatureTemplate.unlockP2PKH() } });
 const broadcastDetails = await broadcastTransaction.send();
 console.log('broadcast size:', broadcastDetails.hex.length / 2);
+
+
 
 
 //
@@ -230,11 +205,15 @@ const { managerContract, feeContract } = fundTokenTransactionBuilder.buildFundCo
 // hydrate fund contract
 provider.addUtxo(feeContract.tokenAddress, defaultSystemFeeUtxo);
 
+const inflowTransactionFee = randomUtxo({
+    satoshis: 10000n + 1000n + 1000n,
+});
+
 // hydrate wallet w/ UTXOs
-provider.addUtxo(wallet.address, asset1);
-provider.addUtxo(wallet.address, asset2);
-provider.addUtxo(wallet.address, asset3);
-provider.addUtxo(wallet.address, inflowTransactionFee);
+provider.addUtxo(userWallet.address, asset1);
+provider.addUtxo(userWallet.address, asset2);
+provider.addUtxo(userWallet.address, asset3);
+provider.addUtxo(userWallet.address, inflowTransactionFee);
 
 // End of initial setup
 
@@ -245,7 +224,7 @@ provider.addUtxo(wallet.address, inflowTransactionFee);
 // Below is "minting" a token by locking the fund assets into a contract
 //
 ///
-const userUtxoArray = await provider.getUtxos(wallet.tokenAddress);
+const userUtxoArray = await provider.getUtxos(userWallet.tokenAddress);
 let asset1Utxo = userUtxoArray.filter(u => u.token?.category == asset1Category && u.token?.amount >= asset1Amount)[0];
 let asset2Utxo = userUtxoArray.filter(u => u.token?.category == asset2Category && u.token?.amount >= asset2Amount)[0];
 let asset3Utxo = userUtxoArray.filter(u => u.token?.category == asset3Category && u.token?.amount >= asset3Amount)[0];
@@ -258,14 +237,14 @@ const inflowTransaction = (await fundTokenTransactionBuilder
         amount: mintAmount,
         fund,
     }))
-    .addInputs([asset1Utxo, asset2Utxo, asset3Utxo, inflowTransactionFee], wallet.signatureTemplate.unlockP2PKH())
+    .addInputs([asset1Utxo, asset2Utxo, asset3Utxo, inflowTransactionFee], userWallet.signatureTemplate.unlockP2PKH())
     .addOutputs([
         {
-            to: wallet.address,
+            to: userWallet.address,
             amount: 10000n,
         },
         {
-            to: wallet.address,
+            to: userWallet.address,
             amount: 1000n,
             token: {
                 category: fundCategory,
@@ -284,7 +263,7 @@ console.log('inflow size:', inflowDetails.hex.length / 2);
 //
 ///
 
-const updated = await provider.getUtxos(wallet.address);
+const updated = await provider.getUtxos(userWallet.address);
 const outflowTransactionFee = updated.filter(u => !u.token)[0];
 const fundToken = updated.filter(u => !!u.token)[0];
 
@@ -296,10 +275,10 @@ const outflowTransaction = (await fundTokenTransactionBuilder
         amount: redeemAmount,
         fund,
     }))
-    .addInput(fundToken, wallet.signatureTemplate.unlockP2PKH())
+    .addInput(fundToken, userWallet.signatureTemplate.unlockP2PKH())
     .addOutputs([
         {
-            to: wallet.address,
+            to: userWallet.address,
             amount: DustAmount,
             token: {
                 category: asset1Category,
@@ -307,7 +286,7 @@ const outflowTransaction = (await fundTokenTransactionBuilder
             },
         },
         {
-            to: wallet.address,
+            to: userWallet.address,
             amount: DustAmount,
             token: {
                 category: asset2Category,
@@ -315,7 +294,7 @@ const outflowTransaction = (await fundTokenTransactionBuilder
             }
         },
         {
-            to: wallet.address,
+            to: userWallet.address,
             amount: DustAmount,
             token: {
                 category: asset3Category,
@@ -324,9 +303,9 @@ const outflowTransaction = (await fundTokenTransactionBuilder
         }
     ])
     //
-    .addInput(outflowTransactionFee, wallet.signatureTemplate.unlockP2PKH())
+    .addInput(outflowTransactionFee, userWallet.signatureTemplate.unlockP2PKH())
     .addOutput({
-        to: wallet.address,
+        to: userWallet.address,
         amount: 5000n,
     });
 

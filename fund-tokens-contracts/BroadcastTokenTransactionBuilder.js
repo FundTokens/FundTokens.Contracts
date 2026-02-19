@@ -84,7 +84,6 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
     buildContracts() {
         const { feeContract } = this.buildFeeContract(this.#system.fee);
         const { feeContract: fundFeeContract } = this.buildFeeContract(this.#system.fundFee);
-        //bytes32 fee, bytes20 bcmrDestination, bytes inflowMint, bytes outflowMint
         const broadcastContract = new Contract(broadcastJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
             this.#system.authHead,
@@ -243,6 +242,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                     nft: undefined,
                 }
             }
-        ]);
+        ])
+        .addOpReturnOutput([swapEndianness(genesisUtxo.txid), binToHex(hash256(getFundHex(fund)))]);
     }
 }
