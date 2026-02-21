@@ -12,12 +12,13 @@ import {
 } from '@bitauth/libauth';
 import {
     getBestFee,
+    getFundBin,
     getFundHex,
 } from './utils.js';
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 
 import feeJson from './art/fee.json' with { type: 'json' };
-import broadcastJson from './art/broadcast.json' with { type: 'json' };
+import startupJson from './art/startup.json' with { type: 'json' };
 import mintJson from './art/mint.json' with { type: 'json' };
 import managerJson from './art/manager.json' with { type: 'json' };
 import fundJson from './art/fund.json' with { type: 'json' };
@@ -27,7 +28,7 @@ const DustAmount = 1000n;
 
 const getRandomInt = max => Math.floor(Math.random() * max);
 
-export default class BroadcastTokenTransactionBuilder extends TransactionBuilder {
+export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #system = {
         inflow: '',
         inflowSwapped: '',
@@ -84,15 +85,14 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
     buildContracts() {
         const { feeContract } = this.buildFeeContract(this.#system.fee);
         const { feeContract: fundFeeContract } = this.buildFeeContract(this.#system.fundFee);
-        const broadcastContract = new Contract(broadcastJson, [
+        const startupContract = new Contract(startupJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
-            this.#system.authHead,
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
         ], { provider: this.provider });
 
         const mintContract = new Contract(mintJson, [
-            binToHex(hash256(hexToBin(broadcastContract.bytecode))),
+            binToHex(hash256(hexToBin(startupContract.bytecode))),
             this.#system.inflowSwapped,
             this.#system.outflowSwapped,
             binToHex(hash256(hexToBin(fundFeeContract.bytecode))),
@@ -101,7 +101,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        return { feeContract, broadcastContract, mintContract };
+        return { feeContract, startupContract, mintContract };
     }
 
     async newBroadcastTransaction({
@@ -112,7 +112,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
             unlocker,
         },
     }) {
-        const transactionBuilder = new BroadcastTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
+        const transactionBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
         transactionBuilder.addInput(utxo, unlocker);
         await transactionBuilder.addBroadcast({ fund, payBy });
         return transactionBuilder;
@@ -122,11 +122,11 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
         fund,
         payBy,
     }) {
-        const { feeContract, broadcastContract, mintContract } = this.buildContracts();
+        const { feeContract, startupContract, mintContract } = this.buildContracts();
 
         const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee });
 
-        const broadcastUtxos = await broadcastContract.getUtxos();
+        const broadcastUtxos = await startupContract.getUtxos();
         const mintUtxos = await mintContract.getUtxos();
         const inflowUtxos = mintUtxos.filter(u => u.token?.category == this.#system.inflow);
         const outflowUtxos = mintUtxos.filter(u => u.token?.category == this.#system.outflow);
@@ -158,7 +158,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
         this.addInputs([
             {
                 ...broadcastUtxo,
-                unlocker: broadcastContract.unlock.broadcast(getFundHex(fund)),
+                unlocker: startupContract.unlock.start(getFundBin(fund)),
             }, 
             {
                 ...inflowUtxo,
@@ -179,7 +179,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                 amount: DustAmount,
             },
             {
-                to: broadcastContract.tokenAddress,
+                to: startupContract.tokenAddress,
                 amount: broadcastUtxo.satoshis,
                 token: broadcastUtxo.token,
                 // token: {
@@ -218,7 +218,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                     ...inflowUtxo.token,
                     nft: {
                         capability: 'none',
-                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundHex(fund))),
+                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
                     }
                 }
             },
@@ -229,7 +229,7 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                     ...outflowUtxo.token,
                     nft: {
                         capability: 'none',
-                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundHex(fund))),
+                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
                     }
                 }
             },
@@ -242,7 +242,30 @@ export default class BroadcastTokenTransactionBuilder extends TransactionBuilder
                     nft: undefined,
                 }
             }
-        ])
-        .addOpReturnOutput([swapEndianness(genesisUtxo.txid), binToHex(hash256(getFundHex(fund)))]);
+        ]);
+
+
+        const maxSize = 128;
+
+        const fundHex = getFundHex(fund);
+        const fundHexParts = [];
+        
+        let curr = 0;
+        let next = curr - genesisUtxo.txid.length + maxSize;
+
+        fundHexParts.push(genesisUtxo.txid + fundHex.slice(curr, curr - genesisUtxo.txid.length + maxSize));
+        curr = next;
+        next += maxSize
+
+        while(curr < fundHex.length) {
+            fundHexParts.push(fundHex.slice(curr, next));
+            curr = next;
+            next += maxSize
+        }
+
+        // only one op return is possible per transaction
+        // fundHexParts.forEach(part => {
+        //     this.addOpReturnOutput([part]);
+        // });
     }
 }

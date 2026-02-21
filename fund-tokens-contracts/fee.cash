@@ -1,14 +1,12 @@
 pragma cashscript ~0.13.0;
 
-contract FeeManager(pubkey owner, bytes ownerNft, int defaultValue)
+contract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)
 {
     function close(sig signature) {
         require(checkSig(signature, owner)); // verify owner
         int outputIndex = 0;
         do {
-            bytes thisContract = tx.inputs[this.activeInputIndex].lockingBytecode;
-            require(tx.outputs[outputIndex].lockingBytecode != thisContract); // unable to spend back to this contract
-            require(tx.outputs[outputIndex].tokenCategory == ownerNft); // the fee NFT is burned
+            require(tx.outputs[outputIndex].tokenCategory != tx.inputs[this.activeInputIndex].tokenCategory);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
     }
@@ -22,11 +20,15 @@ contract FeeManager(pubkey owner, bytes ownerNft, int defaultValue)
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         // if a token, it must be the owner's 
-        if(tx.inputs[this.activeInputIndex].tokenCategory == ownerNft) {
+        if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {
             bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
             bytes fee_amount, bytes fee_destination = fee_next1.split(8);
 
-            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination); // locking bytecode
+            if(fee_destination.length > 0) {
+                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination); // locking bytecode
+            } else {
+                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));
+            }
             
             if(int(fee_category) == 0) {
                 require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));

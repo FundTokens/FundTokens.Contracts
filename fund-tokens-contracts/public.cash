@@ -1,0 +1,44 @@
+pragma cashscript ~0.13.0;
+
+contract PublicFund(bytes20 bcmrDestination, bytes32 publicToken, bytes32 startupContract)
+{   
+    function broadcast(bytes fund) {
+        require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));
+
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 4].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex + 4].tokenCategory);
+
+        // require(tx.inputs[0].outpointIndex == 0);
+        // require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(bcmrDestination));
+        // require(tx.outputs[0].tokenCategory == 0x);
+
+        // require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);
+        // require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory);
+        // require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?
+
+        require(bcmrDestination != 0x);
+        require(publicToken != 0x);
+
+
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        require(nft_fundCategory != 0x);
+        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+        require(int(nft_fundAmount) > 0);
+        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
+        require(within(int(nft_satoshis), 0, 2100000000000000));
+
+        bytes lastAssetCategory = 0x;
+        do {
+            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
+            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
+            require(int(nft_assetAmount) > 0);
+
+            if(lastAssetCategory != 0x) {
+                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
+            }
+
+            nft_assets = nft_next4;
+            lastAssetCategory = nft_assetCategory;
+        } while(nft_assets.length > 0);
+    }
+}

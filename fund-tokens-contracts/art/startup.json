@@ -1,0 +1,106 @@
+{
+  "contractName": "FundStartup",
+  "constructorInputs": [
+    {
+      "name": "fee",
+      "type": "bytes32"
+    },
+    {
+      "name": "inflowToken",
+      "type": "bytes32"
+    },
+    {
+      "name": "outflowToken",
+      "type": "bytes32"
+    }
+  ],
+  "abi": [
+    {
+      "name": "start",
+      "inputs": [
+        {
+          "name": "fund",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "bytecode": "OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_3 OP_PICK 20 OP_SPLIT OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_0 0040075af07507 OP_WITHIN OP_VERIFY OP_0 OP_BEGIN OP_OVER 20 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_OVER OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_4 OP_PICK OP_0 OP_EQUAL OP_NOTIF OP_4 OP_PICK 00 OP_CAT OP_BIN2NUM OP_4 OP_PICK 00 OP_CAT OP_BIN2NUM OP_LESSTHAN OP_VERIFY OP_ENDIF OP_DUP OP_6 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_3 OP_PICK OP_5 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_2DROP OP_2DROP OP_OVER OP_SIZE OP_NIP OP_0 OP_LESSTHANOREQUAL OP_UNTIL OP_INPUTINDEX OP_1ADD OP_UTXOTOKENCATEGORY OP_5 OP_PICK OP_2 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_2 OP_ADD OP_UTXOTOKENCATEGORY OP_6 OP_PICK OP_2 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_UTXOBYTECODE aa20 OP_5 OP_ROLL OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_5 OP_ADD OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_5 OP_ADD OP_OUTPUTTOKENCOMMITMENT OP_3 OP_PICK OP_7 OP_PICK OP_HASH256 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_6 OP_ADD OP_OUTPUTTOKENCATEGORY OP_5 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_6 OP_ADD OP_OUTPUTTOKENCOMMITMENT OP_3 OP_ROLL OP_6 OP_ROLL OP_HASH256 OP_CAT OP_EQUALVERIFY OP_1 OP_BEGIN OP_DUP OP_INPUTINDEX OP_INPUTINDEX OP_8 OP_ADD OP_WITHIN OP_NOTIF OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUAL OP_NOT OP_VERIFY OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_5 OP_PICK OP_EQUAL OP_NOT OP_VERIFY OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n//bytes20 bcmrDestination,\r\ncontract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)\r\n{\r\n    // fund is expected to be sorted based on the nft category\r\n    function start(bytes fund) {\r\n        // require(bcmrDestination != 0x);\r\n        // require(tx.inputs[0].outpointIndex == 0);\r\n        // require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(bcmrDestination));\r\n        // require(tx.outputs[0].tokenCategory == 0x);\r\n\r\n        //\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n\r\n        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);\r\n        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);\r\n        require(int(nft_fundAmount) > 0);\r\n        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);\r\n        require(within(int(nft_satoshis), 0, 2100000000000000));\r\n\r\n        bytes lastAssetCategory = 0x;\r\n        do {\r\n            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);\r\n            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);\r\n            require(int(nft_assetAmount) > 0);\r\n\r\n            if(lastAssetCategory != 0x) {\r\n                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));\r\n            }\r\n\r\n            nft_assets = nft_next4;\r\n            lastAssetCategory = nft_assetCategory;\r\n        } while(nft_assets.length > 0);\r\n\r\n        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == bytes(inflowToken + 0x02));\r\n        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == bytes(outflowToken + 0x02));\r\n\r\n        require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(fee));\r\n\r\n        require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowToken);\r\n        require(tx.outputs[this.activeInputIndex + 5].nftCommitment == bytes(nft_fundCategory + hash256(fund)));\r\n        require(tx.outputs[this.activeInputIndex + 6].tokenCategory == outflowToken);\r\n        require(tx.outputs[this.activeInputIndex + 6].nftCommitment == bytes(nft_fundCategory + hash256(fund)));\r\n\r\n        // require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);\r\n        // require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory);\r\n        // require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?\r\n\r\n\r\n        // verify no more outputs mint tokens or fund tokens\r\n        int outputIndex = 1; // 0 is already validated\r\n        do {\r\n            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 8)) {\r\n                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);\r\n                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);\r\n                // require(tx.outputs[outputIndex].tokenCategory != inflowToken);\r\n                // require(tx.outputs[outputIndex].tokenCategory != outflowToken + 0x02);\r\n                // require(tx.outputs[outputIndex].tokenCategory != outflowToken);\r\n                // require(tx.outputs[outputIndex].tokenCategory != nft_fundCategory);\r\n            }\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
+  "debug": {
+    "bytecode": "c0c7c0cd88c0cec0d188c0cfc0d288537901207f587f7c8100a069587f7c8100070040075af07507a56900657801207f76587f788100a0695479008764547901007e81547901007e819f696876567a757c6b7c6b7c6b7c6b7c6c6c6c6c5379557a757c6b7c6b7c6b7c6c6c6c6d6d78827700a166c08bce5579527e88c05293ce5679527e88c05393c702aa20557a7e01877e88c05593d1547988c05593d253795779aa7e88c05693d1557988c05693d2537a567aaa7e88516576c0c05893a56476d101207f75547987916976d101207f75557987916968768b7776c4a2666d6d7551",
+    "sourceMap": "14:26:14:47;:16::64:1;:79::100:0;:68::117:1;:8::119;15:26:15:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;16:26:16:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;19:50:19:54:0;;:61::63;:50::64:1;20:64:20:65:0;:48::66:1;21:20:21:34:0;:16::35:1;:38::39:0;:16:::1;:8::41;22:63:22:64:0;:47::65:1;23:27:23:39:0;:23::40:1;:42::43:0;:45::61;:16::62:1;:8::64;25:34:25:36:0;26:8:37:39;27:55:27:65;:72::74;:55::75:1;28:53:28:62:0;:69::70;:53::71:1;29:24:29:39:0;:20::40:1;:43::44:0;:20:::1;:12::46;31:15:31:32:0;;:36::38;:15:::1;::33:13:0;32:28:32:45;;:48::52;:28:::1;:24::53;:60::77:0;;:80::84;:60:::1;:56::85;:24;:16::87;31:40:33:13;35:25:35:34:0;:12::35:1;;;;;;;;;;;;;;;;36:32:36:49:0;;:12::50:1;;;;;;;;;;;;;26:11:37:9;;37:16::26:0;:::33:1;;:36::37:0;26:8::39:1;;39:26:39:47:0;:::51:1;:16::66;:76::87:0;;:90::94;:76:::1;:8::97;40:26:40:47:0;:50::51;:26:::1;:16::66;:76::88:0;;:91::95;:76:::1;:8::98;42:26:42:47:0;:50::51;:26:::1;:16::68;:72::102:0;:98::101;;:72::102:1;;;:8::104;44:27:44:48:0;:51::52;:27:::1;:16::67;:71::82:0;;:8::84:1;45:27:45:48:0;:51::52;:27:::1;:16::67;:77::93:0;;:104::108;;:96::109:1;:77;:8::112;46:27:46:48:0;:51::52;:27:::1;:16::67;:71::83:0;;:8::85:1;47:27:47:48:0;:51::52;:27:::1;:16::67;:77::93:0;;:104::108;;:96::109:1;:77;:8::112;55:26:55:27:0;56:8:66:49;57:23:57:34;:36::57;:59::80;:83::84;:59:::1;:16::85;:15:64:13:0;58:35:58:46;:24::61:1;:71::73:0;:24::74:1;;:78::89:0;;:24:::1;;:16::91;59:35:59:46:0;:24::61:1;:71::73:0;:24::74:1;;:78::90:0;;:24:::1;;:16::92;57:87:64:13;65:26:65:37:0;:::41:1;:12::42;66:16:66:27:0;:30::47;56:8::49:1;;7:4:67:5;;;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 7,
+        "line": 14
+      },
+      {
+        "ip": 12,
+        "line": 15
+      },
+      {
+        "ip": 17,
+        "line": 16
+      },
+      {
+        "ip": 28,
+        "line": 21
+      },
+      {
+        "ip": 36,
+        "line": 23
+      },
+      {
+        "ip": 49,
+        "line": 29
+      },
+      {
+        "ip": 66,
+        "line": 32
+      },
+      {
+        "ip": 115,
+        "line": 39
+      },
+      {
+        "ip": 124,
+        "line": 40
+      },
+      {
+        "ip": 135,
+        "line": 42
+      },
+      {
+        "ip": 142,
+        "line": 44
+      },
+      {
+        "ip": 153,
+        "line": 45
+      },
+      {
+        "ip": 160,
+        "line": 46
+      },
+      {
+        "ip": 171,
+        "line": 47
+      },
+      {
+        "ip": 190,
+        "line": 58
+      },
+      {
+        "ip": 200,
+        "line": 59
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.1"
+  },
+  "updatedAt": "2026-02-21T04:45:22.821Z"
+}

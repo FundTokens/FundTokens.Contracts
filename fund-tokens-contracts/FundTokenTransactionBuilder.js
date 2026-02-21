@@ -9,7 +9,7 @@ import {
     binToHex,
 } from '@bitauth/libauth';
 import {
-    getFundHex,
+    getFundBin,
     hashFund,
     getBestFee,
 } from './utils.js';
@@ -153,7 +153,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         this.addInputs([
             {
                 ...inflowUtxo,
-                unlocker: managerContract.unlock.inflow(getFundHex(fund)),
+                unlocker: managerContract.unlock.inflow(getFundBin(fund)),
             },
             {
                 ...fundUtxo,
@@ -305,7 +305,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         this.addInputs([
             {
                 ...outflowUtxo,
-                unlocker: managerContract.unlock.outflow(getFundHex(fund))
+                unlocker: managerContract.unlock.outflow(getFundBin(fund))
             },
             {
                 ...fundUtxo,

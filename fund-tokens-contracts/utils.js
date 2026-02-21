@@ -42,7 +42,11 @@ export function getFundHex(fund) {
         hex.push(swapEndianness(asset.category)); // 32 bytes
         hex.push(binToHex(bigIntToBinUint64LEClamped(asset.amount))); // 8 bytes
     });
-    return hexToBin(hex.join(''));
+    return hex.join('');
+}
+
+export function getFundBin(fund) {
+    return hexToBin(getFundHex(fund));
 }
 
 export function getFund(hex) {
@@ -63,7 +67,7 @@ export function getFund(hex) {
     return fund;
 }
 
-export const hashFund = fund => binToHex(hash256(getFundHex(fund)));
+export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
 export async function getBestFee({ feeContract, payBy, fee }) {
     const network = feeContract.provider.network;

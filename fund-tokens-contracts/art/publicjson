@@ -1,0 +1,82 @@
+{
+  "contractName": "PublicFund",
+  "constructorInputs": [
+    {
+      "name": "bcmrDestination",
+      "type": "bytes20"
+    },
+    {
+      "name": "publicToken",
+      "type": "bytes32"
+    },
+    {
+      "name": "startupContract",
+      "type": "bytes32"
+    }
+  ],
+  "abi": [
+    {
+      "name": "broadcast",
+      "inputs": [
+        {
+          "name": "fund",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "bytecode": "OP_INPUTINDEX OP_4 OP_SUB OP_UTXOBYTECODE aa20 OP_4 OP_ROLL OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_4 OP_ADD OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_4 OP_ADD OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_0 OP_EQUAL OP_NOT OP_VERIFY OP_0 OP_EQUAL OP_NOT OP_VERIFY 20 OP_SPLIT OP_SWAP OP_0 OP_EQUAL OP_NOT OP_VERIFY OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_0 0040075af07507 OP_WITHIN OP_VERIFY OP_0 OP_BEGIN OP_OVER 20 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_OVER OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_4 OP_PICK OP_0 OP_EQUAL OP_NOTIF OP_4 OP_PICK 00 OP_CAT OP_BIN2NUM OP_4 OP_PICK 00 OP_CAT OP_BIN2NUM OP_LESSTHAN OP_VERIFY OP_ENDIF OP_DUP OP_6 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_3 OP_PICK OP_5 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_2DROP OP_2DROP OP_OVER OP_SIZE OP_NIP OP_0 OP_LESSTHANOREQUAL OP_UNTIL OP_2DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract PublicFund(bytes20 bcmrDestination, bytes32 publicToken, bytes32 startupContract)\r\n{   \r\n    function broadcast(bytes fund) {\r\n        require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 4].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex + 4].tokenCategory);\r\n\r\n        // require(tx.inputs[0].outpointIndex == 0);\r\n        // require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(bcmrDestination));\r\n        // require(tx.outputs[0].tokenCategory == 0x);\r\n\r\n        // require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);\r\n        // require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory);\r\n        // require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?\r\n\r\n        require(bcmrDestination != 0x);\r\n        require(publicToken != 0x);\r\n\r\n\r\n        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);\r\n        require(nft_fundCategory != 0x);\r\n        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);\r\n        require(int(nft_fundAmount) > 0);\r\n        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);\r\n        require(within(int(nft_satoshis), 0, 2100000000000000));\r\n\r\n        bytes lastAssetCategory = 0x;\r\n        do {\r\n            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);\r\n            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);\r\n            require(int(nft_assetAmount) > 0);\r\n\r\n            if(lastAssetCategory != 0x) {\r\n                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));\r\n            }\r\n\r\n            nft_assets = nft_next4;\r\n            lastAssetCategory = nft_assetCategory;\r\n        } while(nft_assets.length > 0);\r\n    }\r\n}\r\n",
+  "debug": {
+    "bytecode": "c05494c702aa20547a7e01877e88c0c7c05493cd88c0cec05493d188008791690087916901207f7c00879169587f7c8100a069587f7c8100070040075af07507a56900657801207f76587f788100a0695479008764547901007e81547901007e819f696876567a757c6b7c6b7c6b7c6b7c6c6c6c6c5379557a757c6b7c6b7c6b7c6c6c6c6d6d78827700a1666d51",
+    "sourceMap": "6:26:6:47;:50::51;:26:::1;:16::68;:72::114:0;:98::113;;:72::114:1;;;:8::116;8:26:8:47:0;:16::64:1;:79::100:0;:103::104;:79:::1;:68::121;:8::123;9:26:9:47:0;:16::62:1;:77::98:0;:101::102;:77:::1;:66::117;:8::119;19:35:19:37:0;:16:::1;;:8::39;20:31:20:33:0;:16:::1;;:8::35;23:61:23:63:0;:50::64:1;24:16:24:32:0;:36::38;:16:::1;;:8::40;25:64:25:65:0;:48::66:1;26:20:26:34:0;:16::35:1;:38::39:0;:16:::1;:8::41;27:63:27:64:0;:47::65:1;28:27:28:39:0;:23::40:1;:42::43:0;:45::61;:16::62:1;:8::64;30:34:30:36:0;31:8:42:39;32:55:32:65;:72::74;:55::75:1;33:53:33:62:0;:69::70;:53::71:1;34:24:34:39:0;:20::40:1;:43::44:0;:20:::1;:12::46;36:15:36:32:0;;:36::38;:15:::1;::38:13:0;37:28:37:45;;:48::52;:28:::1;:24::53;:60::77:0;;:80::84;:60:::1;:56::85;:24;:16::87;36:40:38:13;40:25:40:34:0;:12::35:1;;;;;;;;;;;;;;;;41:32:41:49:0;;:12::50:1;;;;;;;;;;;;;31:11:42:9;;42:16::26:0;:::33:1;;:36::37:0;31:8::39:1;;5:4:43:5;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 13,
+        "line": 6
+      },
+      {
+        "ip": 20,
+        "line": 8
+      },
+      {
+        "ip": 27,
+        "line": 9
+      },
+      {
+        "ip": 31,
+        "line": 19
+      },
+      {
+        "ip": 35,
+        "line": 20
+      },
+      {
+        "ip": 42,
+        "line": 24
+      },
+      {
+        "ip": 49,
+        "line": 26
+      },
+      {
+        "ip": 57,
+        "line": 28
+      },
+      {
+        "ip": 70,
+        "line": 34
+      },
+      {
+        "ip": 87,
+        "line": 37
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.1"
+  },
+  "updatedAt": "2026-02-21T04:45:22.564Z"
+}

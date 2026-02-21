@@ -17,7 +17,7 @@ import {
 } from '@bitauth/libauth';
 
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
-import BroadcastTokenTransactionBuilder from './BroadcastTokenTransactionBuilder.js';
+import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
 
 const secp256k1 = await instantiateSecp256k1();
 const ripemd160 = await instantiateRipemd160();
@@ -70,7 +70,7 @@ const outflowMintUtxo = randomUtxo({
     })
 });
 
-const broadcastSystem = {
+const publicFundSystem = {
     inflow: inflowMintUtxo.token.category,
     outflow: outflowMintUtxo.token.category,
     authHead: authHeadOwnerWallet.pubKeyHashHex,
@@ -86,21 +86,21 @@ const broadcastSystem = {
     }
 };
 
-const broadcastUtxo = randomUtxo();
-const broadcastFeeUtxo = randomUtxo();
+const startupUtxo = randomUtxo();
+const startupFeeUtxo = randomUtxo();
 
 
-const broadcastBuilder = new BroadcastTokenTransactionBuilder({ provider, system: broadcastSystem });
+const publicFundBuilder = new PublicFundTransactionBuilder({ provider, system: publicFundSystem });
 
 ///
 // mock setup
 ///
-const { broadcastContract, mintContract, feeContract: broadcastFeeContract } = broadcastBuilder.buildContracts();
+const { startupContract, mintContract, feeContract: broadcastFeeContract } = publicFundBuilder.buildContracts();
 
-provider.addUtxo(broadcastContract.tokenAddress, broadcastUtxo);
+provider.addUtxo(startupContract.tokenAddress, startupUtxo);
 provider.addUtxo(mintContract.tokenAddress, inflowMintUtxo);
 provider.addUtxo(mintContract.tokenAddress, outflowMintUtxo);
-provider.addUtxo(broadcastFeeContract.tokenAddress, broadcastFeeUtxo); // default fee
+provider.addUtxo(broadcastFeeContract.tokenAddress, startupFeeUtxo); // default fee
 
 ///
 // create a new fund
@@ -173,7 +173,7 @@ const fund = {
 ///
 // broadcast a new fund transaction
 ///
-const broadcastTransaction = await broadcastBuilder.newBroadcastTransaction({ fund, genesis: { utxo: genesisUtxo, unlocker: userWallet.signatureTemplate.unlockP2PKH() } });
+const broadcastTransaction = await publicFundBuilder.newBroadcastTransaction({ fund, genesis: { utxo: genesisUtxo, unlocker: userWallet.signatureTemplate.unlockP2PKH() } });
 const broadcastDetails = await broadcastTransaction.send();
 console.log('broadcast size:', broadcastDetails.hex.length / 2);
 
