@@ -5,11 +5,6 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 {
     // fund is expected to be sorted based on the nft category
     function start(bytes fund) {
-        // require(bcmrDestination != 0x);
-        // require(tx.inputs[0].outpointIndex == 0);
-        // require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(bcmrDestination));
-        // require(tx.outputs[0].tokenCategory == 0x);
-
         //
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
@@ -51,16 +46,12 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         // require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?
 
 
-        // verify no more outputs mint tokens or fund tokens
+        // verify no more outputs mint tokens
         int outputIndex = 1; // 0 is already validated
         do {
             if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 8)) {
                 require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);
                 require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);
-                // require(tx.outputs[outputIndex].tokenCategory != inflowToken);
-                // require(tx.outputs[outputIndex].tokenCategory != outflowToken + 0x02);
-                // require(tx.outputs[outputIndex].tokenCategory != outflowToken);
-                // require(tx.outputs[outputIndex].tokenCategory != nft_fundCategory);
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);

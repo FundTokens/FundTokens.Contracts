@@ -40,5 +40,18 @@ contract PublicFund(bytes20 bcmrDestination, bytes32 publicToken, bytes32 startu
             nft_assets = nft_next4;
             lastAssetCategory = nft_assetCategory;
         } while(nft_assets.length > 0);
+
+
+
+
+        // verify no more outputs, fund tokens, public token
+        // int outputIndex = 1; // 0 is already validated
+        // do {
+        //     if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 8)) {
+        //         require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);
+        //         require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);
+        //     }
+        //     outputIndex = outputIndex + 1;
+        // } while(outputIndex < tx.outputs.length);
     }
 }

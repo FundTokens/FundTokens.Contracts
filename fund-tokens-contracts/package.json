@@ -13,6 +13,6 @@
     "build": "yarn build:fund && yarn build:startup && yarn build:system",
     "build:fund": "cashc ./manager.cash --output ./art/manager.json && cashc ./fund.cash --output ./art/fund.json && cashc ./asset.cash --output ./art/asset.json",
     "build:startup": "cashc ./public.cash --output ./art/publicjson && cashc ./startup.cash --output ./art/startup.json && cashc ./fee.cash --output ./art/fee.json && cashc ./mint.cash --output ./art/mint.json",
-    "build:system": "cashc ./system.cash --output ./art/system.json"
+    "build:system": "cashc ./fee_minter.cash --output ./art/fee_minter.json && cashc ./simple_minter.cash --output ./art/simple_minter.json"
   }
 }
