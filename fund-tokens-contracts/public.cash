@@ -1,27 +1,28 @@
 pragma cashscript ~0.13.0;
 
-contract PublicFund(bytes20 bcmrDestination, bytes32 publicToken, bytes32 startupContract)
+contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 next)
 {   
     function broadcast(bytes fund) {
-        require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));
+        require(tx.inputs[0].outpointIndex == 0);
+        require(tx.inputs[0].tokenCategory == 0x);
+
+        require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(authHeadDestination));
+        require(tx.outputs[0].tokenCategory == 0x);
+
+
+        require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(next));
 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 4].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex + 4].tokenCategory);
 
-        // require(tx.inputs[0].outpointIndex == 0);
-        // require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(bcmrDestination));
-        // require(tx.outputs[0].tokenCategory == 0x);
 
-        // require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);
-        // require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory);
-        // require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?
 
-        require(bcmrDestination != 0x);
-        require(publicToken != 0x);
+        require(token != 0x);
 
 
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
         require(nft_fundCategory != 0x);
+        require(nft_fundCategory == tx.inputs[0].outpointTransactionHash);
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
         require(int(nft_fundAmount) > 0);
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
@@ -43,15 +44,20 @@ contract PublicFund(bytes20 bcmrDestination, bytes32 publicToken, bytes32 startu
 
 
 
+        require(tx.outputs[this.activeInputIndex + 7].tokenCategory == tx.inputs[0].outpointTransactionHash);
+        require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?
+
+
+
 
         // verify no more outputs, fund tokens, public token
-        // int outputIndex = 1; // 0 is already validated
-        // do {
-        //     if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 8)) {
-        //         require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);
-        //         require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);
-        //     }
-        //     outputIndex = outputIndex + 1;
-        // } while(outputIndex < tx.outputs.length);
+        int outputIndex = 1; // 0 is already validated
+        do {
+            if(!within(outputIndex, this.activeInputIndex - 4, this.activeInputIndex + 4)) { // able to improve
+                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
+                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
     }
 }
