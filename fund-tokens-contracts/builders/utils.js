@@ -120,3 +120,6 @@ export async function getBestFee({ feeContract, payBy, fee }) {
     };
     return bestFee;
 }
+
+//
+export const getRandomInt = max => Math.floor(Math.random() * max);

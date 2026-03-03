@@ -1,0 +1,1 @@
+export const DustAmount = 1000n;

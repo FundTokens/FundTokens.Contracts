@@ -22,10 +22,6 @@ import feeJson from './art/fee.json' with { type: 'json' };
 import feeMinterJson from './art/fee_minter.json' with { type: 'json' };
 import simpleMinterJson from './art/simple_minter.json' with { type: 'json' };
 
-const DustAmount = 1000n;
-
-const getRandomInt = max => Math.floor(Math.random() * max);
-
 export default class SystemTransactionBuilder extends TransactionBuilder {
     #system = {
         inflow: '', // 32 byte, tx id/token id
