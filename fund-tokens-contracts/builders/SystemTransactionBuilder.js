@@ -1,6 +1,5 @@
 import {
     Contract,
-    Network,
     TransactionBuilder,
 } from 'cashscript';
 import {
@@ -8,15 +7,8 @@ import {
     hash256,
     hexToBin,
     binToHex,
-    encodeCashAddress,
 } from '@bitauth/libauth';
-import {
-    getBestFee,
-    getFundBin,
-    getFundHex,
-} from './utils.js';
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
-import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 
 import feeJson from './art/fee.json' with { type: 'json' };
 import feeMinterJson from './art/fee_minter.json' with { type: 'json' };
@@ -53,6 +45,14 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
             },
         },
     };
+    #contracts = {
+        startupContract: null,
+        inflowHoldingContract: null,
+        outflowHoldingContract: null,
+        publicDetailsHoldingContract: null,
+        mintCreateFundFee: null,
+        mintExecuteFundFee: null,
+    };
     #logger = console;
 
     constructor({
@@ -78,36 +78,80 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                 }
             }
         };
-
-        this.#logger = logger ?? console;
+        this.#logger = logger ?? this.#logger;
+        this.#buildContracts();
     }
 
-    buildContracts() {
+    #buildContracts() {
         const publicFundBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
 
-        const createFundFeeContract = new Contract();
-
-        const executeFundFeeContract = new Contract();
-
-        // startupContract,
-        const { mintContract, publicDetailsContract } = publicFundBuilder.buildContracts();
-
+        const { mintContract, startupContract, publicDetailsContract } = publicFundBuilder.buildContracts();
+        
         const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
         
         
         const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
-
+        
         const publicDetailsDestination = binToHex(hash256(hexToBin(publicDetailsContract)));
         const publicDetailsHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicDetailsDestination], { provider: this.provider });
-
+        
+        const createFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
         const createFundFeeDestination = binToHex(hash256(hexToBin(createFundFeeContract.bytecode)));
-        const mintCreateFundFee = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
-
+        const mintCreateFundFee = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
+        
+        const executeFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
         const executeFundFeeDestination = binToHex(hash256(hexToBin(executeFundFeeContract.bytecode)));
-        const mintExecuteFundFee = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
+        const mintExecuteFundFee = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
-        return { inflowHoldingContract, outflowHoldingContract, publicDetailsHoldingContract, mintCreateFundFee, mintExecuteFundFee };
+        this.#contracts = { startupContract, inflowHoldingContract, outflowHoldingContract, publicDetailsHoldingContract, mintCreateFundFee, mintExecuteFundFee };
+    }
+
+    getContracts() {
+        return this.#contracts;
+    }
+    
+    addNewThread() {
+
+    }
+
+    addInflowThread() {
+    }
+
+    addOutflowThread() {
+    }
+
+    addPublicThread() {
+
+    }
+
+    addNewFee() {
+
+    }
+
+    addCreateFundFee(fee) {
+        if(!fee) {
+            // TODO: default fee
+        } else {
+            const {
+                category,
+                amount,
+                destination,
+            } = fee;
+        }
+    }
+
+    addExecuteFundFee() {
+
+    }
+
+    // should only be invoked once to initialize the system
+    initializeSystem() {
+        // TODO:
+        this.addInflowThread();
+        this.addOutflowThread();
+        this.addCreateFundFee();
+        this.addExecuteFundFee();
     }
 }

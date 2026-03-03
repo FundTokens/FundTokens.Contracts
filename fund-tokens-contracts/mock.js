@@ -1,43 +1,14 @@
 import {
     MockNetworkProvider,
-    SignatureTemplate,
     randomUtxo,
     randomToken,
     randomNFT,
 } from 'cashscript';
-import {
-    instantiateSecp256k1,
-    instantiateRipemd160,
-    instantiateSha256,
-    generatePrivateKey,
-    binToHex,
-    hexToBin,
-    encodeCashAddress,
-    decodeTransaction,
-} from '@bitauth/libauth';
 
+import { DustAmount } from './builders/constants.js';
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
-
-const secp256k1 = await instantiateSecp256k1();
-const ripemd160 = await instantiateRipemd160();
-const sha256 = await instantiateSha256();
-
-const network = 'mocknet';
-
-const DustAmount = 1000n;
-
-const generateWallet = () => {
-    const privateKey = generatePrivateKey();
-    const pubKeyBin = secp256k1.derivePublicKeyCompressed(privateKey);
-    const pubKeyHex = binToHex(pubKeyBin);
-    const signatureTemplate = new SignatureTemplate(privateKey);
-    const pubKeyHash = ripemd160.hash(sha256.hash(pubKeyBin));
-    const pubKeyHashHex = binToHex(pubKeyHash);
-    const encoded = encodeCashAddress({ prefix: network === 'mainnet' ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
-    const address = typeof encoded === 'string' ? encoded : encoded.address;
-    return { privateKey, pubKeyHex, pubKeyHash, pubKeyHashHex, signatureTemplate, address, tokenAddress: address };
-};
+import { generateWallet } from './wallet.js';
 
 const provider = new MockNetworkProvider({
     updateUtxoSet: true,
