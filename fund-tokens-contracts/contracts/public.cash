@@ -4,6 +4,8 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 broadcas
 {   
     // new threads? okay because it's meant to be read-only?
     function broadcast(bytes fund) {
+        require(fundTokenContract != 0x); // TODO send the token here
+
         require(tx.inputs[0].outpointIndex == 0);
         require(tx.inputs[0].tokenCategory == 0x);
 

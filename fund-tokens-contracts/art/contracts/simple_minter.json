@@ -1,0 +1,85 @@
+{
+  "contractName": "SimpleMinter",
+  "constructorInputs": [
+    {
+      "name": "owner",
+      "type": "pubkey"
+    },
+    {
+      "name": "token",
+      "type": "bytes32"
+    },
+    {
+      "name": "destination",
+      "type": "bytes32"
+    }
+  ],
+  "abi": [
+    {
+      "name": "mint",
+      "inputs": [
+        {
+          "name": "signature",
+          "type": "sig"
+        }
+      ]
+    }
+  ],
+  "bytecode": "OP_3 OP_ROLL OP_SWAP OP_CHECKSIGVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_0 OP_BEGIN OP_DUP OP_INPUTINDEX OP_NUMNOTEQUAL OP_OVER OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_3 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_DUP OP_OUTPUTBYTECODE aa20 OP_4 OP_PICK OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENCOMMITMENT OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_EQUALVERIFY OP_ENDIF OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract SimpleMinter(pubkey owner, bytes32 token, bytes32 destination)\r\n{\r\n    function mint(sig signature) {\r\n        require(checkSig(signature, owner));\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        int outputIndex = 0;\r\n        do {\r\n            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {\r\n                require(tx.outputs[outputIndex].lockingBytecode == new LockingBytecodeP2SH32(destination));\r\n                require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);\r\n                require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);\r\n                require(tx.outputs[outputIndex].nftCommitment == tx.inputs[this.activeInputIndex].nftCommitment);\r\n            }\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
+  "debug": {
+    "bytecode": "537a7cadc0c7c0cd88c0ce01207f757888c0cec0d188c0d0c0d39dc0cfc0d288006576c09e78d101207f755379879a6376cd02aa2054797e01877e8876d1c0ce8876d3c0d09d76d2c0cf886876c4a2666d7551",
+    "sourceMap": "6:25:6:34;;:36::41;:8::44:1;8:26:8:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;9:26:9:47:0;:16::62:1;:72::74:0;:16::75:1;;:79::84:0;:8::86:1;10:26:10:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;11:26:11:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;12:26:12:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;14:26:14:27:0;15:8:22:49;16:15:16:26;:30::51;:15:::1;:66::77:0;:55::92:1;:102::104:0;:55::105:1;;:109::114:0;;:55:::1;:15;:116:21:13:0;17:35:17:46;:24::63:1;:67::105:0;:93::104;;:67::105:1;;;:16::107;18:35:18:46:0;:24::61:1;:75::96:0;:65::111:1;:16::113;19:35:19:46:0;:24::59:1;:73::94:0;:63::107:1;:16::109;20:35:20:46:0;:24::61:1;:75::96:0;:65::111:1;:16::113;16:116:21:13;22:16:22:27:0;:30::47;15:8::49:1;;5:4:23:5;;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 6,
+        "line": 6
+      },
+      {
+        "ip": 11,
+        "line": 8
+      },
+      {
+        "ip": 18,
+        "line": 9
+      },
+      {
+        "ip": 23,
+        "line": 10
+      },
+      {
+        "ip": 28,
+        "line": 11
+      },
+      {
+        "ip": 33,
+        "line": 12
+      },
+      {
+        "ip": 57,
+        "line": 17
+      },
+      {
+        "ip": 62,
+        "line": 18
+      },
+      {
+        "ip": 67,
+        "line": 19
+      },
+      {
+        "ip": 72,
+        "line": 20
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.4",
+    "options": {
+      "enforceFunctionParameterTypes": true
+    }
+  },
+  "updatedAt": "2026-03-03T17:55:04.676Z"
+}
