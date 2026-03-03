@@ -9,6 +9,7 @@ import {
     binToHex,
 } from '@bitauth/libauth';
 
+import { DustAmount } from './constants.js';
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
 
 import feeJson from './art/fee.json' with { type: 'json' };
@@ -25,11 +26,11 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         fees: {
             create: {
                 nft: '', // 32 byte, tx id/token id
-                value: -1n,
+                value: -1n, // bigint
             },
             execute: {
                 nft: '', // 32 byte, tx id/token id
-                value: -1n,
+                value: -1n, // bigint
             }
         },
     };
@@ -54,7 +55,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         inflowHoldingContract: null,
         outflowHoldingContract: null,
         publicFundHoldingContract: null,
-        
+
         mintCreateFundFeeContract: null,
         createFundFeeContract: null,
 
@@ -153,24 +154,21 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const contract = this.#contracts.inflowHoldingContract;
         const to = this.#contracts.mintContract.tokenAddress;
         const nft = this.#system.inflow;
-        this.#addThread({ contract, to, nft });
-        return this;
+        return this.#addThread({ contract, to, nft });
     }
 
     addOutflowThread() {
         const contract = this.#contracts.inflowHoldingContract;
         const to = this.#contracts.mintContract.tokenAddress;
         const nft = this.#system.inflow;
-        this.#addThread({ contract, to, nft });
-        return this;
+        return this.#addThread({ contract, to, nft });
     }
 
     addPublicThread() {
         const contract = this.#contracts.inflowHoldingContract;
         const to = this.#contracts.publicFundContract.tokenAddress;
         const nft = this.#system.inflow;
-        this.#addThread({ contract, to, nft });
-        return this;
+        return this.#addThread({ contract, to, nft });
     }
 
     async #addFee(newFee, { contract, to, nft }) {
@@ -208,45 +206,100 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         return this;
     }
 
-    async addCreateFundFee(fee) {
+    addCreateFundFee(fee) {
         const contract = this.#contracts.mintCreateFundFeeContract;
         const to = this.#contracts.createFundFeeContract.tokenAddress;
         const nft = this.#system.fees.create.nft;
-
-        this.#addFee(fee, { contract, to, nft });
-        return this;
+        return this.#addFee(fee, { contract, to, nft });
     }
 
     addExecuteFundFee(newFee) {
         const contract = this.#contracts.mintExecuteFundFeeContract;
         const to = this.#contracts.executeFundFeeContract.tokenAddress;
         const nft = this.#system.fees.execute.nft;
-
-        this.#addFee(newFee, { contract, to, nft });
-        return this;
+        return this.#addFee(newFee, { contract, to, nft });
     }
 
-    // should only be invoked once to initialize the system
-    initializeSystem({
+    // can only be invoked once to initialize the system
+    addInitializeSystem({
         inflowGenesisUtxo,
         outflowGenesisUtxo,
         publicFundGenesisUtxo,
+        createFundFeeGenesisUtxo,
+        executeFundFeeGenesisUtxo,
     }) {
+        const ensureValidGenesisUtxo = utxo => {
+            if (utxo.token) {
+                throw new Error('Genesis utxos must have no tokens');
+            }
+            if (utxo.vout !== 0) {
+                throw new Error('Genesis utxos must be vout 0')
+            }
+        }
+
         if (!this.inputs.length || !this.outputs.length) {
             throw new Error('No inputs or outputs should be added before initializing system');
         }
-        if (inflowGenesisUtxo.token || outflowGenesisUtxo.token || publicFundGenesisUtxo) {
-            throw new Error('Genesis utxos must have no tokens');
-        }
-        if (inflowGenesisUtxo.vout !== 0 || outflowGenesisUtxo.vout !== 0 || publicFundGenesisUtxo.vout !== 0) {
-            throw new Error('Genesis utxos must be vout 0')
-        }
 
-        this.addInputs([inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo]);
-        // TODO:
-        this.addInflowThread();
-        this.addOutflowThread();
-        this.addCreateFundFee(); // default fee
-        this.addExecuteFundFee(); // default fee
+        [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo].forEach(ensureValidGenesisUtxo);
+
+        this.addInputs([inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo])
+            .addOutputs([
+                {
+                    to: this.#contracts.inflowHoldingContract.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: inflowGenesisUtxo.txid,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                        }
+                    }
+                },
+                {
+                    to: this.#contracts.outflowHoldingContract.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: outflowGenesisUtxo.txid,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                        }
+                    }
+                },
+                {
+                    to: this.#contracts.publicFundHoldingContract.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: publicFundGenesisUtxo.txid,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                        }
+                    }
+                },
+                {
+                    to: this.#contracts.mintCreateFundFeeContract.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: createFundFeeGenesisUtxo.txid,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                        }
+                    }
+                },
+                {
+                    to: this.#contracts.mintExecuteFundFeeContract.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: executeFundFeeGenesisUtxo.txid,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                        }
+                    }
+                }
+            ]);
     }
 }
