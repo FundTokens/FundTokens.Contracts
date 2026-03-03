@@ -7,10 +7,10 @@
   resolved "https://registry.yarnpkg.com/@bitauth/libauth/-/libauth-3.1.0-next.8.tgz#d130e5db6c3c8b24731c8d04c4091be07f48b0ee"
   integrity sha512-Pm+Ju+YP3JeBLLTiVrBnia2wwE4G17r4XqpvPRMcklElJTe8J6x3JgKRg1by0Xm3ZY6UFxACkEAoSA+x419/zA==
 
-"@cashscript/utils@^0.13.0-next.1":
-  version "0.13.0-next.1"
-  resolved "https://registry.yarnpkg.com/@cashscript/utils/-/utils-0.13.0-next.1.tgz#2791e6c77371ea847a2a3863731b1b2bfead8317"
-  integrity sha512-TDR9XmiViXJnhNfT+Pa/6WQomquELlIwh4wrQpyG1AO2+XjnYpe6YRMZpg96YSBsjY3Ann+yrtfM15DhklNkYA==
+"@cashscript/utils@^0.13.0-next.4":
+  version "0.13.0-next.4"
+  resolved "https://registry.yarnpkg.com/@cashscript/utils/-/utils-0.13.0-next.4.tgz#9ec77d9ce82b8c009a75acd3dc7126ead0394844"
+  integrity sha512-XOCk/eRlTE6FQ6QTEwxjEceUcM5EIH52IOGQrDJDVLne4dN9orhJA+Qdwvq2s0MOGbJAHcazFTnK+3X1ZX/7QA==
   dependencies:
     "@bitauth/libauth" "^3.1.0-next.8"
 
@@ -82,27 +82,27 @@ async-mutex@^0.5.0:
   dependencies:
     tslib "^2.4.0"
 
-cashc@0.13.0-next.1:
-  version "0.13.0-next.1"
-  resolved "https://registry.yarnpkg.com/cashc/-/cashc-0.13.0-next.1.tgz#276b9a87fd5be5b4ab29919a97610993f6ff9c12"
-  integrity sha512-yDHNxND6FAbRxOA8TQ9397u2rWo8wFcnUNGKQyN/NzzfPjLcbefX6IWCYl/JFq0nsRmFug2K4vR+FOKXp0GqlQ==
+cashc@0.13.0-next.4:
+  version "0.13.0-next.4"
+  resolved "https://registry.yarnpkg.com/cashc/-/cashc-0.13.0-next.4.tgz#95c797282bdf726fdfd20c41d4f3ddb264720b09"
+  integrity sha512-uUCB+enf5Siwjqps3mfq3UajdREYKvRVzm1HqxpuDA5gVDPkt5iORePjmcZXBVW8g0DiyHYYuXS/oAuyA7ZkuQ==
   dependencies:
     "@bitauth/libauth" "^3.1.0-next.8"
-    "@cashscript/utils" "^0.13.0-next.1"
+    "@cashscript/utils" "^0.13.0-next.4"
     antlr4 "^4.13.2"
     commander "^14.0.0"
     semver "^7.7.2"
 
-cashscript@0.13.0-next.1:
-  version "0.13.0-next.1"
-  resolved "https://registry.yarnpkg.com/cashscript/-/cashscript-0.13.0-next.1.tgz#83f351ebb64e39c20c75aaecb41a6ce63081d68c"
-  integrity sha512-mi3kDVPU7Y0EDkOjadJ65c7kh6j91nPEPWhsZUzgpViCGeitwk6cKM9YVtuAciH/3rRVRit+LsK8tdXrHYDuZA==
+cashscript@0.13.0-next.4:
+  version "0.13.0-next.4"
+  resolved "https://registry.yarnpkg.com/cashscript/-/cashscript-0.13.0-next.4.tgz#7215493b2b3511b5ecddd226da8ade8cdb51f8b5"
+  integrity sha512-DLkqzfKP7jaMVVpW40yXTPFQQwdBkNKWBFbjgkrJ/1Lps9YIpVBqVWHZnZVz11/do7A3guUtqIICe8SGXbSkXQ==
   dependencies:
     "@bitauth/libauth" "^3.1.0-next.8"
-    "@cashscript/utils" "^0.13.0-next.1"
+    "@cashscript/utils" "^0.13.0-next.4"
     "@electrum-cash/network" "^4.1.3"
     "@mr-zwets/bchn-api-wrapper" "^1.0.1"
-    pako "^2.1.0"
+    fflate "^0.8.2"
     semver "^7.7.2"
 
 commander@^14.0.0:
@@ -122,6 +122,11 @@ eventemitter3@^5.0.1:
   resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-5.0.1.tgz#53f5ffd0a492ac800721bb42c66b841de96423c4"
   integrity sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==
 
+fflate@^0.8.2:
+  version "0.8.2"
+  resolved "https://registry.yarnpkg.com/fflate/-/fflate-0.8.2.tgz#fc8631f5347812ad6028bbe4a2308b2792aa1dea"
+  integrity sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==
+
 lossless-json@^4.0.1:
   version "4.3.0"
   resolved "https://registry.yarnpkg.com/lossless-json/-/lossless-json-4.3.0.tgz#7d26864820ecf08aee800213fc193666e794802a"
@@ -131,11 +136,6 @@ ms@^2.1.3:
   version "2.1.3"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.3.tgz#574c8138ce1d2b5861f0b44579dbadd60c6615b2"
   integrity sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==
-
-pako@^2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/pako/-/pako-2.1.0.tgz#266cc37f98c7d883545d11335c00fbd4062c9a86"
-  integrity sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==
 
 semver@^7.7.2:
   version "7.7.3"

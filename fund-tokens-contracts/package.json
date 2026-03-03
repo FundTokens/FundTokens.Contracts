@@ -1,18 +1,18 @@
 {
-  "name": "fundTokens-contracts",
-  "version": "0.0.2",
+  "name": "fund-tokens-contracts",
+  "version": "0.1.0",
   "type": "module",
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "cashc": "0.13.0-next.1",
-    "cashscript": "0.13.0-next.1"
+    "cashc": "0.13.0-next.4",
+    "cashscript": "0.13.0-next.4"
   },
   "scripts": {
     "mock": "yarn build && node ./mock.js",
     "build": "yarn build:fund && yarn build:startup && yarn build:system",
-    "build:fund": "cashc ./manager.cash --output ./art/manager.json && cashc ./fund.cash --output ./art/fund.json && cashc ./asset.cash --output ./art/asset.json",
-    "build:startup": "cashc ./public.cash --output ./art/publicjson && cashc ./startup.cash --output ./art/startup.json && cashc ./fee.cash --output ./art/fee.json && cashc ./mint.cash --output ./art/mint.json",
-    "build:system": "cashc ./fee_minter.cash --output ./art/fee_minter.json && cashc ./simple_minter.cash --output ./art/simple_minter.json"
+    "build:fund": "cashc ./contracts/manager.cash --output ./art/manager.json && cashc ./contracts/fund.cash --output ./art/fund.json && cashc ./contracts/asset.cash --output ./art/asset.json",
+    "build:startup": "cashc ./contracts/public.cash --output ./art/publicjson && cashc ./contracts/startup.cash --output ./art/startup.json && cashc ./contracts/fee.cash --output ./art/fee.json && cashc ./contracts/mint.cash --output ./art/mint.json",
+    "build:system": "cashc ./contracts/fee_minter.cash --output ./art/fee_minter.json && cashc ./contracts/simple_minter.cash --output ./art/contracts/simple_minter.json"
   }
 }
