@@ -8,6 +8,7 @@ import {
     hexToBin,
     binToHex,
 } from '@bitauth/libauth';
+
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
 
 import feeJson from './art/fee.json' with { type: 'json' };
@@ -47,11 +48,18 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     };
     #contracts = {
         startupContract: null,
+        mintContract: null,
+        publicFundContract: null,
+
         inflowHoldingContract: null,
         outflowHoldingContract: null,
-        publicDetailsHoldingContract: null,
-        mintCreateFundFee: null,
-        mintExecuteFundFee: null,
+        publicFundHoldingContract: null,
+        
+        mintCreateFundFeeContract: null,
+        createFundFeeContract: null,
+
+        mintExecuteFundFeeContract: null,
+        executeFundFeeContract: null,
     };
     #logger = console;
 
@@ -85,73 +93,160 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     #buildContracts() {
         const publicFundBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
 
-        const { mintContract, startupContract, publicDetailsContract } = publicFundBuilder.buildContracts();
-        
+        const { mintContract, startupContract, publicFundContract } = publicFundBuilder.buildContracts();
+
         const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
-        
-        
+
+
         const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
-        
-        const publicDetailsDestination = binToHex(hash256(hexToBin(publicDetailsContract)));
+
+        const publicDetailsDestination = binToHex(hash256(hexToBin(publicFundContract)));
         const publicDetailsHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicDetailsDestination], { provider: this.provider });
-        
+
         const createFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
         const createFundFeeDestination = binToHex(hash256(hexToBin(createFundFeeContract.bytecode)));
-        const mintCreateFundFee = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
-        
+        const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
+
         const executeFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
         const executeFundFeeDestination = binToHex(hash256(hexToBin(executeFundFeeContract.bytecode)));
-        const mintExecuteFundFee = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
+        const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
-        this.#contracts = { startupContract, inflowHoldingContract, outflowHoldingContract, publicDetailsHoldingContract, mintCreateFundFee, mintExecuteFundFee };
+        this.#contracts = { startupContract, mintContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicDetailsHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
     }
 
     getContracts() {
         return this.#contracts;
     }
-    
-    addNewThread() {
 
+    async #addThread({ contract, to, nft }) {
+        const tokenUtxos = await contract.getUtxos();
+        const tokenUtxo = tokenUtxos.filter(u => u.token.category === nft)[0];
+
+        this.addInput(tokenUtxo, contract.unlock.mint())
+            .addOutputs([
+                {
+                    to: contract.tokenAddress,
+                    amount: tokenUtxo.satoshis,
+                    token: {
+                        ...tokenUtxo.token,
+                    },
+                },
+                {
+                    to,
+                    amount: DustAmount,
+                    token: {
+                        ...tokenUtxo.token,
+                        nft: {
+                            capability: 'minting',
+                            commitment: '',
+                        }
+                    }
+                }
+            ]);
+
+        return this;
     }
 
     addInflowThread() {
+        const contract = this.#contracts.inflowHoldingContract;
+        const to = this.#contracts.mintContract.tokenAddress;
+        const nft = this.#system.inflow;
+        this.#addThread({ contract, to, nft });
+        return this;
     }
 
     addOutflowThread() {
+        const contract = this.#contracts.inflowHoldingContract;
+        const to = this.#contracts.mintContract.tokenAddress;
+        const nft = this.#system.inflow;
+        this.#addThread({ contract, to, nft });
+        return this;
     }
 
     addPublicThread() {
-
+        const contract = this.#contracts.inflowHoldingContract;
+        const to = this.#contracts.publicFundContract.tokenAddress;
+        const nft = this.#system.inflow;
+        this.#addThread({ contract, to, nft });
+        return this;
     }
 
-    addNewFee() {
-
-    }
-
-    addCreateFundFee(fee) {
-        if(!fee) {
-            // TODO: default fee
+    async #addFee(newFee, { contract, to, nft }) {
+        if (!newFee) {
+            this.addOutput({
+                to,
+                amount: DustAmount,
+            });
         } else {
-            const {
-                category,
-                amount,
-                destination,
-            } = fee;
+            const feeTokenUtxos = await contract.getUtxos();
+            const feeTokenUtxo = feeTokenUtxos.filter(u => u.token.category === nft)[0];
+
+            this.addInput(feeTokenUtxo, contract.unlock.mint())
+                .addOutputs([
+                    {
+                        to: contract.tokenAddress,
+                        amount: feeTokenUtxo.satoshis,
+                        token: {
+                            ...feeTokenUtxo.token,
+                        },
+                    },
+                    {
+                        to,
+                        amount: DustAmount,
+                        token: {
+                            ...feeTokenUtxo.token,
+                            nft: {
+                                capability: 'none',
+                                commitment: encodeFee(newFee),
+                            }
+                        }
+                    }
+                ]);
         }
+        return this;
     }
 
-    addExecuteFundFee() {
+    async addCreateFundFee(fee) {
+        const contract = this.#contracts.mintCreateFundFeeContract;
+        const to = this.#contracts.createFundFeeContract.tokenAddress;
+        const nft = this.#system.fees.create.nft;
 
+        this.#addFee(fee, { contract, to, nft });
+        return this;
+    }
+
+    addExecuteFundFee(newFee) {
+        const contract = this.#contracts.mintExecuteFundFeeContract;
+        const to = this.#contracts.executeFundFeeContract.tokenAddress;
+        const nft = this.#system.fees.execute.nft;
+
+        this.#addFee(newFee, { contract, to, nft });
+        return this;
     }
 
     // should only be invoked once to initialize the system
-    initializeSystem() {
+    initializeSystem({
+        inflowGenesisUtxo,
+        outflowGenesisUtxo,
+        publicFundGenesisUtxo,
+    }) {
+        if (!this.inputs.length || !this.outputs.length) {
+            throw new Error('No inputs or outputs should be added before initializing system');
+        }
+        if (inflowGenesisUtxo.token || outflowGenesisUtxo.token || publicFundGenesisUtxo) {
+            throw new Error('Genesis utxos must have no tokens');
+        }
+        if (inflowGenesisUtxo.vout !== 0 || outflowGenesisUtxo.vout !== 0 || publicFundGenesisUtxo.vout !== 0) {
+            throw new Error('Genesis utxos must be vout 0')
+        }
+
+        this.addInputs([inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo]);
         // TODO:
         this.addInflowThread();
         this.addOutflowThread();
-        this.addCreateFundFee();
-        this.addExecuteFundFee();
+        this.addCreateFundFee(); // default fee
+        this.addExecuteFundFee(); // default fee
     }
 }

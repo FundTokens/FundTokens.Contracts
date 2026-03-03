@@ -2,7 +2,7 @@ pragma cashscript ~0.13.0;
 
 contract FeeMinter(pubkey owner, bytes32 token, bytes32 destination)
 {
-    function newFeeThread(sig signature) {
+    function mint(sig signature) {
         require(checkSig(signature, owner));
 
         require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
