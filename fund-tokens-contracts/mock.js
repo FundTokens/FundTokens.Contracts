@@ -46,10 +46,15 @@ const provider = new MockNetworkProvider({
 const systemOwnerWallet = generateWallet();
 const authHeadOwnerWallet = generateWallet();
 
-const systemFeeNft = randomUtxo({
+const createFundNft = randomUtxo({
     token: randomNFT(),
 });
-const defaultSystemFeeUtxo = randomUtxo();
+const defaultCreateFundFee = randomUtxo();
+
+const fundFeeNft = randomUtxo({
+    token: randomNFT(),
+});
+const defaultFundFee = randomUtxo();
 
 const inflowMintUtxo = randomUtxo({
     token: randomNFT({
@@ -74,16 +79,18 @@ const publicFundSystem = {
     inflow: inflowMintUtxo.token.category,
     outflow: outflowMintUtxo.token.category,
     authHead: authHeadOwnerWallet.pubKeyHashHex,
-    fee: {
-        pubKey: systemOwnerWallet.pubKeyHex,
-        nft: systemFeeNft.token.category,
-        value: 1000000n,
+    fees: {
+        create: {
+            pubKey: systemOwnerWallet.pubKeyHex,
+            nft: fundFeeNft.token.category,
+            value: 1000000n,
+        },
+        execute: {
+            pubKey: systemOwnerWallet.pubKeyHex,
+            nft: fundFeeNft.token.category,
+            value: 1000n
+        }
     },
-    fundFee: {
-        pubKey: systemOwnerWallet.pubKeyHex,
-        nft: systemFeeNft.token.category,
-        value: 1000n
-    }
 };
 
 const startupUtxo = randomUtxo();
@@ -190,7 +197,7 @@ const system = {
     outflow: outflowMintUtxo.token.category,
     fee: {
         pubKey: systemOwnerWallet.pubKeyHex,
-        nft: systemFeeNft.token.category,
+        nft: fundFeeNft.token.category,
         value: 1000n,
     },
 };
@@ -203,7 +210,7 @@ const { managerContract, feeContract } = fundTokenTransactionBuilder.buildFundCo
 
 
 // hydrate fund contract
-provider.addUtxo(feeContract.tokenAddress, defaultSystemFeeUtxo);
+provider.addUtxo(feeContract.tokenAddress, defaultFundFee);
 
 const inflowTransactionFee = randomUtxo({
     satoshis: 10000n + 1000n + 1000n,

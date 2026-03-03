@@ -35,6 +35,12 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         outflow: '',
         outflowSwapped: '',
         authHead: '',
+        // fees: {
+        //     create: {
+        //     },
+        //     execute: {
+        //     }
+        // }
         fee: {
             pubKey: '',
             pubKeySwapped: '',
