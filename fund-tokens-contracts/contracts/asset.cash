@@ -22,7 +22,8 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
         } while(inputIndex >= 0);
         require(outflowTokenSeen);
         
-        if(assetCategory == bytes32(0)) {
+        bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
+        if(assetCategory == satoshiAsset) {
             require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
         } else {
             require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);

@@ -82,7 +82,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         int satoshiOutputIndex = fundInputIndex + 2;
         if(fundSats > 0) {
             satoshiOutputIndex = satoshiOutputIndex + 1;
-            require(tx.outputs[satoshiOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + bytes32(int(0)) + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
+            bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
+            require(tx.outputs[satoshiOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + satoshiAsset + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
             require(tx.outputs[satoshiOutputIndex].value % fundSats == 0);
             int satoshiCollectedAmount = tx.outputs[satoshiOutputIndex].value / fundSats;
             require(satoshiCollectedAmount == fundReleasedAmount);
@@ -149,7 +150,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         int fundSats = int(nft_sats);
         if(fundSats > 0) {
             int satoshiReleaseAmount = 0;
-            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + bytes32(int(0)) + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
+            bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
+            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + satoshiAsset + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
 
             int fundSatoshiInput = 0;
             do {
