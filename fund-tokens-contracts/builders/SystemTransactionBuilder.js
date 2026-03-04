@@ -94,7 +94,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     #buildContracts() {
         const publicFundBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
 
-        const { mintContract, startupContract, publicFundContract } = publicFundBuilder.buildContracts();
+        const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.buildContracts();
 
         const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
@@ -106,11 +106,9 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const publicDetailsDestination = binToHex(hash256(hexToBin(publicFundContract)));
         const publicDetailsHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicDetailsDestination], { provider: this.provider });
 
-        const createFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
         const createFundFeeDestination = binToHex(hash256(hexToBin(createFundFeeContract.bytecode)));
         const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
 
-        const executeFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
         const executeFundFeeDestination = binToHex(hash256(hexToBin(executeFundFeeContract.bytecode)));
         const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 

@@ -69,10 +69,9 @@ export function getFund(hex) {
 
 export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
-export async function getBestFee({ feeContract, payBy, fee }) {
+export async function getBestFee({ feeContract, payBy, fee, owner }) {
     const network = feeContract.provider.network;
     const {
-        pubKey,
         nft,
         value: defaultValue,
     } = fee;
@@ -105,7 +104,7 @@ export async function getBestFee({ feeContract, payBy, fee }) {
 
     const feeUtxo = feeUtxos[0];
 
-    const pubKeyBin = hexToBin(pubKey);
+    const pubKeyBin = hexToBin(owner);
     const pubKeyHash = ripemd160.hash(sha256.hash(pubKeyBin));
     const encoded = encodeCashAddress({ prefix: network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
     const address = typeof encoded === 'string' ? encoded : encoded.address;

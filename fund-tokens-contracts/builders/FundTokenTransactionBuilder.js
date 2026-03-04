@@ -27,17 +27,32 @@ const getRandomInt = max => Math.floor(Math.random() * max);
 
 export default class FundTokenTransactionBuilder extends TransactionBuilder {
     #system = {
-        inflow: '',
-        inflowSwapped: '',
-        outflow: '',
-        outflowSwapped: '',
+        inflow: '', // 32 byte, tx id/token id
+        outflow: '', // 32 byte, tx id/token id
+        publicFund: '', // 32 byte, tx id/token id
+        authHead: '', // public key hash
+        owner: '', // public key
         fee: {
-            pubKey: '',
-            pubKeySwapped: '',
-            nft: '',
-            nftSwapped: '',
-            value: -1,
+            nft: '', // 32 byte, tx id/token id
+            value: -1n, // bigint
         },
+    };
+    #swapped = {
+        inflow: '',
+        outflow: '',
+        fee: {
+            nft: '',
+        },
+    };
+    #fund = {
+        category,
+        assets,
+    };
+    #contracts = {
+        managerContract: null,
+        fundContract: null,
+        assetContracts: null,
+        feeContract: null,
     };
     #logger = null;
 
@@ -45,34 +60,27 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         provider,
         system,
         logger,
+        fund,
     }) {
         if (!system) {
             throw new Error('No system configuration provided, unable to continue');
         }
         super({ provider });
         this.#system = system;
-        this.#system.inflowSwapped = swapEndianness(system.inflow);
-        this.#system.outflowSwapped = swapEndianness(system.outflow);
-        this.#system.pubKeySwapped = swapEndianness(system.fee.pubKey);
-        this.#system.fee.nftSwapped = swapEndianness(system.fee.nft);
-
+        this.#swapped = {
+            inflow: swapEndianness(system.inflow),
+            outflow: swapEndianness(system.outflow),
+            fee: {
+                nft: swapEndianness(system.fee.nft),
+            },
+        };
+        this.#fund = fund;
         this.#logger = logger ?? console;
+        this.#buildContracts();
     }
 
     // build and get the contracts for this fund
-    buildFeeContract() {
-        const {
-            pubKey,
-            nftSwapped,
-            value,
-        } = this.#system.fee;
-        const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
-
-        return { feeContract };
-    }
-
-    // build and get the contracts for this fund
-    buildFundContracts(fund) {
+    #buildContracts() {
         const {
             category,
             assets,
@@ -84,27 +92,31 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
             const fundAssetCategory = swapEndianness(a.category);
 
             // 32 32 32
-            const assetContract = new Contract(assetJson, [this.#system.outflowSwapped, fundHash, fundAssetCategory], { provider: this.provider });
+            const assetContract = new Contract(assetJson, [this.#swapped.outflow, fundHash, fundAssetCategory], { provider: this.provider });
 
             assetContracts.push(assetContract);
         });
 
         // 32 32 32 32 + 4 128 132 * 2 264
-        const fundContract = new Contract(fundJson, [this.#system.inflowSwapped, this.#system.outflowSwapped, swapEndianness(category), fundHash], { provider: this.provider });
+        const fundContract = new Contract(fundJson, [this.#swapped.inflow, this.#swapped.outflow, swapEndianness(category), fundHash], { provider: this.provider });
 
-        const { feeContract } = this.buildFeeContract();
+        const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
 
         const managerContract = new Contract(managerJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
-            this.#system.inflowSwapped,
-            this.#system.outflowSwapped,
+            this.#swapped.inflow,
+            this.#swapped.outflow,
             swapEndianness(category),
             fundHash,
             hexToBin(fundJson.debug.bytecode),
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        return { managerContract, fundContract, assetContracts, feeContract };
+        this.#contracts = { managerContract, fundContract, assetContracts, feeContract };
+    }
+
+    getContracts() {
+        return this.#contracts;
     }
 
     // return a new transaction builder with a built mint transaction
@@ -132,7 +144,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     }) {
         this.#logger.log('transaction builder...adding minting transaction');
 
-        const { managerContract, fundContract, assetContracts, feeContract } = this.buildFundContracts(fund);
+        const { managerContract, fundContract, assetContracts, feeContract } = this.getContracts(fund);
 
         const inflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.inflow);
         const fundUtxos = (await fundContract.getUtxos()).filter(u => u.token?.category === fundCategory);
@@ -235,7 +247,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     }) {
         this.#logger.log('transaction builder...adding redemption transaction');
 
-        const { managerContract, fundContract, assetContracts, feeContract } = this.buildFundContracts(fund);
+        const { managerContract, fundContract, assetContracts, feeContract } = this.getContracts();
 
         //
         const outflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.outflow);

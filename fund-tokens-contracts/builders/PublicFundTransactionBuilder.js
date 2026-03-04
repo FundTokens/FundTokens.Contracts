@@ -30,32 +30,77 @@ const getRandomInt = max => Math.floor(Math.random() * max);
 
 export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #system = {
-        inflow: '',
-        inflowSwapped: '',
-        outflow: '',
-        outflowSwapped: '',
-        authHead: '',
-        // fees: {
-        //     create: {
-        //     },
-        //     execute: {
-        //     }
-        // }
-        fee: {
-            pubKey: '',
-            pubKeySwapped: '',
-            nft: '',
-            nftSwapped: '',
-            value: -1,
-        },
-        fundFee: {
-            pubKey: '',
-            pubKeySwapped: '',
-            nft: '',
-            nftSwapped: '',
-            value: -1,
+        inflow: '', // 32 byte, tx id/token id
+        outflow: '', // 32 byte, tx id/token id
+        publicFund: '', // 32 byte, tx id/token id
+        authHead: '', // public key hash
+        owner: '', // public key
+        fees: {
+            create: {
+                nft: '', // 32 byte, tx id/token id
+                value: -1n, // bigint
+            },
+            execute: {
+                nft: '', // 32 byte, tx id/token id
+                value: -1n, // bigint
+            }
         },
     };
+    #swapped = {
+        inflow: '',
+        outflow: '',
+        publicFund: '',
+        fees: {
+            create: {
+                nft: '',
+            },
+            execute: {
+                nft: '',
+            },
+        },
+    };
+    #contracts = {
+        startupContract: null,
+        mintContract: null,
+        publicFundContract: null,
+
+        inflowHoldingContract: null,
+        outflowHoldingContract: null,
+        publicFundHoldingContract: null,
+
+        mintCreateFundFeeContract: null,
+        createFundFeeContract: null,
+
+        mintExecuteFundFeeContract: null,
+        executeFundFeeContract: null,
+    };
+    // #system = {
+    //     inflow: '',
+    //     inflowSwapped: '',
+    //     outflow: '',
+    //     outflowSwapped: '',
+    //     authHead: '',
+    //     // fees: {
+    //     //     create: {
+    //     //     },
+    //     //     execute: {
+    //     //     }
+    //     // }
+    //     fee: {
+    //         pubKey: '',
+    //         pubKeySwapped: '',
+    //         nft: '',
+    //         nftSwapped: '',
+    //         value: -1,
+    //     },
+    //     fundFee: {
+    //         pubKey: '',
+    //         pubKeySwapped: '',
+    //         nft: '',
+    //         nftSwapped: '',
+    //         value: -1,
+    //     },
+    // };
     #logger = null;
 
     constructor({
@@ -68,46 +113,49 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         }
         super({ provider });
         this.#system = system;
-        this.#system.inflowSwapped = swapEndianness(system.inflow);
-        this.#system.outflowSwapped = swapEndianness(system.outflow);
-        this.#system.pubKeySwapped = swapEndianness(system.fee.pubKey);
-        this.#system.fee.nftSwapped = swapEndianness(system.fee.nft);
-        this.#system.fundFee.nftSwapped = swapEndianness(system.fundFee.nft);
-
-        this.#logger = logger ?? console;
-    }
-
-    // build and get the contracts for this fund
-    buildFeeContract({
-        pubKey,
-        nftSwapped,
-        value,
-    }) {
-        const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
-        return { feeContract };
+        this.#swapped = {
+            inflow: swapEndianness(system.inflow),
+            outflow: swapEndianness(system.outflow),
+            publicFund: swapEndianness(system.publicFund),
+            fees: {
+                create: {
+                    nft: swapEndianness(system.fees.create.nft),
+                },
+                execute: {
+                    nft: swapEndianness(system.fees.execute.nft),
+                }
+            }
+        };
+        this.#logger = logger ?? this.#logger;
+        this.#buildContracts();
     }
 
     // build and get the contracts
-    buildContracts() {
-        const { feeContract } = this.buildFeeContract(this.#system.fee);
-        const { feeContract: fundFeeContract } = this.buildFeeContract(this.#system.fundFee);
+    #buildContracts() {
+        const createFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
+        const executeFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
+
         const startupContract = new Contract(startupJson, [
-            binToHex(hash256(hexToBin(feeContract.bytecode))),
-            this.#system.inflowSwapped,
-            this.#system.outflowSwapped,
+            binToHex(hash256(hexToBin(createFundFeeContract.bytecode))),
+            this.#swapped.inflow,
+            this.#swapped.outflow,
         ], { provider: this.provider });
 
         const mintContract = new Contract(mintJson, [
             binToHex(hash256(hexToBin(startupContract.bytecode))),
-            this.#system.inflowSwapped,
-            this.#system.outflowSwapped,
-            binToHex(hash256(hexToBin(fundFeeContract.bytecode))),
+            this.#swapped.inflow,
+            this.#swapped.outflow,
+            binToHex(hash256(hexToBin(executeFundFeeContract.bytecode))),
             hexToBin(managerJson.debug.bytecode),
             hexToBin(fundJson.debug.bytecode),
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        return { feeContract, startupContract, mintContract };
+        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract };
+    }
+
+    getContracts() {
+        return this.#contracts;
     }
 
     async newBroadcastTransaction({
@@ -130,7 +178,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
     }) {
         const { feeContract, startupContract, mintContract } = this.buildContracts();
 
-        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee });
+        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
         const broadcastUtxos = await startupContract.getUtxos();
         const mintUtxos = await mintContract.getUtxos();
@@ -155,7 +203,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
 
-        var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: { ...this.#system, fee: this.#system.fundFee } }).buildFundContracts(fund);
+        var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: { ...this.#system, fee: this.#system.fees.execute }, fund }).getContracts();
 
         const authHeadTokenAddress = encodeCashAddress({ prefix: this.provider.network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: hexToBin(this.#system.authHead) });
 
