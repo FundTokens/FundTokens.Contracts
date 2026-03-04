@@ -6,8 +6,8 @@ import {
 
 import { generateWallet } from './wallet.js';
 
-import { DustAmount } from './builders/constants.js';
-import SystemTransactionBuilder from './builders/SystemTransactionBuilder.js';
+import { DustAmount } from './lib/constants.js';
+import SystemTransactionBuilder from './lib/SystemTransactionBuilder.js';
 
 const provider = new MockNetworkProvider({
     updateUtxoSet: true,
@@ -18,7 +18,7 @@ const addUtxos = (address, utxos) => utxos.forEach(u => provider.addUtxo(address
 const systemOwnerWallet = generateWallet(Network.MOCKNET);
 const authHeadOwnerWallet = generateWallet(Network.MOCKNET);
 
-const feeUtxo = randomUtxo({ satoshis: 100000000n});
+const feeUtxo = randomUtxo({ satoshis: 100000n}); // consume the entire utxo for simplicity
 
 const genesisPartial = { vout: 0, satoshis: DustAmount };
 
@@ -30,7 +30,7 @@ const executeFundFeeGenesisUtxo = randomUtxo(genesisPartial);
 
 const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo].map(u => ({ ...u, unlocker: systemOwnerWallet.signatureTemplate.unlockP2PKH() }));
 
-
+//
 addUtxos(systemOwnerWallet.tokenAddress, [...genesisInputs, feeUtxo]);
 
 const system = {
@@ -59,3 +59,4 @@ systemTransactionBuilder
 
 const initResponse = await systemTransactionBuilder.send();
 console.log('initialize system tx size', initResponse.hex.length / 2);
+

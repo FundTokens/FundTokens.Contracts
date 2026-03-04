@@ -12,7 +12,6 @@ import {
 import { DustAmount } from './constants.js';
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
 
-import feeJson from './art/fee.json' with { type: 'json' };
 import feeMinterJson from './art/fee_minter.json' with { type: 'json' };
 import simpleMinterJson from './art/simple_minter.json' with { type: 'json' };
 
