@@ -5,6 +5,8 @@ import {
 } from 'cashscript';
 
 import { generateWallet } from './wallet.js';
+
+import { DustAmount } from './builders/constants.js';
 import SystemTransactionBuilder from './builders/SystemTransactionBuilder.js';
 
 const provider = new MockNetworkProvider({
@@ -16,7 +18,7 @@ const addUtxos = (address, utxos) => utxos.forEach(u => provider.addUtxo(address
 const systemOwnerWallet = generateWallet(Network.MOCKNET);
 const authHeadOwnerWallet = generateWallet(Network.MOCKNET);
 
-const genesisPartial = { vout: 0 };
+const genesisPartial = { vout: 0, satoshis: DustAmount };
 
 const inflowGenesisUtxo = randomUtxo(genesisPartial);
 const outflowGenesisUtxo = randomUtxo(genesisPartial);
@@ -24,7 +26,9 @@ const publicFundGenesisUtxo = randomUtxo(genesisPartial);
 const createFundFeeGenesisUtxo = randomUtxo(genesisPartial);
 const executeFundFeeGenesisUtxo = randomUtxo(genesisPartial);
 
-addUtxos(systemOwnerWallet.tokenAddress, [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo]);
+const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo].map(u => ({ ...u, unlocker: systemOwnerWallet.signatureTemplate.unlockP2PKH() }));
+
+addUtxos(systemOwnerWallet.tokenAddress, genesisInputs);
 
 const system = {
     inflow: inflowGenesisUtxo.txid, // 32 byte, tx id/token id
@@ -46,10 +50,4 @@ const system = {
 
 const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
 
-systemTransactionBuilder.addInitializeSystem({
-    inflowGenesisUtxo,
-    outflowGenesisUtxo,
-    publicFundGenesisUtxo,
-    createFundFeeGenesisUtxo,
-    executeFundFeeGenesisUtxo,
-})
+systemTransactionBuilder.addInitializeSystem({ utxos: genesisInputs })

@@ -103,8 +103,8 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
-        const publicDetailsDestination = binToHex(hash256(hexToBin(publicFundContract.bytecode)));
-        const publicDetailsHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicDetailsDestination], { provider: this.provider });
+        const publicFundDestination = binToHex(hash256(hexToBin(publicFundContract.bytecode)));
+        const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
 
         const createFundFeeDestination = binToHex(hash256(hexToBin(createFundFeeContract.bytecode)));
         const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
@@ -112,7 +112,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const executeFundFeeDestination = binToHex(hash256(hexToBin(executeFundFeeContract.bytecode)));
         const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
-        this.#contracts = { startupContract, mintContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicDetailsHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
+        this.#contracts = { startupContract, mintContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicFundHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
     }
 
     getContracts() {
@@ -220,28 +220,23 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
     // can only be invoked once to initialize the system
     addInitializeSystem({
-        inflowGenesisUtxo,
-        outflowGenesisUtxo,
-        publicFundGenesisUtxo,
-        createFundFeeGenesisUtxo,
-        executeFundFeeGenesisUtxo,
+        utxos,
     }) {
-        const ensureValidGenesisUtxo = utxo => {
-            if (utxo.token) {
-                throw new Error('Genesis utxos must have no tokens');
-            }
-            if (utxo.vout !== 0) {
-                throw new Error('Genesis utxos must be vout 0')
-            }
-        }
-
-        if (!this.inputs.length || !this.outputs.length) {
+        if (this.inputs.length || this.outputs.length) {
             throw new Error('No inputs or outputs should be added before initializing system');
         }
 
-        [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo].forEach(ensureValidGenesisUtxo);
+        const filteredUtxos = utxos.filter(u => u.vout === 0 && !u.token);
+        
+        const RequiredGenesisInputCount = 5;
 
-        this.addInputs([inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo])
+        if (filteredUtxos.length < RequiredGenesisInputCount) {
+            throw new Error(`'${RequiredGenesisInputCount}' genesis inputs are required but only '${filteredUtxos.length}' were found`);
+        }
+
+        const [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo] = filteredUtxos;
+
+        this.addInputs([inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo])
             .addOutputs([
                 {
                     to: this.#contracts.inflowHoldingContract.tokenAddress,
@@ -251,6 +246,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
+                            commitment: '',
                         }
                     }
                 },
@@ -262,6 +258,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
+                            commitment: '',
                         }
                     }
                 },
@@ -273,6 +270,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
+                            commitment: '',
                         }
                     }
                 },
@@ -284,6 +282,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
+                            commitment: '',
                         }
                     }
                 },
@@ -295,9 +294,11 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
+                            commitment: '',
                         }
                     }
                 }
             ]);
+        return this;
     }
 }
