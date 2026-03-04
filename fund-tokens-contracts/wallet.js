@@ -17,7 +17,7 @@ const secp256k1 = await instantiateSecp256k1();
 const ripemd160 = await instantiateRipemd160();
 const sha256 = await instantiateSha256();
 
-export const generateWallet = ({ network = Network.MOCKNET }) => {
+export const generateWallet = ({ network }) => {
     const privateKey = generatePrivateKey();
     const pubKeyBin = secp256k1.derivePublicKeyCompressed(privateKey);
     const pubKeyHex = binToHex(pubKeyBin);

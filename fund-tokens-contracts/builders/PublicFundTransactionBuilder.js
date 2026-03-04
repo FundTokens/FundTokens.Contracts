@@ -10,10 +10,12 @@ import {
     binToHex,
     encodeCashAddress,
 } from '@bitauth/libauth';
+import { DustAmount } from './constants.js';
 import {
     getBestFee,
     getFundBin,
     getFundHex,
+    getRandomInt,
 } from './utils.js';
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 
@@ -23,10 +25,7 @@ import mintJson from './art/mint.json' with { type: 'json' };
 import managerJson from './art/manager.json' with { type: 'json' };
 import fundJson from './art/fund.json' with { type: 'json' };
 import assetJson from './art/asset.json' with { type: 'json' };
-
-const DustAmount = 1000n;
-
-const getRandomInt = max => Math.floor(Math.random() * max);
+import publicJson from './art/public.json' with { type: 'json' };
 
 export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #system = {
@@ -74,33 +73,6 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         mintExecuteFundFeeContract: null,
         executeFundFeeContract: null,
     };
-    // #system = {
-    //     inflow: '',
-    //     inflowSwapped: '',
-    //     outflow: '',
-    //     outflowSwapped: '',
-    //     authHead: '',
-    //     // fees: {
-    //     //     create: {
-    //     //     },
-    //     //     execute: {
-    //     //     }
-    //     // }
-    //     fee: {
-    //         pubKey: '',
-    //         pubKeySwapped: '',
-    //         nft: '',
-    //         nftSwapped: '',
-    //         value: -1,
-    //     },
-    //     fundFee: {
-    //         pubKey: '',
-    //         pubKeySwapped: '',
-    //         nft: '',
-    //         nftSwapped: '',
-    //         value: -1,
-    //     },
-    // };
     #logger = null;
 
     constructor({
@@ -140,9 +112,10 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             this.#swapped.inflow,
             this.#swapped.outflow,
         ], { provider: this.provider });
+        const startupContractHash = binToHex(hash256(hexToBin(startupContract.bytecode)))
 
         const mintContract = new Contract(mintJson, [
-            binToHex(hash256(hexToBin(startupContract.bytecode))),
+            startupContractHash,
             this.#swapped.inflow,
             this.#swapped.outflow,
             binToHex(hash256(hexToBin(executeFundFeeContract.bytecode))),
@@ -151,7 +124,9 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract };
+        const publicFundContract = new Contract(publicJson, [this.#system.authHead, this.#swapped.publicFund, startupContractHash, fundJson.debug.bytecode], { provider: this.provider });
+
+        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract };
     }
 
     getContracts() {
@@ -176,7 +151,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         fund,
         payBy,
     }) {
-        const { feeContract, startupContract, mintContract } = this.buildContracts();
+        const { feeContract, startupContract, mintContract } = this.#contracts;
 
         const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
@@ -293,7 +268,6 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                 token: {
                     category: genesisUtxo.txid,
                     amount: fundTokenAmount,
-                    nft: undefined,
                 }
             }
         ]);

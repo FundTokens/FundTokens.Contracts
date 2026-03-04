@@ -1,5 +1,6 @@
 import {
     MockNetworkProvider,
+    Network,
     randomUtxo,
 } from 'cashscript';
 
@@ -10,10 +11,10 @@ const provider = new MockNetworkProvider({
     updateUtxoSet: true,
 });
 
-provider.addUtxos = (address, utxos) => utxos.forEach(u => this.addUtxo(address, u));
+const addUtxos = (address, utxos) => utxos.forEach(u => provider.addUtxo(address, u));
 
-const systemOwnerWallet = generateWallet();
-const authHeadOwnerWallet = generateWallet();
+const systemOwnerWallet = generateWallet(Network.MOCKNET);
+const authHeadOwnerWallet = generateWallet(Network.MOCKNET);
 
 const genesisPartial = { vout: 0 };
 
@@ -23,7 +24,7 @@ const publicFundGenesisUtxo = randomUtxo(genesisPartial);
 const createFundFeeGenesisUtxo = randomUtxo(genesisPartial);
 const executeFundFeeGenesisUtxo = randomUtxo(genesisPartial);
 
-provider.addUtxos(systemOwnerWallet.tokenAddress, [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo]);
+addUtxos(systemOwnerWallet.tokenAddress, [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo]);
 
 const system = {
     inflow: inflowGenesisUtxo.txid, // 32 byte, tx id/token id
@@ -43,7 +44,7 @@ const system = {
     },
 };
 
-const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system, logger });
+const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
 
 systemTransactionBuilder.addInitializeSystem({
     inflowGenesisUtxo,

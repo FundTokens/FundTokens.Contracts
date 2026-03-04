@@ -94,7 +94,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     #buildContracts() {
         const publicFundBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
 
-        const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.buildContracts();
+        const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
 
         const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
@@ -103,7 +103,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
-        const publicDetailsDestination = binToHex(hash256(hexToBin(publicFundContract)));
+        const publicDetailsDestination = binToHex(hash256(hexToBin(publicFundContract.bytecode)));
         const publicDetailsHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicDetailsDestination], { provider: this.provider });
 
         const createFundFeeDestination = binToHex(hash256(hexToBin(createFundFeeContract.bytecode)));
