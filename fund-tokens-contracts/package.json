@@ -11,8 +11,8 @@
   "scripts": {
     "mock": "yarn build && node ./mock.js",
     "build": "yarn build:fund && yarn build:startup && yarn build:system",
-    "build:fund": "cashc ./contracts/manager.cash --output ./art/manager.json && cashc ./contracts/fund.cash --output ./art/fund.json && cashc ./contracts/asset.cash --output ./art/asset.json",
-    "build:startup": "cashc ./contracts/public.cash --output ./art/publicjson && cashc ./contracts/startup.cash --output ./art/startup.json && cashc ./contracts/fee.cash --output ./art/fee.json && cashc ./contracts/mint.cash --output ./art/mint.json",
-    "build:system": "cashc ./contracts/fee_minter.cash --output ./art/fee_minter.json && cashc ./contracts/simple_minter.cash --output ./art/contracts/simple_minter.json"
+    "build:fund": "cashc ./contracts/manager.cash --output ./builders/art/manager.json && cashc ./contracts/fund.cash --output ./builders/art/fund.json && cashc ./contracts/asset.cash --output ./builders/art/asset.json",
+    "build:startup": "cashc ./contracts/public.cash --output ./builders/art/public.json && cashc ./contracts/startup.cash --output ./builders/art/startup.json && cashc ./contracts/fee.cash --output ./builders/art/fee.json && cashc ./contracts/mint.cash --output ./builders/art/mint.json",
+    "build:system": "cashc ./contracts/fee_minter.cash --output ./builders/art/fee_minter.json && cashc ./contracts/simple_minter.cash --output ./builders/art/simple_minter.json"
   }
 }

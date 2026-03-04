@@ -9,6 +9,8 @@ import {
     generatePrivateKey,
     binToHex,
     encodeCashAddress,
+    CashAddressType,
+    CashAddressNetworkPrefix,
 } from '@bitauth/libauth';
 
 const secp256k1 = await instantiateSecp256k1();
@@ -22,7 +24,7 @@ export const generateWallet = ({ network = Network.MOCKNET }) => {
     const signatureTemplate = new SignatureTemplate(privateKey);
     const pubKeyHash = ripemd160.hash(sha256.hash(pubKeyBin));
     const pubKeyHashHex = binToHex(pubKeyHash);
-    const encoded = encodeCashAddress({ prefix: network === 'mainnet' ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
+    const encoded = encodeCashAddress({ prefix: network === Network.MAINNET ? CashAddressNetworkPrefix.mainnet : CashAddressNetworkPrefix.testnet, type: CashAddressType.p2pkhWithTokens, payload: pubKeyHash });
     const address = typeof encoded === 'string' ? encoded : encoded.address;
     return { privateKey, pubKeyHex, pubKeyHash, pubKeyHashHex, signatureTemplate, address, tokenAddress: address };
 };

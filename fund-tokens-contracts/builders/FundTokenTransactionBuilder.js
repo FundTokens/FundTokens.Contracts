@@ -130,6 +130,11 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         return transactionBuilder;
     }
 
+    // TODO: Scaling fund UTXO selection
+    // As new threads are added to the fund token contract, we should select for inflow tx the UTXO with the most tokens
+    // Although this means we still target one thread, should have a range maybe and then randomly select
+    // Maybe should just randomly select enough to fulfills the needs for the tx
+
     // This method should be called while the transaction has same transaction input and output lengths
     // The consuming app is responsible for adding an output for Bitcoin change, fund token minted, and token change
     async addMint({
@@ -230,6 +235,11 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         await transactionBuilder.addRedeem({ amount, fund, payBy });
         return transactionBuilder;
     }
+
+    // TODO: Scaling fund UTXO selection
+    // As new threads are added to the fund token contract, we should select for outflow tx the UTXO with the least tokens
+    // Although this means we still target one thread, should have a range maybe and then randomly select
+    // Maybe should just randomly select one that fulfills the needs
 
     // This method should be called while the transaction has same transaction input and output lengths
     // The consuming user is responsible for adding inputs for the fund token
