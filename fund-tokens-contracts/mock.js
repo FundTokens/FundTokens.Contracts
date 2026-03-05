@@ -24,31 +24,30 @@ const provider = new MockNetworkProvider({
 const systemOwnerWallet = generateWallet(network);
 const authHeadOwnerWallet = generateWallet(network);
 
-const inflowGenesisUtxo = randomUtxo(genesisPartial);
-const outflowGenesisUtxo = randomUtxo(genesisPartial);
-const publicFundGenesisUtxo = randomUtxo(genesisPartial);
-const createFundFeeGenesisUtxo = randomUtxo(genesisPartial);
-const executeFundFeeGenesisUtxo = randomUtxo(genesisPartial);
-
 const system = {
-    inflow: inflowGenesisUtxo.txid, // 32 byte, tx id/token id
-    outflow: outflowGenesisUtxo.txid, // 32 byte, tx id/token id
-    publicFund: publicFundGenesisUtxo.txid, // 32 byte, tx id/token id
+    inflow: '1111111111111111111111111111111111111111111111111111111111111111', // 32 byte, tx id/token id
+    outflow: '2222222222222222222222222222222222222222222222222222222222222222', // 32 byte, tx id/token id
+    publicFund: '3333333333333333333333333333333333333333333333333333333333333333', // 32 byte, tx id/token id
     authHead: authHeadOwnerWallet.pubKeyHashHex, // public key hash
     owner: systemOwnerWallet.pubKeyHex, // public key
     fees: {
         create: {
-            nft: createFundFeeGenesisUtxo.txid, // 32 byte, tx id/token id
+            nft: '4444444444444444444444444444444444444444444444444444444444444444', // 32 byte, tx id/token id
             value: 10000n, // bigint
         },
         execute: {
-            nft: executeFundFeeGenesisUtxo.txid, // 32 byte, tx id/token id
+            nft: '5555555555555555555555555555555555555555555555555555555555555555', // 32 byte, tx id/token id
             value: 100000n, // bigint
         }
     },
 };
 
 const initializeControlTokens = async () => {
+    const inflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.inflow });
+    const outflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.outflow });
+    const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
+    const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
+    const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
     const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo].map(u => ({ ...u, unlocker: systemOwnerWallet.signatureTemplate.unlockP2PKH() }));
     const feeUtxo = randomUtxo({ satoshis: 10000n });
 
@@ -63,7 +62,7 @@ const initializeControlTokens = async () => {
     console.log('initialize system tx size', initResponse.hex.length / 2);
 };
 
-const createNewPublicFundThreads = async () => {
+const createNewSystemThreads = async () => {
     const feeUtxo = randomUtxo({ satoshis: 10000n });
     const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
     const { startupContract, createFundFeeContract, executeFundFeeContract } = systemTransactionBuilder.getContracts();
@@ -91,9 +90,11 @@ const createNewPublicFundThreads = async () => {
     console.log('create new public fund threads tx size', initResponse.hex.length / 2);
 };
 
+// owner
 await initializeControlTokens();
-await createNewPublicFundThreads();
+await createNewSystemThreads();
 
+// mock fund
 const fund = {
     category: '1111111111111111111111111111111111111111111111111111111111111111',
     amount: 1n,
@@ -110,10 +111,10 @@ const fund = {
     ]
 };
 
-const broadcastNewFund = async () => {
+const fundBroadcast = async () => {
     const userWallet = generateWallet({ network });
     const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-    const assetUtxos = fund.assets.map(a => randomUtxo({ ...a }));
+    const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
 
     addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, ...assetUtxos]);
 
@@ -123,4 +124,14 @@ const broadcastNewFund = async () => {
     await publicFundTransactonBuilder.send();
 };
 
-await broadcastNewFund();
+const fundInflow = async () => {
+
+};
+
+const fundOutflow = async () => {
+
+};
+
+await fundBroadcast();
+await fundInflow();
+await fundOutflow();
