@@ -172,6 +172,11 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
             const contract = contracts[i];
             this.#addDestinationOutput(contract);
         }
+
+        this.addOutput({
+            to: this.#contracts.startupContract.tokenAddress,
+            amount: DustAmount,
+        });
     }
 
     async #addFee(newFee, { contract, to, nft }) {

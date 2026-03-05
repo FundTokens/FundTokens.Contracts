@@ -13,12 +13,15 @@ contract SimpleMinter(pubkey owner, bytes32 token, bytes32 destination)
 
         int outputIndex = 0;
         do {
-            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
-                require(tx.outputs[outputIndex].lockingBytecode == new LockingBytecodeP2SH32(destination));
-                require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
-                require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
-                require(tx.outputs[outputIndex].nftCommitment == tx.inputs[this.activeInputIndex].nftCommitment);
+            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
+                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
+                    require(tx.outputs[outputIndex].lockingBytecode == new LockingBytecodeP2SH32(destination));
+                    require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
+                    require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+                    require(tx.outputs[outputIndex].nftCommitment == tx.inputs[this.activeInputIndex].nftCommitment);
+                }
             }
+            outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
     }
 }
