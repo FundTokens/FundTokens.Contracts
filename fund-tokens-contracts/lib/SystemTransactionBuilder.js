@@ -118,54 +118,60 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
-    async #addThread({ contract, to, nft }) {
+    async #addContractIO({ contract, nft, signature }) {
         const tokenUtxos = await contract.getUtxos();
         const tokenUtxo = tokenUtxos.filter(u => u.token.category === nft)[0];
-
-        this.addInput(tokenUtxo, contract.unlock.mint())
-            .addOutputs([
-                {
-                    to: contract.tokenAddress,
-                    amount: tokenUtxo.satoshis,
-                    token: {
-                        ...tokenUtxo.token,
-                    },
-                },
-                {
-                    to,
-                    amount: DustAmount,
-                    token: {
-                        ...tokenUtxo.token,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
+        this
+            .addInput(tokenUtxo, contract.unlock.mint(signature))
+            .addOutput({
+                to: contract.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: nft,
+                    amount: 0n,
+                    nft: {
+                        capability: 'minting',
+                        commitment: '',
                     }
                 }
-            ]);
-
+            });
         return this;
     }
 
-    addInflowThread() {
-        const contract = this.#contracts.inflowHoldingContract;
-        const to = this.#contracts.mintContract.tokenAddress;
-        const nft = this.#system.inflow;
-        return this.#addThread({ contract, to, nft });
+    #addDestinationOutput({ to, nft }) {
+        this.addOutput(
+            {
+                to,
+                amount: DustAmount,
+                token: {
+                    category: nft,
+                    amount: 0n,
+                    nft: {
+                        capability: 'minting',
+                        commitment: '',
+                    }
+                }
+            }
+        );
+        return this;
     }
 
-    addOutflowThread() {
-        const contract = this.#contracts.inflowHoldingContract;
-        const to = this.#contracts.mintContract.tokenAddress;
-        const nft = this.#system.inflow;
-        return this.#addThread({ contract, to, nft });
-    }
+    async addSystemThreads({ signature }) {
+        const contracts = [
+            { contract: this.#contracts.inflowHoldingContract, to: this.#contracts.mintContract.tokenAddress, nft: this.#system.inflow },
+            { contract: this.#contracts.outflowHoldingContract, to: this.#contracts.mintContract.tokenAddress, nft: this.#system.outflow },
+            { contract: this.#contracts.publicFundHoldingContract, to: this.#contracts.publicFundContract.tokenAddress, nft: this.#system.publicFund },
+        ]
 
-    addPublicThread() {
-        const contract = this.#contracts.inflowHoldingContract;
-        const to = this.#contracts.publicFundContract.tokenAddress;
-        const nft = this.#system.inflow;
-        return this.#addThread({ contract, to, nft });
+        for (let i = 0; i < contracts.length; i++) {
+            const contract = contracts[i];
+            await this.#addContractIO({ ...contract, signature });
+        }
+
+        for (let i = 0; i < contracts.length; i++) {
+            const contract = contracts[i];
+            this.#addDestinationOutput(contract);
+        }
     }
 
     async #addFee(newFee, { contract, to, nft }) {

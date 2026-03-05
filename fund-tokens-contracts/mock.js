@@ -65,26 +65,14 @@ const initializeControlTokens = async () => {
 const createNewSystemThreads = async () => {
     const feeUtxo = randomUtxo({ satoshis: 10000n });
     const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
-    const { startupContract, createFundFeeContract, executeFundFeeContract } = systemTransactionBuilder.getContracts();
+    const signature = systemOwnerWallet.signatureTemplate;
 
     addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
 
-    systemTransactionBuilder
-        .addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH())
-        .addOutputs([
-            {
-                to: startupContract.tokenAddress,
-                amount: DustAmount,
-            },
-            {
-                to: createFundFeeContract.tokenAddress,
-                amount: DustAmount,
-            },
-            {
-                to: executeFundFeeContract.tokenAddress,
-                amount: DustAmount,
-            },
-        ]);
+    await systemTransactionBuilder.addSystemThreads({ signature });
+    await systemTransactionBuilder.addCreateFundFee();
+    await systemTransactionBuilder.addExecuteFundFee();
+    systemTransactionBuilder.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
 
     const initResponse = await systemTransactionBuilder.send();
     console.log('create new public fund threads tx size', initResponse.hex.length / 2);
@@ -96,16 +84,16 @@ await createNewSystemThreads();
 
 // mock fund
 const fund = {
-    category: '1111111111111111111111111111111111111111111111111111111111111111',
+    category: '6666666666666666666666666666666666666666666666666666666666666666',
     amount: 1n,
     satoshis: 0n,
     assets: [
         {
-            category: '2222222222222222222222222222222222222222222222222222222222222222',
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
             amount: 2n,
         },
         {
-            category: '3333333333333333333333333333333333333333333333333333333333333333',
+            category: '8888888888888888888888888888888888888888888888888888888888888888',
             amount: 3n,
         }
     ]
