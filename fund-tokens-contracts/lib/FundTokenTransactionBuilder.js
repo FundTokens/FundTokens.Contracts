@@ -45,8 +45,10 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         },
     };
     #fund = {
-        category,
-        assets,
+        category: '',
+        amount: -1n,
+        satoshis: -1n,
+        assets: null,
     };
     #contracts = {
         managerContract: null,
@@ -84,8 +86,8 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         const {
             category,
             assets,
-        } = fund;
-        const fundHash = hashFund(fund);
+        } = this.#fund;
+        const fundHash = hashFund(this.#fund);
 
         const assetContracts = [];
         assets.forEach(a => {
@@ -100,7 +102,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         // 32 32 32 32 + 4 128 132 * 2 264
         const fundContract = new Contract(fundJson, [this.#swapped.inflow, this.#swapped.outflow, swapEndianness(category), fundHash], { provider: this.provider });
 
-        const feeContract = new Contract(feeJson, [pubKey, nftSwapped, value], { provider: this.provider });
+        const feeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fee.nft, this.#system.fee.value], { provider: this.provider });
 
         const managerContract = new Contract(managerJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
@@ -122,11 +124,10 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     // return a new transaction builder with a built mint transaction
     async newMintTransaction({
         amount,
-        fund,
         payBy,
     }) {
-        const transactionBuilder = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
-        await transactionBuilder.addMint({ amount, fund, payBy });
+        const transactionBuilder = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger, fund: this.#fund });
+        await transactionBuilder.addMint({ amount, payBy });
         return transactionBuilder;
     }
 
@@ -139,20 +140,14 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     // The consuming app is responsible for adding an output for Bitcoin change, fund token minted, and token change
     async addMint({
         amount,
-        fund,
-        fund: {
-            category: fundCategory,
-            amount: fundAmount,
-            assets: fundAssets, // category, amount
-        },
         payBy,
     }) {
         this.#logger.log('transaction builder...adding minting transaction');
 
-        const { managerContract, fundContract, assetContracts, feeContract } = this.getContracts(fund);
+        const { managerContract, fundContract, assetContracts, feeContract } = this.getContracts();
 
         const inflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.inflow);
-        const fundUtxos = (await fundContract.getUtxos()).filter(u => u.token?.category === fundCategory);
+        const fundUtxos = (await fundContract.getUtxos()).filter(u => u.token?.category === this.#fund.category);
         const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee });
 
         if (!inflowUtxos?.length || !fundUtxos?.length || !bestFee) {

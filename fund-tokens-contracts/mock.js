@@ -1,6 +1,7 @@
 import {
     MockNetworkProvider,
     Network,
+    randomToken,
     randomUtxo,
 } from 'cashscript';
 
@@ -8,15 +9,18 @@ import { generateWallet } from './wallet.js';
 
 import { DustAmount } from './lib/constants.js';
 import SystemTransactionBuilder from './lib/SystemTransactionBuilder.js';
+import PublicFundTransactionBuilder from './lib/PublicFundTransactionBuilder.js';
 
 const provider = new MockNetworkProvider({
     updateUtxoSet: true,
 });
 
+const network = Network.MOCKNET;
+
 const addUtxos = (address, utxos) => utxos.forEach(u => provider.addUtxo(address, u));
 
-const systemOwnerWallet = generateWallet(Network.MOCKNET);
-const authHeadOwnerWallet = generateWallet(Network.MOCKNET);
+const systemOwnerWallet = generateWallet(network);
+const authHeadOwnerWallet = generateWallet(network);
 
 const feeUtxo = randomUtxo({ satoshis: 100000n}); // consume the entire utxo for simplicity
 
@@ -53,10 +57,56 @@ const system = {
 
 const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
 
+const { createFundFeeContract, executeFundFeeContract } = systemTransactionBuilder.getContracts();
+
 systemTransactionBuilder
     .addInitializeSystem({ utxos: genesisInputs })
-    .addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+    .addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH())
+    .addOutputs([
+        {
+            to: createFundFeeContract.tokenAddress,
+            amount: DustAmount,
+        },
+        {
+            to: executeFundFeeContract.tokenAddress,
+            amount: DustAmount,
+        }
+    ]);
 
 const initResponse = await systemTransactionBuilder.send();
 console.log('initialize system tx size', initResponse.hex.length / 2);
 
+///
+///
+///
+const userWallet = generateWallet({ network });
+const fundGenesisUtxo = randomUtxo(genesisPartial);
+const assetUtxos = [
+    randomUtxo({
+        token: randomToken({
+            amount: 1n
+        })
+    }),
+    randomUtxo({
+        token: randomToken({
+            amount: 2n
+        })
+    }),
+];
+
+addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, ...assetUtxos]);
+
+const fund = {
+    category: fundGenesisUtxo.txid,
+    amount: 1n,
+    satoshis: 0n,
+    assets: assetUtxos.map(a => ({
+        category: a.token.category,
+        amount: a.token.amount,
+    })),
+};
+
+const publicFundTransactonBuilder = new PublicFundTransactionBuilder({ provider, system });
+publicFundTransactonBuilder.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+await publicFundTransactonBuilder.addBroadcast({ fund });
+await publicFundTransactonBuilder.send();

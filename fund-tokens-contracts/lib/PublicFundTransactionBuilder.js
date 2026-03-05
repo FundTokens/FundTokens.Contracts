@@ -136,13 +136,10 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
     async newBroadcastTransaction({
         fund,
         payBy,
-        genesis: {
-            utxo,
-            unlocker,
-        },
+        genesis
     }) {
         const transactionBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
-        transactionBuilder.addInput(utxo, unlocker);
+        transactionBuilder.addInputs([genesis]);
         await transactionBuilder.addBroadcast({ fund, payBy });
         return transactionBuilder;
     }
@@ -151,9 +148,9 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         fund,
         payBy,
     }) {
-        const { feeContract, startupContract, mintContract } = this.#contracts;
+        const { createFundFeeContract, startupContract, mintContract } = this.#contracts;
 
-        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
+        const bestFee = await getBestFee({ feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
         const broadcastUtxos = await startupContract.getUtxos();
         const mintUtxos = await mintContract.getUtxos();
@@ -199,7 +196,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             },
             {
                 ...bestFee.utxo,
-                unlocker: feeContract.unlock.pay(),
+                unlocker: createFundFeeContract.unlock.pay(),
             }
         ])
         .addOutputs([
@@ -229,7 +226,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                 token: outflowUtxo.token,
             }, 
             {
-                to: feeContract.tokenAddress,
+                to: createFundFeeContract.tokenAddress,
                 amount: bestFee.utxo.satoshis,
                 // token: {
                 //     ...bestFee.utxo.
