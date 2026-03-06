@@ -229,25 +229,26 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     }
 
     // can only be invoked once to initialize the system
-    addInitializeSystem({
-        utxos,
-    }) {
-        if (this.inputs.length || this.outputs.length) {
+    addInitializeSystem() {
+        if (this.inputs.length < 5) {
             throw new Error('No inputs or outputs should be added before initializing system');
         }
 
-        const filteredUtxos = utxos.filter(u => u.vout === 0 && !u.token);
-        
-        const RequiredGenesisInputCount = 5;
-
-        if (filteredUtxos.length < RequiredGenesisInputCount) {
-            throw new Error(`'${RequiredGenesisInputCount}' genesis inputs are required but only '${filteredUtxos.length}' were found`);
+        const ensureGenesisUtxo = u => {
+            if(u.vout !== 0) {
+                throw new Error('Expecting a genesis UTXO');
+            }
         }
 
-        const [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo] = filteredUtxos;
+        const [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo] = this.inputs;
 
-        this.addInputs([inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo])
-            .addOutputs([
+        ensureGenesisUtxo(inflowGenesisUtxo);
+        ensureGenesisUtxo(outflowGenesisUtxo);
+        ensureGenesisUtxo(publicFundGenesisUtxo);
+        ensureGenesisUtxo(createFundFeeGenesisUtxo);
+        ensureGenesisUtxo(executeFundFeeGenesisUtxo);
+
+        this.addOutputs([
                 {
                     to: this.#contracts.inflowHoldingContract.tokenAddress,
                     amount: DustAmount,

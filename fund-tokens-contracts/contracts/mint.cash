@@ -21,7 +21,7 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
 
         int assetContractStart = 0;
-        int assetContractStop = assetContractStart + assetContract.length + 1; // <= 75 bytes
+        int assetContractStop = assetContractStart + assetContract.length + 2; // <= 75 bytes
         bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
 
 
@@ -52,7 +52,7 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
         
         int assetContractStart = 0;
-        int assetContractStop = assetContractStart + assetContract.length + 1; // <= 75 bytes
+        int assetContractStop = assetContractStart + assetContract.length + 2; // <= 75 bytes
         bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
 
 

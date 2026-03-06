@@ -48,18 +48,19 @@ const initializeControlTokens = async () => {
     const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
     const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
     const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
-    const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo].map(u => ({ ...u, unlocker: systemOwnerWallet.signatureTemplate.unlockP2PKH() }));
+    const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
     const feeUtxo = randomUtxo({ satoshis: 10000n });
 
     addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo, ...genesisInputs]);
 
     const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
     systemTransactionBuilder
-        .addInitializeSystem({ utxos: genesisInputs })
+        .addInputs(genesisInputs, systemOwnerWallet.signatureTemplate.unlockP2PKH())
+        .addInitializeSystem()
         .addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
 
-    const initResponse = await systemTransactionBuilder.send();
-    console.log('initialize system tx size', initResponse.hex.length / 2);
+    const response = await systemTransactionBuilder.send();
+    console.log('initialize system tx size', response.hex.length / 2);
 };
 
 const createNewSystemThreads = async () => {
@@ -74,8 +75,8 @@ const createNewSystemThreads = async () => {
     await systemTransactionBuilder.addExecuteFundFee();
     systemTransactionBuilder.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
 
-    const initResponse = await systemTransactionBuilder.send();
-    console.log('create new public fund threads tx size', initResponse.hex.length / 2);
+    const response = await systemTransactionBuilder.send();
+    console.log('create new public fund threads tx size', response.hex.length / 2);
 };
 
 // owner
@@ -102,22 +103,31 @@ const fund = {
 const fundBroadcast = async () => {
     const userWallet = generateWallet({ network });
     const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+    const feeUtxo = randomUtxo({ satoshis: 100000n });
     const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
 
-    addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, ...assetUtxos]);
+    addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, ...assetUtxos, feeUtxo]);
 
     const publicFundTransactonBuilder = new PublicFundTransactionBuilder({ provider, system });
     publicFundTransactonBuilder.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
     await publicFundTransactonBuilder.addBroadcast({ fund });
-    await publicFundTransactonBuilder.send();
+    publicFundTransactonBuilder.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+    const response = await publicFundTransactonBuilder.send();
+    console.log('broadcast new fund tx size', response.hex.length / 2);
 };
 
 const fundInflow = async () => {
+    const userWallet = generateWallet({ network });
+    const feeUtxo = randomUtxo({ satoshis: 100000n });
 
+    addUtxos(userWallet.tokenAddress, [feeUtxo]);
 };
 
 const fundOutflow = async () => {
+    const userWallet = generateWallet({ network });
+    const feeUtxo = randomUtxo({ satoshis: 100000n });
 
+    addUtxos(userWallet.tokenAddress, [feeUtxo]);
 };
 
 await fundBroadcast();
