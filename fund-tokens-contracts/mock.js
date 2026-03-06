@@ -97,7 +97,11 @@ const fund = {
         {
             category: '8888888888888888888888888888888888888888888888888888888888888888',
             amount: 3n,
-        }
+        },
+        {
+            category: '9999999999999999999999999999999999999999999999999999999999999999',
+            amount: 4n,
+        },
     ]
 };
 
@@ -166,6 +170,8 @@ const fundOutflow = async () => {
                 amount: outflowAmount * a.amount
             }
         })));
+    const response = await builder.send();
+    console.log('outflow tx size', response.hex.length / 2);
 };
 
 await fundBroadcast();

@@ -137,14 +137,16 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         fund,
         payBy,
     }) {
-        const { createFundFeeContract, startupContract, mintContract } = this.#contracts;
+        const { createFundFeeContract, startupContract, mintContract, publicFundContract } = this.#contracts;
 
         const bestFee = await getBestFee({ feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
         const broadcastUtxos = await startupContract.getUtxos();
         const mintUtxos = await mintContract.getUtxos();
-        const inflowUtxos = mintUtxos.filter(u => u.token?.category == this.#system.inflow);
-        const outflowUtxos = mintUtxos.filter(u => u.token?.category == this.#system.outflow);
+        const publicUtxos = await publicFundContract.getUtxos();
+        const inflowUtxos = mintUtxos.filter(u => u.token?.category === this.#system.inflow);
+        const outflowUtxos = mintUtxos.filter(u => u.token?.category === this.#system.outflow);
+        const publicFundUtxos = publicUtxos.filter(u => u.token?.category === this.#system.publicFund)
         
         if(this.inputs.length === 0) {
             throw new Error('User genesis input is expected to be added prior to calling this function');
@@ -163,6 +165,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         const broadcastUtxo = broadcastUtxos[getRandomInt(broadcastUtxos.length)];
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
+        const publicFundUtxo = publicFundUtxos[getRandomInt(publicFundUtxos.length)];
 
         var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: { ...this.#system, fee: this.#system.fees.execute }, fund }).getContracts();
 
@@ -186,6 +189,10 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             {
                 ...bestFee.utxo,
                 unlocker: createFundFeeContract.unlock.pay(),
+            },
+            {
+                ...publicFundUtxo,
+                unlocker: publicFundContract.unlock.broadcast(getFundBin(fund))
             }
         ])
         .addOutputs([
@@ -255,21 +262,33 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                     category: genesisUtxo.txid,
                     amount: fundTokenAmount,
                 }
+            },
+            {
+                to: publicFundContract.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: this.#system.publicFund,
+                    amount: 0n,
+                    nft: {
+                        capability: 'minting',
+                        commitment: '',
+                    }
+                }
             }
         ]);
 
 
-        const maxSize = 128;
+        const maxSize = 128 * 2;
 
         const fundHex = getFundHex(fund);
         const fundHexParts = [];
         
         let curr = 0;
-        let next = curr - genesisUtxo.txid.length + maxSize;
+        let next = maxSize;
 
-        fundHexParts.push(genesisUtxo.txid + fundHex.slice(curr, curr - genesisUtxo.txid.length + maxSize));
-        curr = next;
-        next += maxSize
+        // fundHexParts.push(genesisUtxo.txid + fundHex.slice(curr, curr - genesisUtxo.txid.length + maxSize));
+        // curr = next;
+        // next += maxSize
 
         while(curr < fundHex.length) {
             fundHexParts.push(fundHex.slice(curr, next));
@@ -278,8 +297,19 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         }
 
         // only one op return is possible per transaction
-        // fundHexParts.forEach(part => {
-        //     this.addOpReturnOutput([part]);
-        // });
+        fundHexParts.forEach(part => {
+            this.addOutput({
+                to: publicFundContract.tokenAddress, // TODO: update destination?
+                amount: 1065n,
+                token: {
+                    category: this.#system.publicFund,
+                    amount: 0n,
+                    nft: {
+                        capability: 'none',
+                        commitment: part
+                    }
+                }
+            })
+        });
     }
 }

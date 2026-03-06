@@ -47,8 +47,19 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
 
 
 
-        require(tx.outputs[this.activeInputIndex + 7].tokenCategory == tx.inputs[0].outpointTransactionHash);
-        require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?
+        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == tx.inputs[0].outpointTransactionHash);
+        require(tx.outputs[this.activeInputIndex + 3].tokenAmount == 9223372036854775807); // anything but the max?
+
+        int lastOutput = this.activeInputIndex + 5;
+        int count = 0;
+        do {
+            bytes p = tx.outputs[lastOutput].nftCommitment;
+            bytes part = fund.slice(count * 128, min((count + 1) * 128, fund.length));
+            console.log('testing', part, p);
+            require(tx.outputs[lastOutput].nftCommitment == part);
+            lastOutput = lastOutput + 1;
+            count = count + 1;
+        } while(lastOutput < tx.outputs.length);
 
 
 
@@ -56,7 +67,7 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         // verify no more outputs, fund tokens, public token
         int outputIndex = 1; // 0 is already validated
         do {
-            if(!within(outputIndex, this.activeInputIndex - 4, this.activeInputIndex + 4)) { // able to improve
+            if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) { // able to improve
                 require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
                 require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
             }
