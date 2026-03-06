@@ -10,6 +10,7 @@ import { generateWallet } from './wallet.js';
 import { DustAmount } from './lib/constants.js';
 import SystemTransactionBuilder from './lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from './lib/PublicFundTransactionBuilder.js';
+import FundTokenTransactionBuilder from './lib/FundTokenTransactionBuilder.js';
 
 const network = Network.MOCKNET;
 const genesisPartial = { vout: 0, satoshis: DustAmount };
@@ -53,29 +54,29 @@ const initializeControlTokens = async () => {
 
     addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo, ...genesisInputs]);
 
-    const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
-    systemTransactionBuilder
+    const builder = new SystemTransactionBuilder({ provider, system });
+    builder
         .addInputs(genesisInputs, systemOwnerWallet.signatureTemplate.unlockP2PKH())
         .addInitializeSystem()
         .addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
 
-    const response = await systemTransactionBuilder.send();
+    const response = await builder.send();
     console.log('initialize system tx size', response.hex.length / 2);
 };
 
 const createNewSystemThreads = async () => {
     const feeUtxo = randomUtxo({ satoshis: 10000n });
-    const systemTransactionBuilder = new SystemTransactionBuilder({ provider, system });
+    const builder = new SystemTransactionBuilder({ provider, system });
     const signature = systemOwnerWallet.signatureTemplate;
 
     addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
 
-    await systemTransactionBuilder.addSystemThreads({ signature });
-    await systemTransactionBuilder.addCreateFundFee();
-    await systemTransactionBuilder.addExecuteFundFee();
-    systemTransactionBuilder.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+    await builder.addSystemThreads({ signature });
+    await builder.addCreateFundFee();
+    await builder.addExecuteFundFee();
+    builder.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
 
-    const response = await systemTransactionBuilder.send();
+    const response = await builder.send();
     console.log('create new public fund threads tx size', response.hex.length / 2);
 };
 
@@ -104,23 +105,38 @@ const fundBroadcast = async () => {
     const userWallet = generateWallet({ network });
     const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
     const feeUtxo = randomUtxo({ satoshis: 100000n });
-    const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
 
-    addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, ...assetUtxos, feeUtxo]);
+    addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
 
-    const publicFundTransactonBuilder = new PublicFundTransactionBuilder({ provider, system });
-    publicFundTransactonBuilder.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
-    await publicFundTransactonBuilder.addBroadcast({ fund });
-    publicFundTransactonBuilder.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
-    const response = await publicFundTransactonBuilder.send();
+    const builder = new PublicFundTransactionBuilder({ provider, system });
+    builder.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+    await builder.addBroadcast({ fund });
+    builder.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+    const response = await builder.send();
     console.log('broadcast new fund tx size', response.hex.length / 2);
 };
 
 const fundInflow = async () => {
     const userWallet = generateWallet({ network });
     const feeUtxo = randomUtxo({ satoshis: 100000n });
+    const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
 
-    addUtxos(userWallet.tokenAddress, [feeUtxo]);
+    addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+
+    const inflowAmount = 1n;
+
+    const builder = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+    await builder.addMint({ amount: inflowAmount });
+    builder.addOutput({
+        to: userWallet.tokenAddress,
+        amount: DustAmount,
+        token: {
+            category: fund.category,
+            amount: inflowAmount * fund.amount,
+        }
+    });
+    const response = await builder.send();
+    console.log('inflow tx size', response.hex.length /2);
 };
 
 const fundOutflow = async () => {

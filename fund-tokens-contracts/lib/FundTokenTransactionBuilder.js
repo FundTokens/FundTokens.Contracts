@@ -121,16 +121,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
-    // return a new transaction builder with a built mint transaction
-    async newMintTransaction({
-        amount,
-        payBy,
-    }) {
-        const transactionBuilder = new FundTokenTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger, fund: this.#fund });
-        await transactionBuilder.addMint({ amount, payBy });
-        return transactionBuilder;
-    }
-
     // TODO: Scaling fund UTXO selection
     // As new threads are added to the fund token contract, we should select for inflow tx the UTXO with the most tokens
     // Although this means we still target one thread, should have a range maybe and then randomly select
