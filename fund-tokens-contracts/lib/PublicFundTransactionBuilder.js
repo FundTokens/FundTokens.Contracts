@@ -133,17 +133,6 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
-    async newBroadcastTransaction({
-        fund,
-        payBy,
-        genesis
-    }) {
-        const transactionBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
-        transactionBuilder.addInputs([genesis]);
-        await transactionBuilder.addBroadcast({ fund, payBy });
-        return transactionBuilder;
-    }
-
     async addBroadcast({
         fund,
         payBy,

@@ -118,7 +118,7 @@ const fundBroadcast = async () => {
 
 const fundInflow = async () => {
     const userWallet = generateWallet({ network });
-    const feeUtxo = randomUtxo({ satoshis: 100000n });
+    const feeUtxo = randomUtxo({ satoshis: 110000n });
     const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
 
     addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
@@ -126,24 +126,46 @@ const fundInflow = async () => {
     const inflowAmount = 1n;
 
     const builder = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-    await builder.addMint({ amount: inflowAmount });
-    builder.addOutput({
-        to: userWallet.tokenAddress,
-        amount: DustAmount,
-        token: {
-            category: fund.category,
-            amount: inflowAmount * fund.amount,
-        }
-    });
+    await builder.addInflow({ amount: inflowAmount });
+    builder
+        .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
+        .addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: fund.category,
+                amount: inflowAmount * fund.amount,
+            }
+        });
     const response = await builder.send();
-    console.log('inflow tx size', response.hex.length /2);
+    console.log('inflow tx size', response.hex.length / 2);
 };
 
 const fundOutflow = async () => {
     const userWallet = generateWallet({ network });
     const feeUtxo = randomUtxo({ satoshis: 100000n });
+    const outflowAmount = 1n;
+    const fundTokenUtxo = randomUtxo({
+        token: randomToken({
+            category: fund.category,
+            amount: outflowAmount * fund.amount,
+        })
+    });
 
-    addUtxos(userWallet.tokenAddress, [feeUtxo]);
+    addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
+
+    const builder = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+    await builder.addOutflow({ amount: outflowAmount });
+    builder
+        .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
+        .addOutputs(fund.assets.map(a => ({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: a.category,
+                amount: outflowAmount * a.amount
+            }
+        })));
 };
 
 await fundBroadcast();

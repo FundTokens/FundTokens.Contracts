@@ -70,6 +70,12 @@ export function getFund(hex) {
 export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
 export async function getBestFee({ feeContract, payBy, fee, owner }) {
+    if(!feeContract) {
+        throw new Error('Expected fee contract');
+    }
+    if(!owner) {
+        throw new Error('Expected system owner pk')
+    }
     const network = feeContract.provider.network;
     const {
         nft,
