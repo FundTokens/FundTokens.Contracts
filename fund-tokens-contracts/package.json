@@ -9,10 +9,14 @@
     "cashscript": "0.13.0-next.4"
   },
   "scripts": {
+    "test": "vitest",
     "mock": "node ./mock.js",
     "build": "yarn build:fund && yarn build:startup && yarn build:system",
     "build:fund": "cashc ./contracts/manager.cash --output ./lib/art/manager.json && cashc ./contracts/fund.cash --output ./lib/art/fund.json && cashc ./contracts/asset.cash --output ./lib/art/asset.json",
     "build:startup": "cashc ./contracts/public.cash --output ./lib/art/public.json && cashc ./contracts/startup.cash --output ./lib/art/startup.json && cashc ./contracts/fee.cash --output ./lib/art/fee.json && cashc ./contracts/mint.cash --output ./lib/art/mint.json",
     "build:system": "cashc ./contracts/fee_minter.cash --output ./lib/art/fee_minter.json && cashc ./contracts/simple_minter.cash --output ./lib/art/simple_minter.json"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
   }
 }
