@@ -18,8 +18,6 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 4].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex + 4].tokenCategory);
 
-
-
         require(token != 0x);
 
 
@@ -53,15 +51,11 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         int lastOutput = this.activeInputIndex + 5;
         int count = 0;
         do {
-            bytes p = tx.outputs[lastOutput].nftCommitment;
             bytes part = fund.slice(count * 128, min((count + 1) * 128, fund.length));
-            console.log('testing', part, p);
             require(tx.outputs[lastOutput].nftCommitment == part);
             lastOutput = lastOutput + 1;
             count = count + 1;
         } while(lastOutput < tx.outputs.length);
-
-
 
 
         // verify no more outputs, fund tokens, public token

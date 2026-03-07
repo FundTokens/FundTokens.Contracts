@@ -8,6 +8,7 @@ import {
 import { generateWallet } from './wallet.js';
 
 import { DustAmount } from './lib/constants.js';
+import { getRandomInt } from './lib/utils.js';
 import SystemTransactionBuilder from './lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from './lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from './lib/FundTokenTransactionBuilder.js';
@@ -102,6 +103,42 @@ const fund = {
             category: '9999999999999999999999999999999999999999999999999999999999999999',
             amount: 4n,
         },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
+        {
+            category: randomToken().category,
+            amount: 1234n,
+        },
     ]
 };
 
@@ -147,7 +184,7 @@ const fundInflow = async () => {
 
 const fundOutflow = async () => {
     const userWallet = generateWallet({ network });
-    const feeUtxo = randomUtxo({ satoshis: 100000n });
+    const feeUtxo = randomUtxo({ satoshis: 1000000n });
     const outflowAmount = 1n;
     const fundTokenUtxo = randomUtxo({
         token: randomToken({
@@ -169,7 +206,11 @@ const fundOutflow = async () => {
                 category: a.category,
                 amount: outflowAmount * a.amount
             }
-        })));
+        })))
+        .addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+        });
     const response = await builder.send();
     console.log('outflow tx size', response.hex.length / 2);
 };
