@@ -6,12 +6,12 @@ import {
 } from 'cashscript';
 import 'cashscript/vitest';
 
-import { generateWallet } from './wallet.js';
+import { generateWallet } from '@/wallet.js';
 
-import { DustAmount } from './lib/constants.js';
-import SystemTransactionBuilder from './lib/SystemTransactionBuilder.js';
-import PublicFundTransactionBuilder from './lib/PublicFundTransactionBuilder.js';
-import FundTokenTransactionBuilder from './lib/FundTokenTransactionBuilder.js';
+import { DustAmount } from '@lib/constants.js';
+import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
+import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
+import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
 
 describe('happy path', () => {
     const network = Network.MOCKNET;
@@ -55,29 +55,51 @@ describe('happy path', () => {
 
         addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo, ...genesisInputs]);
 
-        const builder = new SystemTransactionBuilder({ provider, system });
-        builder
+        const transaction = new SystemTransactionBuilder({ provider, system });
+        transaction
             .addInputs(genesisInputs, systemOwnerWallet.signatureTemplate.unlockP2PKH())
             .addInitializeSystem()
             .addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
 
-        const response = await builder.send();
+        expect(transaction).not.toFailRequire();
+
+        const response = await transaction.send();
         console.log('initialize system tx size', response.hex.length / 2);
     });
 
     it('should create new system threads', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
-        const builder = new SystemTransactionBuilder({ provider, system });
+        const transaction = new SystemTransactionBuilder({ provider, system });
         const signature = systemOwnerWallet.signatureTemplate;
 
         addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
 
-        await builder.addSystemThreads({ signature });
-        await builder.addCreateFundFee();
-        await builder.addExecuteFundFee();
-        builder.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addSystemThreads({ signature });
+        await transaction.addCreateFundFee();
+        await transaction.addExecuteFundFee();
+        transaction.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
 
-        const response = await builder.send();
+        expect(transaction).not.toFailRequire();
+
+        const response = await transaction.send();
+        console.log('create new public fund threads tx size', response.hex.length / 2);
+    });
+
+    it('should create additional system threads', async () => {
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const transaction = new SystemTransactionBuilder({ provider, system });
+        const signature = systemOwnerWallet.signatureTemplate;
+
+        addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
+
+        await transaction.addSystemThreads({ signature });
+        await transaction.addCreateFundFee();
+        await transaction.addExecuteFundFee();
+        transaction.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+
+        expect(transaction).not.toFailRequire();
+
+        const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
@@ -108,11 +130,14 @@ describe('happy path', () => {
 
         addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
 
-        const builder = new PublicFundTransactionBuilder({ provider, system });
-        builder.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
-        await builder.addBroadcast({ fund });
-        builder.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
-        const response = await builder.send();
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+
+        expect(transaction).not.toFailRequire();
+
+        const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
 
@@ -125,9 +150,9 @@ describe('happy path', () => {
 
         const inflowAmount = 1n;
 
-        const builder = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        await builder.addInflow({ amount: inflowAmount });
-        builder
+        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        await transaction.addInflow({ amount: inflowAmount });
+        transaction
             .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
                 to: userWallet.tokenAddress,
@@ -137,7 +162,10 @@ describe('happy path', () => {
                     amount: inflowAmount * fund.amount,
                 }
             });
-        const response = await builder.send();
+        
+        expect(transaction).not.toFailRequire();
+
+        const response = await transaction.send();
         console.log('inflow tx size', response.hex.length / 2);
     });
 
@@ -154,9 +182,9 @@ describe('happy path', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
-        const builder = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        await builder.addOutflow({ amount: outflowAmount });
-        builder
+        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        await transaction.addOutflow({ amount: outflowAmount });
+        transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs(fund.assets.map(a => ({
                 to: userWallet.tokenAddress,
@@ -170,7 +198,10 @@ describe('happy path', () => {
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
             });
-        const response = await builder.send();
+        
+        expect(transaction).not.toFailRequire();
+                
+        const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);
     });
 });
