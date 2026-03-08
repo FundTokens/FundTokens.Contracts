@@ -4,8 +4,7 @@ import {
     randomToken,
     randomUtxo,
 } from 'cashscript';
-
-import { describe, it } from 'vitest';
+import 'cashscript/vitest';
 
 import { generateWallet } from './wallet.js';
 
