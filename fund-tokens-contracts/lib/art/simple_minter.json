@@ -11,7 +11,7 @@
     },
     {
       "name": "destination",
-      "type": "bytes32"
+      "type": "bytes"
     }
   ],
   "abi": [
@@ -25,11 +25,11 @@
       ]
     }
   ],
-  "bytecode": "OP_3 OP_ROLL OP_SWAP OP_CHECKSIGVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_0 OP_BEGIN OP_DUP OP_INPUTINDEX OP_NUMNOTEQUAL OP_OVER OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUAL OP_NOT OP_BOOLAND OP_IF OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_2 OP_PICK OP_EQUAL OP_IF OP_DUP OP_OUTPUTBYTECODE aa20 OP_4 OP_PICK OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENCOMMITMENT OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_EQUALVERIFY OP_ENDIF OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_DROP OP_1",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract SimpleMinter(pubkey owner, bytes32 token, bytes32 destination)\r\n{\r\n    function mint(sig signature) {\r\n        require(checkSig(signature, owner));\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        int outputIndex = 0;\r\n        do {\r\n            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {\r\n                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {\r\n                    require(tx.outputs[outputIndex].lockingBytecode == new LockingBytecodeP2SH32(destination));\r\n                    require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);\r\n                    require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);\r\n                    require(tx.outputs[outputIndex].nftCommitment == tx.inputs[this.activeInputIndex].nftCommitment);\r\n                }\r\n            }\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
+  "bytecode": "OP_3 OP_ROLL OP_SWAP OP_CHECKSIGVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_0 OP_BEGIN OP_DUP OP_INPUTINDEX OP_NUMNOTEQUAL OP_OVER OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUAL OP_NOT OP_BOOLAND OP_IF OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_2 OP_PICK OP_EQUAL OP_IF OP_DUP OP_OUTPUTBYTECODE OP_3 OP_PICK OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENCOMMITMENT OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_EQUALVERIFY OP_ENDIF OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract SimpleMinter(pubkey owner, bytes32 token, bytes destination)\r\n{\r\n    function mint(sig signature) {\r\n        require(checkSig(signature, owner));\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        int outputIndex = 0;\r\n        do {\r\n            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {\r\n                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {\r\n                    require(tx.outputs[outputIndex].lockingBytecode == destination);\r\n                    require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);\r\n                    require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);\r\n                    require(tx.outputs[outputIndex].nftCommitment == tx.inputs[this.activeInputIndex].nftCommitment);\r\n                }\r\n            }\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
   "debug": {
-    "bytecode": "537a7cadc0c7c0cd88c0ce01207f757888c0cec0d188c0d0c0d39dc0cfc0d288006576c09e78d10087919a6376d101207f755279876376cd02aa2054797e01877e8876d1c0ce8876d3c0d09d76d2c0cf886868768b7776c4a2666d7551",
-    "sourceMap": "6:25:6:34;;:36::41;:8::44:1;8:26:8:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;9:26:9:47:0;:16::62:1;:72::74:0;:16::75:1;;:79::84:0;:8::86:1;10:26:10:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;11:26:11:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;12:26:12:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;14:26:14:27:0;15:8:25:49;16:15:16:26;:30::51;:15:::1;:66::77:0;:55::92:1;:96::98:0;:55:::1;;:15;:100:23:13:0;17:30:17:41;:19::56:1;:66::68:0;:19::69:1;;:73::78:0;;:19:::1;:80:22:17:0;18:39:18:50;:28::67:1;:71::109:0;:97::108;;:71::109:1;;;:20::111;19:39:19:50:0;:28::65:1;:79::100:0;:69::115:1;:20::117;20:39:20:50:0;:28::63:1;:77::98:0;:67::111:1;:20::113;21:39:21:50:0;:28::65:1;:79::100:0;:69::115:1;:20::117;17:80:22:17;16:100:23:13;24:26:24:37:0;:::41:1;:12::42;25:16:25:27:0;:30::47;15:8::49:1;;5:4:26:5;;",
+    "bytecode": "537a7cadc0c7c0cd88c0ce01207f757888c0cec0d188c0d0c0d39dc0cfc0d288006576c09e78d10087919a6376d101207f755279876376cd53798876d1c0ce8876d3c0d09d76d2c0cf886868768b7776c4a2666d7551",
+    "sourceMap": "6:25:6:34;;:36::41;:8::44:1;8:26:8:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;9:26:9:47:0;:16::62:1;:72::74:0;:16::75:1;;:79::84:0;:8::86:1;10:26:10:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;11:26:11:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;12:26:12:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;14:26:14:27:0;15:8:25:49;16:15:16:26;:30::51;:15:::1;:66::77:0;:55::92:1;:96::98:0;:55:::1;;:15;:100:23:13:0;17:30:17:41;:19::56:1;:66::68:0;:19::69:1;;:73::78:0;;:19:::1;:80:22:17:0;18:39:18:50;:28::67:1;:71::82:0;;:20::84:1;19:39:19:50:0;:28::65:1;:79::100:0;:69::115:1;:20::117;20:39:20:50:0;:28::63:1;:77::98:0;:67::111:1;:20::113;21:39:21:50:0;:28::65:1;:79::100:0;:69::115:1;:20::117;17:80:22:17;16:100:23:13;24:26:24:37:0;:::41:1;:12::42;25:16:25:27:0;:30::47;15:8::49:1;;5:4:26:5;;",
     "logs": [],
     "requires": [
       {
@@ -57,19 +57,19 @@
         "line": 12
       },
       {
-        "ip": 63,
+        "ip": 59,
         "line": 18
       },
       {
-        "ip": 68,
+        "ip": 64,
         "line": 19
       },
       {
-        "ip": 73,
+        "ip": 69,
         "line": 20
       },
       {
-        "ip": 78,
+        "ip": 74,
         "line": 21
       }
     ]
@@ -81,5 +81,5 @@
       "enforceFunctionParameterTypes": true
     }
   },
-  "updatedAt": "2026-03-07T02:01:38.326Z"
+  "updatedAt": "2026-03-08T04:02:44.804Z"
 }

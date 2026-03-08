@@ -7,6 +7,8 @@ import {
     hash256,
     hexToBin,
     binToHex,
+    cashAddressToLockingBytecode,
+    lockingbytecode
 } from '@bitauth/libauth';
 
 import { DustAmount } from './constants.js';
@@ -95,14 +97,17 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
         const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
 
-        const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
+        // const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
+        const inflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
 
 
-        const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
+        // const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
+        const outflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
-        const publicFundDestination = binToHex(hash256(hexToBin(publicFundContract.bytecode)));
+        // const publicFundDestination = binToHex(hash256(hexToBin(publicFundContract.bytecode)));
+        const publicFundDestination = cashAddressToLockingBytecode(publicFundContract.tokenAddress).bytecode;
         const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
 
         const createFundFeeDestination = binToHex(hash256(hexToBin(createFundFeeContract.bytecode)));
