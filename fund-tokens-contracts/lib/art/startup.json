@@ -1,0 +1,109 @@
+{
+  "contractName": "FundStartup",
+  "constructorInputs": [
+    {
+      "name": "fee",
+      "type": "bytes32"
+    },
+    {
+      "name": "inflowToken",
+      "type": "bytes32"
+    },
+    {
+      "name": "outflowToken",
+      "type": "bytes32"
+    }
+  ],
+  "abi": [
+    {
+      "name": "start",
+      "inputs": [
+        {
+          "name": "fund",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "bytecode": "OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_3 OP_PICK 20 OP_SPLIT OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_0 0040075af07507 OP_WITHIN OP_VERIFY OP_0 OP_BEGIN OP_OVER 20 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_OVER OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_4 OP_PICK OP_0 OP_EQUAL OP_NOTIF OP_4 OP_PICK 00 OP_CAT OP_BIN2NUM OP_4 OP_PICK 00 OP_CAT OP_BIN2NUM OP_LESSTHAN OP_VERIFY OP_ENDIF OP_DUP OP_6 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_3 OP_PICK OP_5 OP_ROLL OP_DROP OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_TOALTSTACK OP_SWAP OP_FROMALTSTACK OP_FROMALTSTACK OP_FROMALTSTACK OP_2DROP OP_2DROP OP_OVER OP_SIZE OP_NIP OP_0 OP_LESSTHANOREQUAL OP_UNTIL OP_INPUTINDEX OP_1ADD OP_UTXOTOKENCATEGORY OP_5 OP_PICK OP_2 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_2 OP_ADD OP_UTXOTOKENCATEGORY OP_6 OP_PICK OP_2 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_3 OP_ADD OP_UTXOBYTECODE aa20 OP_5 OP_ROLL OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_5 OP_ADD OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_5 OP_ADD OP_OUTPUTTOKENCOMMITMENT OP_3 OP_PICK OP_7 OP_PICK OP_HASH256 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_6 OP_ADD OP_OUTPUTTOKENCATEGORY OP_5 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_6 OP_ADD OP_OUTPUTTOKENCOMMITMENT OP_3 OP_ROLL OP_6 OP_ROLL OP_HASH256 OP_CAT OP_EQUALVERIFY OP_1 OP_BEGIN OP_DUP OP_INPUTINDEX OP_INPUTINDEX OP_8 OP_ADD OP_WITHIN OP_NOTIF OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUAL OP_NOT OP_VERIFY OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_5 OP_PICK OP_EQUAL OP_NOT OP_VERIFY OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n//bytes20 bcmrDestination,\r\ncontract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)\r\n{\r\n    // fund is expected to be sorted based on the nft category\r\n    function start(bytes fund) {\r\n        //\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n\r\n        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);\r\n        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);\r\n        require(int(nft_fundAmount) > 0);\r\n        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);\r\n        require(within(int(nft_satoshis), 0, 2100000000000000));\r\n\r\n        bytes lastAssetCategory = 0x;\r\n        do {\r\n            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);\r\n            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);\r\n            require(int(nft_assetAmount) > 0);\r\n\r\n            if(lastAssetCategory != 0x) {\r\n                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));\r\n            }\r\n\r\n            nft_assets = nft_next4;\r\n            lastAssetCategory = nft_assetCategory;\r\n        } while(nft_assets.length > 0);\r\n\r\n        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == bytes(inflowToken + 0x02));\r\n        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == bytes(outflowToken + 0x02));\r\n\r\n        require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(fee));\r\n\r\n        require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowToken);\r\n        require(tx.outputs[this.activeInputIndex + 5].nftCommitment == bytes(nft_fundCategory + hash256(fund)));\r\n        require(tx.outputs[this.activeInputIndex + 6].tokenCategory == outflowToken);\r\n        require(tx.outputs[this.activeInputIndex + 6].nftCommitment == bytes(nft_fundCategory + hash256(fund)));\r\n\r\n        // require(tx.inputs[0].outpointTransactionHash == nft_fundCategory);\r\n        // require(tx.outputs[this.activeInputIndex + 7].tokenCategory == nft_fundCategory);\r\n        // require(tx.outputs[this.activeInputIndex + 7].tokenAmount == 9223372036854775807); // anything but the max?\r\n\r\n\r\n        // verify no more outputs mint tokens\r\n        int outputIndex = 1; // 0 is already validated\r\n        do {\r\n            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 8)) {\r\n                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);\r\n                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);\r\n            }\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
+  "debug": {
+    "bytecode": "c0c7c0cd88c0cec0d188c0cfc0d288537901207f587f7c8100a069587f7c8100070040075af07507a56900657801207f76587f788100a0695479008764547901007e81547901007e819f696876567a757c6b7c6b7c6b7c6b7c6c6c6c6c5379557a757c6b7c6b7c6b7c6c6c6c6d6d78827700a166c08bce5579527e88c05293ce5679527e88c05393c702aa20557a7e01877e88c05593d1547988c05593d253795779aa7e88c05693d1557988c05693d2537a567aaa7e88516576c0c05893a56476d101207f75547987916976d101207f75557987916968768b7776c4a2666d6d7551",
+    "sourceMap": "9:26:9:47;:16::64:1;:79::100:0;:68::117:1;:8::119;10:26:10:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;11:26:11:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;14:50:14:54:0;;:61::63;:50::64:1;15:64:15:65:0;:48::66:1;16:20:16:34:0;:16::35:1;:38::39:0;:16:::1;:8::41;17:63:17:64:0;:47::65:1;18:27:18:39:0;:23::40:1;:42::43:0;:45::61;:16::62:1;:8::64;20:34:20:36:0;21:8:32:39;22:55:22:65;:72::74;:55::75:1;23:53:23:62:0;:69::70;:53::71:1;24:24:24:39:0;:20::40:1;:43::44:0;:20:::1;:12::46;26:15:26:32:0;;:36::38;:15:::1;::28:13:0;27:28:27:45;;:48::52;:28:::1;:24::53;:60::77:0;;:80::84;:60:::1;:56::85;:24;:16::87;26:40:28:13;30:25:30:34:0;:12::35:1;;;;;;;;;;;;;;;;31:32:31:49:0;;:12::50:1;;;;;;;;;;;;;21:11:32:9;;32:16::26:0;:::33:1;;:36::37:0;21:8::39:1;;34:26:34:47:0;:::51:1;:16::66;:76::87:0;;:90::94;:76:::1;:8::97;35:26:35:47:0;:50::51;:26:::1;:16::66;:76::88:0;;:91::95;:76:::1;:8::98;37:26:37:47:0;:50::51;:26:::1;:16::68;:72::102:0;:98::101;;:72::102:1;;;:8::104;39:27:39:48:0;:51::52;:27:::1;:16::67;:71::82:0;;:8::84:1;40:27:40:48:0;:51::52;:27:::1;:16::67;:77::93:0;;:104::108;;:96::109:1;:77;:8::112;41:27:41:48:0;:51::52;:27:::1;:16::67;:71::83:0;;:8::85:1;42:27:42:48:0;:51::52;:27:::1;:16::67;:77::93:0;;:104::108;;:96::109:1;:77;:8::112;50:26:50:27:0;51:8:57:49;52:23:52:34;:36::57;:59::80;:83::84;:59:::1;:16::85;:15:55:13:0;53:35:53:46;:24::61:1;:71::73:0;:24::74:1;;:78::89:0;;:24:::1;;:16::91;54:35:54:46:0;:24::61:1;:71::73:0;:24::74:1;;:78::90:0;;:24:::1;;:16::92;52:87:55:13;56:26:56:37:0;:::41:1;:12::42;57:16:57:27:0;:30::47;51:8::49:1;;7:4:58:5;;;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 7,
+        "line": 9
+      },
+      {
+        "ip": 12,
+        "line": 10
+      },
+      {
+        "ip": 17,
+        "line": 11
+      },
+      {
+        "ip": 28,
+        "line": 16
+      },
+      {
+        "ip": 36,
+        "line": 18
+      },
+      {
+        "ip": 49,
+        "line": 24
+      },
+      {
+        "ip": 66,
+        "line": 27
+      },
+      {
+        "ip": 115,
+        "line": 34
+      },
+      {
+        "ip": 124,
+        "line": 35
+      },
+      {
+        "ip": 135,
+        "line": 37
+      },
+      {
+        "ip": 142,
+        "line": 39
+      },
+      {
+        "ip": 153,
+        "line": 40
+      },
+      {
+        "ip": 160,
+        "line": 41
+      },
+      {
+        "ip": 171,
+        "line": 42
+      },
+      {
+        "ip": 190,
+        "line": 53
+      },
+      {
+        "ip": 200,
+        "line": 54
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.4",
+    "options": {
+      "enforceFunctionParameterTypes": true
+    }
+  },
+  "updatedAt": "2026-03-07T02:01:37.158Z"
+}

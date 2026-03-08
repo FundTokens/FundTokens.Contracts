@@ -1,0 +1,71 @@
+pragma cashscript ~0.13.0;
+
+contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupContract, bytes fundTokenContract)
+{   
+    // new threads? okay because it's meant to be read-only?
+    function broadcast(bytes fund) {
+        require(fundTokenContract != 0x); // TODO send the token here
+
+        require(tx.inputs[0].outpointIndex == 0);
+        require(tx.inputs[0].tokenCategory == 0x);
+
+        require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(authHeadDestination));
+        require(tx.outputs[0].tokenCategory == 0x);
+
+
+        require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));
+
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 4].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex + 4].tokenCategory);
+
+        require(token != 0x);
+
+
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        require(nft_fundCategory != 0x);
+        require(nft_fundCategory == tx.inputs[0].outpointTransactionHash);
+        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+        require(int(nft_fundAmount) > 0);
+        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
+        require(within(int(nft_satoshis), 0, 2100000000000000));
+
+        bytes lastAssetCategory = 0x;
+        do {
+            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
+            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
+            require(int(nft_assetAmount) > 0);
+
+            if(lastAssetCategory != 0x) {
+                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
+            }
+
+            nft_assets = nft_next4;
+            lastAssetCategory = nft_assetCategory;
+        } while(nft_assets.length > 0);
+
+
+
+        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == tx.inputs[0].outpointTransactionHash);
+        require(tx.outputs[this.activeInputIndex + 3].tokenAmount == 9223372036854775807); // anything but the max?
+
+        int lastOutput = this.activeInputIndex + 5;
+        int count = 0;
+        do {
+            bytes part = fund.slice(count * 128, min((count + 1) * 128, fund.length));
+            require(tx.outputs[lastOutput].nftCommitment == part);
+            lastOutput = lastOutput + 1;
+            count = count + 1;
+        } while(lastOutput < tx.outputs.length);
+
+
+        // verify no more outputs, fund tokens, public token
+        int outputIndex = 1; // 0 is already validated
+        do {
+            if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) { // able to improve
+                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
+                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+    }
+}

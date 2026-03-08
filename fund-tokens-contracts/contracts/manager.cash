@@ -1,0 +1,209 @@
+pragma cashscript ~0.13.0;
+
+// max NFT commitment size, 128 bytes
+// 0x08 - push 8 bytes
+// 0x20 - push 32 bytes
+
+// NFT Commitment
+// bytes fund category
+// bytes fund hash
+
+// Fund Hash
+// int satoshi
+// int fundAmount
+// bytes asset1Category
+// int asset1Amount
+// ...
+// bytes assetNContract
+// int assetNAmount
+
+// amount - 8 bytes
+// category - 32 bytes
+// hash - 32 bytes
+
+
+// fee contract -> contract to prove fees have been paid
+// inflow token -> token to show inflow validation occurred
+// outflow token -> token show outflow validation occurred
+// fund contract -> the fund's base contract used to hash next contracts
+// asset contract -> the asset's base contract, used to hash next contracts
+contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken, bytes32 fundCategory, bytes32 fundHash, bytes fundContract, bytes assetContract)
+{
+    // i - inflow signal
+    // i + 1 - fund manager
+    //
+    // o - inflow manager
+    // o + 1 - fund manager
+    // o + 2 - asset 1
+    // ...
+    // o + M - asset N
+    function inflow(bytes fund) {
+        // check input is inflow token for proper contract signalling
+        require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
+        // spend input back to the contract
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
+        require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
+        require(hash256(fund) == fundHash);
+
+        
+
+        // fund contract is next in the transaction
+        // contract already returns UTXO
+        int fundInputIndex = this.activeInputIndex + 1;
+        // require(tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 135) == bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken));
+        // require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract); // TODO verify parameters?
+        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
+
+
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        require(nft_fundCategory == fundCategory);
+
+        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+
+
+        
+        int fundAmount = int(nft_fundAmount);
+        // calculate the number of "whole" fund tokens is released
+        int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - tx.outputs[fundInputIndex].tokenAmount;
+        require(fundReleasedAmount % fundAmount == 0); // ensure a multiple of the fund amount
+        fundReleasedAmount = fundReleasedAmount / fundAmount;
+
+        //
+        // int feeInputIndex = fundInputIndex + 1;
+        require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        // feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
+
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
+        int fundSats = int(nft_sats);
+        int satoshiOutputIndex = fundInputIndex + 2;
+        if(fundSats > 0) {
+            satoshiOutputIndex = satoshiOutputIndex + 1;
+            bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
+            require(tx.outputs[satoshiOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + satoshiAsset + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
+            require(tx.outputs[satoshiOutputIndex].value % fundSats == 0);
+            int satoshiCollectedAmount = tx.outputs[satoshiOutputIndex].value / fundSats;
+            require(satoshiCollectedAmount == fundReleasedAmount);
+        }
+
+        int assetIndex = 0;
+        bytes nft_assetData = nft_next3;
+        do {
+            bytes nft_assetCategory, bytes nft_assetNext = nft_assetData.split(32);
+            bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
+            int assetAmount = int(nft_assetAmount);
+
+            int assetOutputIndex = satoshiOutputIndex + 1 + assetIndex;
+            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
+            require(tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory);
+            require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount
+            int assetCollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / assetAmount;
+            require(assetCollectedAmount == fundReleasedAmount);
+            nft_assetData = nft_remaining;
+            assetIndex = assetIndex + 1;
+        } while(nft_assetData.length > 0);
+    }
+
+    // i - outflow signal
+    // i + 1 - fund manager
+    // ? - asset 1
+    // ...
+    // ? - asset N
+    //
+    // o - inflow manager
+    // o + 1 - fund manager
+    function outflow(bytes fund) {
+        // check input
+        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
+        // spend input back to the contract
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
+        require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
+        require(hash256(fund) == fundHash);
+
+        // fund contract is next in the transaction
+        int fundInputIndex = this.activeInputIndex + 1;
+        require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
+
+
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        require(nft_fundCategory == fundCategory);
+
+        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+
+        int fundAmount = int(nft_fundAmount);
+        int fundLockingAmount = tx.outputs[fundInputIndex].tokenAmount - tx.inputs[fundInputIndex].tokenAmount;
+        require(fundLockingAmount % fundAmount == 0); // ensure a multiple of the fund amount
+        fundLockingAmount = fundLockingAmount / fundAmount;
+
+        //
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
+        require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        // skip over paid fee, fee contract will verify
+
+        int fundSats = int(nft_sats);
+        if(fundSats > 0) {
+            int satoshiReleaseAmount = 0;
+            bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
+            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + satoshiAsset + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
+
+            int fundSatoshiInput = 0;
+            do {
+                if(tx.inputs[fundSatoshiInput].lockingBytecode == satoshiLockingBytecode && tx.inputs[fundSatoshiInput].tokenCategory == 0x) {
+                    satoshiReleaseAmount = satoshiReleaseAmount + tx.inputs[fundSatoshiInput].value;
+                }
+                fundSatoshiInput = fundSatoshiInput + 1;
+            } while(fundSatoshiInput < tx.inputs.length);
+
+            int fundSatoshiOutput = 0;
+            do {
+                if(tx.outputs[fundSatoshiOutput].lockingBytecode == satoshiLockingBytecode && tx.outputs[fundSatoshiOutput].tokenCategory == 0x) {
+                    satoshiReleaseAmount = satoshiReleaseAmount - tx.outputs[fundSatoshiOutput].value;
+                }
+                fundSatoshiOutput = fundSatoshiOutput + 1;
+            } while(fundSatoshiOutput < tx.outputs.length);
+
+            require((satoshiReleaseAmount % fundSats) == 0); // ensure a multiple of the fund amount
+            require((satoshiReleaseAmount / fundSats) == fundLockingAmount);
+        }
+
+        bytes nft_assetData = nft_next3;
+        do {
+            bytes nft_assetCategory, bytes nft_assetNext = nft_assetData.split(32);
+            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
+
+
+            int inputIndex = 0;
+            int assetReleaseAmount = 0;
+            do {
+                if(tx.inputs[inputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[inputIndex].tokenCategory == nft_assetCategory) {
+                    assetReleaseAmount = assetReleaseAmount + tx.inputs[inputIndex].tokenAmount;
+                }
+
+                inputIndex = inputIndex + 1;
+            } while(inputIndex < tx.inputs.length);
+
+            // account for change back to the contract
+            int outputIndex = 0;
+            do {
+                if(tx.outputs[outputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[outputIndex].tokenCategory == nft_assetCategory) {
+                    assetReleaseAmount = assetReleaseAmount - tx.outputs[outputIndex].tokenAmount;
+                }
+
+                outputIndex = outputIndex + 1;
+            } while(outputIndex < tx.outputs.length);
+
+            bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
+            int assetAmount = int(nft_assetAmount);
+            require((assetReleaseAmount % assetAmount) == 0); // ensure a multiple of the fund amount
+            require((assetReleaseAmount / assetAmount) == fundLockingAmount);
+            nft_assetData = nft_remaining;
+        } while(nft_assetData.length > 0);
+    }
+}

@@ -1,0 +1,93 @@
+{
+  "contractName": "FeeMinter",
+  "constructorInputs": [
+    {
+      "name": "owner",
+      "type": "pubkey"
+    },
+    {
+      "name": "token",
+      "type": "bytes32"
+    },
+    {
+      "name": "destination",
+      "type": "bytes32"
+    }
+  ],
+  "abi": [
+    {
+      "name": "mint",
+      "inputs": [
+        {
+          "name": "signature",
+          "type": "sig"
+        }
+      ]
+    }
+  ],
+  "bytecode": "OP_3 OP_ROLL OP_SWAP OP_CHECKSIGVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_OVER OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_0 OP_BEGIN OP_DUP OP_INPUTINDEX OP_NUMNOTEQUAL OP_OVER OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_3 OP_PICK OP_EQUAL OP_BOOLAND OP_IF OP_DUP OP_OUTPUTBYTECODE aa20 OP_4 OP_PICK OP_CAT 87 OP_CAT OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_INPUTINDEX OP_UTXOTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENCOMMITMENT 20 OP_SPLIT OP_OVER OP_0 OP_EQUAL OP_NOT OP_VERIFY OP_DUP OP_8 OP_SPLIT OP_OVER OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_DUP OP_0 OP_EQUAL OP_OVER OP_0 OP_EQUAL OP_NOT OP_BOOLOR OP_VERIFY OP_2DROP OP_2DROP OP_ENDIF OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract FeeMinter(pubkey owner, bytes32 token, bytes32 destination)\r\n{\r\n    function mint(sig signature) {\r\n        require(checkSig(signature, owner));\r\n\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        int outputIndex = 0;\r\n        do {\r\n            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {\r\n                require(tx.outputs[outputIndex].lockingBytecode == new LockingBytecodeP2SH32(destination));\r\n                require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32));\r\n                require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);\r\n\r\n                bytes fee_category, bytes fee_next1 = tx.outputs[outputIndex].nftCommitment.split(32);\r\n                require(fee_category != 0x); // any validation?\r\n                bytes fee_amount, bytes fee_destination = fee_next1.split(8);\r\n                require(int(fee_amount) > 0); // 8 bytes signed\r\n                require(fee_destination == 0x || fee_destination != 0x); // better validation?\r\n            }\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
+  "debug": {
+    "bytecode": "537a7cadc0ce01207f757888c0c7c0cd88c0cec0d188c0d0c0d39dc0cfc0d288006576c09e78d101207f755379879a6376cd02aa2054797e01877e8876d1c0ce01207f758876d3c0d09d76d201207f780087916976587f788100a069760087780087919b696d6d6876c4a2666d7551",
+    "sourceMap": "6:25:6:34;;:36::41;:8::44:1;8:26:8:47:0;:16::62:1;:72::74:0;:16::75:1;;:79::84:0;:8::86:1;10:26:10:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;11:26:11:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;12:26:12:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;13:26:13:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;15:26:15:27:0;16:8:28:49;17:15:17:26;:30::51;:15:::1;:66::77:0;:55::92:1;:102::104:0;:55::105:1;;:109::114:0;;:55:::1;:15;:116:27:13:0;18:35:18:46;:24::63:1;:67::105:0;:93::104;;:67::105:1;;;:16::107;19:35:19:46:0;:24::61:1;:75::96:0;:65::111:1;:121::123:0;:65::124:1;;:16::126;20:35:20:46:0;:24::59:1;:73::94:0;:63::107:1;:16::109;22:65:22:76:0;:54::91:1;:98::100:0;:54::101:1;23:24:23:36:0;:40::42;:24:::1;;:16::44;24:58:24:67:0;:74::75;:58::76:1;25:28:25:38:0;:24::39:1;:42::43:0;:24:::1;:16::45;26:24:26:39:0;:43::45;:24:::1;:49::64:0;:68::70;:49:::1;;:24;:16::72;17:116:27:13;;;28:16:28:27:0;:30::47;16:8::49:1;;5:4:29:5;;",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 6,
+        "line": 6
+      },
+      {
+        "ip": 13,
+        "line": 8
+      },
+      {
+        "ip": 18,
+        "line": 10
+      },
+      {
+        "ip": 23,
+        "line": 11
+      },
+      {
+        "ip": 28,
+        "line": 12
+      },
+      {
+        "ip": 33,
+        "line": 13
+      },
+      {
+        "ip": 57,
+        "line": 18
+      },
+      {
+        "ip": 65,
+        "line": 19
+      },
+      {
+        "ip": 70,
+        "line": 20
+      },
+      {
+        "ip": 79,
+        "line": 23
+      },
+      {
+        "ip": 87,
+        "line": 25
+      },
+      {
+        "ip": 96,
+        "line": 26
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.4",
+    "options": {
+      "enforceFunctionParameterTypes": true
+    }
+  },
+  "updatedAt": "2026-03-07T02:01:38.076Z"
+}
