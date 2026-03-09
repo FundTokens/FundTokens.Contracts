@@ -7,13 +7,10 @@ import {
     bigIntToBinUint64LEClamped,
     hexToBin,
     binToHex,
-    instantiateRipemd160,
-    instantiateSha256,
-    encodeCashAddress,
+    publicKeyToP2pkhCashAddress
 } from '@bitauth/libauth';
+import { DustAmount } from './constants';
 
-const ripemd160 = await instantiateRipemd160();
-const sha256 = await instantiateSha256();
 
 const categoryAscending = (a, b) => {
     const aValue = BigInt(`0x${a.category}`);
@@ -84,8 +81,11 @@ export async function getBestFee({ feeContract, payBy, fee, owner }) {
     const feeUtxos = (await feeContract.getUtxos()).filter(u => {
         const payByBitcoin = !payBy || payBy === '';
         if(!!u.token && u.token.category === nft) {
-            const feeType = u.token.nftCommittment; // TODO
-            if(feeType === '000000') {
+            const fee = u.token.nftCommittment; // TODO
+            const feeCategory = fee.split();
+            const feeAmount = fee.split();
+            // const feeDestination = fee.length ? 
+            if(fee === '000000') {
                 return payByBitcoin;
             } else {
                 return !payByBitcoin;
@@ -109,20 +109,40 @@ export async function getBestFee({ feeContract, payBy, fee, owner }) {
     }
 
     const feeUtxo = feeUtxos[0];
-
+    
     const pubKeyBin = hexToBin(owner);
-    const pubKeyHash = ripemd160.hash(sha256.hash(pubKeyBin));
-    const encoded = encodeCashAddress({ prefix: network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: pubKeyHash });
+    const encoded = publicKeyToP2pkhCashAddress({ publicKey: pubKeyBin, prefix: network === Network.MAINNET ? 'bitcoincash' : 'bchtest', tokenSupport: true });
     const address = typeof encoded === 'string' ? encoded : encoded.address;
 
-    
-    const bestFee = { //TODO
+    const bestFee = {
         isBitcoin: true,
         category: null,
         amount: feeUtxo.token ? 0 : defaultValue,
         destination: address,
         utxo: feeUtxo,
+        outputs: [{
+            ...feeUtxo,
+            to: feeContract.tokenAddress,
+            amount: DustAmount,
+        }],
     };
+
+    if(bestFee.isBitcoin) {
+        bestFee.outputs.push({
+            to: bestFee.destination,
+            amount: bestFee.amount,
+        });
+    } else {
+        bestFee.outputs.push({
+            to: bestFee.destination,
+            amount: DustAmount,
+            token: {
+                category: bestFee.category,
+                amount: bestFee.amount,
+            }
+        });
+    }
+
     return bestFee;
 }
 

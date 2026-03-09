@@ -204,35 +204,18 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                 to: startupContract.tokenAddress,
                 amount: broadcastUtxo.satoshis,
                 token: broadcastUtxo.token,
-                // token: {
-                //     ...broadcastUtxo.token,
-                // }
             },
             {
                 to: mintContract.tokenAddress,
                 amount: inflowUtxo.satoshis,
                 token: inflowUtxo.token,
-                // token: {
-                //     ...inflowUtxo.token,
-                // }
             },
             {
                 to: mintContract.tokenAddress,
                 amount: outflowUtxo.satoshis,
                 token: outflowUtxo.token,
             }, 
-            {
-                to: createFundFeeContract.tokenAddress,
-                amount: bestFee.utxo.satoshis,
-                // token: {
-                //     ...bestFee.utxo.
-                // }
-            },
-            {
-                to: bestFee.destination,
-                amount: bestFee.amount,
-                // token // TODO
-            },
+            ...bestFee.outputs,
             {
                 to: managerContract.tokenAddress,
                 amount: DustAmount,

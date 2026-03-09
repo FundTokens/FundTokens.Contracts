@@ -97,16 +97,12 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
         const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
 
-        // const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const inflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
 
-
-        // const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const outflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
-        // const publicFundDestination = binToHex(hash256(hexToBin(publicFundContract.bytecode)));
         const publicFundDestination = cashAddressToLockingBytecode(publicFundContract.tokenAddress).bytecode;
         const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
 
@@ -236,7 +232,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     // can only be invoked once to initialize the system
     addInitializeSystem() {
         if (this.inputs.length < 5) {
-            throw new Error('No inputs or outputs should be added before initializing system');
+            throw new Error('Expecting 5 genesis inputs to be added already');
         }
 
         const ensureGenesisUtxo = u => {
