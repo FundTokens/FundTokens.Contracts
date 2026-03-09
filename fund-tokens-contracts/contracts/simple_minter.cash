@@ -1,6 +1,6 @@
 pragma cashscript ~0.13.0;
 
-contract SimpleMinter(pubkey owner, bytes32 token, bytes32 destination)
+contract SimpleMinter(pubkey owner, bytes32 token, bytes destination)
 {
     function mint(sig signature) {
         require(checkSig(signature, owner));
@@ -15,7 +15,7 @@ contract SimpleMinter(pubkey owner, bytes32 token, bytes32 destination)
         do {
             if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
                 if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
-                    require(tx.outputs[outputIndex].lockingBytecode == new LockingBytecodeP2SH32(destination));
+                    require(tx.outputs[outputIndex].lockingBytecode == destination);
                     require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
                     require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
                     require(tx.outputs[outputIndex].nftCommitment == tx.inputs[this.activeInputIndex].nftCommitment);

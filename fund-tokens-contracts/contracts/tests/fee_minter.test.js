@@ -12,16 +12,17 @@ import {
     hexToBin,
     binToHex,
     cashAddressToLockingBytecode,
+    bigIntToBinUint64LEClamped,
 } from '@bitauth/libauth';
 
 import { generateWallet } from '@/wallet.js';
 import { DustAmount } from '@lib/constants.js';
 
-import systemUnderTestJson from '@lib/art/simple_minter.json' with { type: 'json' };
+import systemUnderTestJson from '@lib/art/fee_minter.json' with { type: 'json' };
 
 import 'cashscript/vitest';
 
-describe('Testing the SimpleMinter Contract', () => {
+describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () => {
     const network = Network.MOCKNET;
 
     const provider = new MockNetworkProvider({
@@ -44,8 +45,10 @@ describe('Testing the SimpleMinter Contract', () => {
 
     provider.addUtxo(systemUnderTest.tokenAddress, utxo);
 
-    const standardDestinationOutput = {
-        to: wallet.address,
+    const testingToken = randomToken();
+
+    const outputTemplate = {
+        to: systemUnderTest.tokenAddress,
         amount: DustAmount,
         token: {
             category: token.category,
@@ -55,36 +58,30 @@ describe('Testing the SimpleMinter Contract', () => {
                 commitment: '',
             }
         }
-    }
+    };
+
+    const requiredOutputs = [
+        {
+            ...outputTemplate
+        },
+        {
+            ...outputTemplate,
+            to: wallet.address,
+            token: {
+                ...outputTemplate.token,
+                nft: {
+                    capability: 'none',
+                    commitment: testingToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                }
+            }
+        }
+    ];
 
     it('should mint to destination', async () => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
-            .addOutput({
-                to: systemUnderTest.tokenAddress,
-                amount: DustAmount,
-                token: {
-                    category: token.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    }
-                }
-            })
-            .addOutput({
-                to: wallet.address,
-                amount: DustAmount,
-                token: {
-                    category: token.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    }
-                }
-            })
+            .addOutputs(requiredOutputs)
             .addOutput({
                 to: secondaryWallet.address,
                 amount: DustAmount,
@@ -93,27 +90,46 @@ describe('Testing the SimpleMinter Contract', () => {
         await transaction.send();
     });
 
+    it('should allow minting with new destination', async () => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
+            .addOutputs([
+                {
+                    ...outputTemplate
+                },
+                {
+                    ...outputTemplate,
+                    to: wallet.address,
+                    token: {
+                        ...outputTemplate.token,
+                        nft: {
+                            capability: 'none',
+                            commitment: testingToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)) + binToHex(cashAddressToLockingBytecode(wallet.address).bytecode),
+                        }
+                    }
+                }
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
     it('should ensure unable to mint anywhere else', async () => {
-        const expectedToFailOutput = {
-            ...standardDestinationOutput,
-            to: secondaryWallet.address,
-        };
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
             .addOutput({
+                ...outputTemplate,
                 to: systemUnderTest.tokenAddress,
-                amount: DustAmount,
-                token: {
-                    category: token.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    }
-                }
             })
             .addOutput({
+                ...outputTemplate,
+                to: secondaryWallet.address,
+            });
+        expect(transaction).toFailRequire();
+        transaction.outputs = [];
+        transaction.addOutputs([
+            ...requiredOutputs,
+            { 
                 to: secondaryWallet.address,
                 amount: DustAmount,
                 token: {
@@ -122,14 +138,10 @@ describe('Testing the SimpleMinter Contract', () => {
                     nft: {
                         capability: 'minting',
                         commitment: '',
-                    }
+                    },
                 }
-            });
-        expect(transaction).toFailRequire();
-        transaction.outputs.pop();
-        transaction.addOutput({ ...standardDestinationOutput });
-        expect(transaction).not.toFailRequire();
-        transaction.addOutput({ ...expectedToFailOutput});
+            }
+        ]);
         expect(transaction).toFailRequire();
     });
 
@@ -137,30 +149,7 @@ describe('Testing the SimpleMinter Contract', () => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(secondaryWallet.signatureTemplate))
-            .addOutput({
-                to: systemUnderTest.tokenAddress,
-                amount: DustAmount,
-                token: {
-                    category: token.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    }
-                }
-            })
-            .addOutput({
-                to: wallet.address,
-                amount: DustAmount,
-                token: {
-                    category: token.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    }
-                }
-            });
+            .addOutputs(requiredOutputs);
         expect(transaction).toFailRequire();
     });
 });
