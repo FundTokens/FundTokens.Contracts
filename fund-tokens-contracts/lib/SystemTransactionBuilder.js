@@ -110,10 +110,10 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const publicFundDestination = cashAddressToLockingBytecode(publicFundContract.tokenAddress).bytecode;
         const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
 
-        const createFundFeeDestination = binToHex(hash256(hexToBin(createFundFeeContract.bytecode)));
+        const createFundFeeDestination = cashAddressToLockingBytecode(createFundFeeContract.tokenAddress).bytecode;
         const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
 
-        const executeFundFeeDestination = binToHex(hash256(hexToBin(executeFundFeeContract.bytecode)));
+        const executeFundFeeDestination = cashAddressToLockingBytecode(executeFundFeeContract.tokenAddress).bytecode;
         const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
         this.#contracts = { startupContract, mintContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicFundHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
