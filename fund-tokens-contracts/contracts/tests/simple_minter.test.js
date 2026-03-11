@@ -8,9 +8,6 @@ import {
 } from 'cashscript';
 import {
     swapEndianness,
-    hash256,
-    hexToBin,
-    binToHex,
     cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 

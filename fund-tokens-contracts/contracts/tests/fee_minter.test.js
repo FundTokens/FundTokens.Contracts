@@ -8,8 +8,6 @@ import {
 } from 'cashscript';
 import {
     swapEndianness,
-    hash256,
-    hexToBin,
     binToHex,
     cashAddressToLockingBytecode,
     bigIntToBinUint64LEClamped,
@@ -30,6 +28,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     const wallet = generateWallet(network);
+    const destination = generateWallet(network);
     const secondaryWallet = generateWallet(network);
 
     const token = randomToken({
@@ -41,7 +40,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
     const utxo = randomUtxo({ token });
 
-    const systemUnderTest = new Contract(systemUnderTestJson, [wallet.pubKeyHex, swapEndianness(token.category), cashAddressToLockingBytecode(wallet.address).bytecode], { provider });
+    const systemUnderTest = new Contract(systemUnderTestJson, [wallet.pubKeyHex, swapEndianness(token.category), cashAddressToLockingBytecode(destination.address).bytecode], { provider });
 
     provider.addUtxo(systemUnderTest.tokenAddress, utxo);
 
@@ -66,7 +65,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         },
         {
             ...outputTemplate,
-            to: wallet.address,
+            to: destination.address,
             token: {
                 ...outputTemplate.token,
                 nft: {
@@ -90,7 +89,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         await transaction.send();
     });
 
-    it('should allow minting with new destination', async () => {
+    it('should allow minting with encoded destination', async () => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
@@ -100,7 +99,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 },
                 {
                     ...outputTemplate,
-                    to: wallet.address,
+                    to: destination.address,
                     token: {
                         ...outputTemplate.token,
                         nft: {
