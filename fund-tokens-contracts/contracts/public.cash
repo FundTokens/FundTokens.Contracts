@@ -43,8 +43,6 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
             lastAssetCategory = nft_assetCategory;
         } while(nft_assets.length > 0);
 
-
-
         require(tx.outputs[this.activeInputIndex + 3].tokenCategory == tx.inputs[0].outpointTransactionHash);
         require(tx.outputs[this.activeInputIndex + 3].tokenAmount == 9223372036854775807); // anything but the max?
 
@@ -62,8 +60,10 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         int outputIndex = 1; // 0 is already validated
         do {
             if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) { // able to improve
-                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
-                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
+                if(tx.outputs[outputIndex].tokenCategory != 0x) {
+                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
+                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
+                }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
