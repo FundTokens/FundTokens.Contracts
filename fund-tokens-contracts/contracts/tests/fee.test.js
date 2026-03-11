@@ -202,4 +202,32 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             ]);
         expect(transaction).not.toFailRequire();
     });
+
+    it('allows the owner to close the fee thread', async () => {
+        const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
+        transaction
+            .addInput(defaultFeeUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
+            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
+            .addInput(encodedTokenFeeWithDestinationUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
+            .addOutput({
+                to: ownerWallet.address,
+                amount: DustAmount,
+            });
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('prevents the owner from moving the encoded fee', async () => {
+        const feeUtxo = randomUtxo();
+        provider.addUtxo(ownerWallet.address, feeUtxo);
+        const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
+        transaction
+            .addInput(feeUtxo, ownerWallet.signatureTemplate)
+            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
+            .addOutput({
+                to: ownerWallet.address,
+                amount: DustAmount,
+                token: encodedTokenFeeUtxo.token,
+            });
+        expect(transaction).toFailRequire();
+    });
 });
