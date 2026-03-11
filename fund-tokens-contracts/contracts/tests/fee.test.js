@@ -43,6 +43,16 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             }
         }
     });
+    const encodedBitcoinFeeUtxo = randomUtxo({
+        token: {
+            category: contractToken.category,
+            amount: 0n,
+            nft: {
+                capability: 'none',
+                commitment: swapEndianness('0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(4000n)),
+            }
+        }
+    });
     const encodedDestination = userWallet.address;
     const encodedTokenFeeWithDestinationUtxo = randomUtxo({
         token: {
@@ -62,6 +72,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     provider.addUtxo(systemUnderTest.tokenAddress, defaultFeeUtxo);
     provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeUtxo);
     provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeWithDestinationUtxo);
+    provider.addUtxo(systemUnderTest.tokenAddress, encodedBitcoinFeeUtxo);
 
     it('pay with default fee', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
@@ -133,6 +144,27 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         category: payByToken.category,
                         amount: payByTokenAmount,
                     }
+                }
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('pay with encoded Bitcoin fee, no new destination', async () => {
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        provider.addUtxo(userWallet.address, feeUtxo);
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(encodedBitcoinFeeUtxo, systemUnderTest.unlock.pay())
+            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: encodedBitcoinFeeUtxo.satoshis,
+                    token: encodedBitcoinFeeUtxo.token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: 4000n,
                 }
             ]);
         expect(transaction).not.toFailRequire();
