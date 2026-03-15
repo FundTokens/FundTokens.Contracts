@@ -70,7 +70,7 @@ export function getFund(hex) {
 export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
 export function decodeFee(hex) {
-    const category = hex.slice(0, 64);
+    const category = swapEndianness(hex.slice(0, 64));
     const amount = binToBigIntUint64LE(hexToBin(hex.slice(64, 80)));
     if(hex.length > 80) {
         const lockingBytecode = hex.slice(80);
@@ -141,14 +141,14 @@ export async function getBestFee({ feeContract, payBy, fee, owner }) {
             if(payByBitcoin) {
                 return b.isBitcoin;
             } else {
-                return b.categoy === payBy;
+                return b.category === payBy;
             }
         })
         .sort((a, b) => {
             return a.amount > b.amount;
         });
 
-    if(!feeUtxos) {
+    if(!feeUtxos || !feeUtxos.length) {
         throw new Error('No acceptable fee UTXOs found');
     }
 
@@ -182,8 +182,6 @@ export async function getBestFee({ feeContract, payBy, fee, owner }) {
             }
         });
     }
-
-    console.log('found best fee', result);
 
     return result;
 }
