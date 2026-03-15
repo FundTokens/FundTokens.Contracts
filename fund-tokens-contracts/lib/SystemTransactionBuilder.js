@@ -4,15 +4,12 @@ import {
 } from 'cashscript';
 import {
     swapEndianness,
-    hash256,
-    hexToBin,
-    binToHex,
     cashAddressToLockingBytecode,
-    lockingbytecode
 } from '@bitauth/libauth';
 
 import { DustAmount } from './constants.js';
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
+import { encodeFee } from './utils.js';
 
 import feeMinterJson from './art/fee_minter.json' with { type: 'json' };
 import simpleMinterJson from './art/simple_minter.json' with { type: 'json' };
@@ -97,16 +94,12 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
         const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
 
-        // const inflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const inflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
 
-
-        // const outflowDestination = binToHex(hash256(hexToBin(mintContract.bytecode)));
         const outflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
-        // const publicFundDestination = binToHex(hash256(hexToBin(publicFundContract.bytecode)));
         const publicFundDestination = cashAddressToLockingBytecode(publicFundContract.tokenAddress).bytecode;
         const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
 
@@ -191,10 +184,14 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                 amount: DustAmount,
             });
         } else {
+            const {
+                fee,
+                signature
+            } = newFee;
             const feeTokenUtxos = await contract.getUtxos();
             const feeTokenUtxo = feeTokenUtxos.filter(u => u.token.category === nft)[0];
 
-            this.addInput(feeTokenUtxo, contract.unlock.mint())
+            this.addInput(feeTokenUtxo, contract.unlock.mint(signature))
                 .addOutputs([
                     {
                         to: contract.tokenAddress,
@@ -210,7 +207,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                             ...feeTokenUtxo.token,
                             nft: {
                                 capability: 'none',
-                                commitment: encodeFee(newFee),
+                                commitment: encodeFee(fee),
                             }
                         }
                     }
@@ -219,11 +216,11 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         return this;
     }
 
-    addCreateFundFee(fee) {
+    addCreateFundFee(newFee) {
         const contract = this.#contracts.mintCreateFundFeeContract;
         const to = this.#contracts.createFundFeeContract.tokenAddress;
         const nft = this.#system.fees.create.nft;
-        return this.#addFee(fee, { contract, to, nft });
+        return this.#addFee(newFee, { contract, to, nft });
     }
 
     addExecuteFundFee(newFee) {
@@ -236,7 +233,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     // can only be invoked once to initialize the system
     addInitializeSystem() {
         if (this.inputs.length < 5) {
-            throw new Error('No inputs or outputs should be added before initializing system');
+            throw new Error('Expecting 5 genesis inputs to be added already');
         }
 
         const ensureGenesisUtxo = u => {

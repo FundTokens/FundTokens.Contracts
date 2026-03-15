@@ -8,9 +8,6 @@ import {
 } from 'cashscript';
 import {
     swapEndianness,
-    hash256,
-    hexToBin,
-    binToHex,
     cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 
@@ -57,7 +54,7 @@ describe('Testing the SimpleMinter Contract', () => {
         }
     }
 
-    it('should mint to destination', async () => {
+    it('should mint to destination', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
@@ -93,7 +90,7 @@ describe('Testing the SimpleMinter Contract', () => {
         await transaction.send();
     });
 
-    it('should ensure unable to mint anywhere else', async () => {
+    it('should ensure unable to mint anywhere else', async ({ expect }) => {
         const expectedToFailOutput = {
             ...standardDestinationOutput,
             to: secondaryWallet.address,
@@ -133,7 +130,7 @@ describe('Testing the SimpleMinter Contract', () => {
         expect(transaction).toFailRequire();
     });
 
-    it('should ensure the owner approves the tx', async () => {
+    it('should ensure the owner approves the tx', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(secondaryWallet.signatureTemplate))

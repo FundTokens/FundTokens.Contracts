@@ -6,7 +6,7 @@ contract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)
         require(checkSig(signature, owner)); // verify owner
         int outputIndex = 0;
         do {
-            require(tx.outputs[outputIndex].tokenCategory != tx.inputs[this.activeInputIndex].tokenCategory);
+            require(tx.outputs[outputIndex].tokenCategory != feeToken);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
     }
@@ -14,9 +14,9 @@ contract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)
     function pay() {
         // can't change this UTXO
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        //require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+        //require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         // if a token, it must be the owner's 

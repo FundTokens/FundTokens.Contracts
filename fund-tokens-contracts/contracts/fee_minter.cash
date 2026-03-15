@@ -9,7 +9,7 @@ contract FeeMinter(pubkey owner, bytes32 token, bytes destination)
 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+        //require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         int outputIndex = 0;
@@ -18,7 +18,7 @@ contract FeeMinter(pubkey owner, bytes32 token, bytes destination)
                 if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
                     require(tx.outputs[outputIndex].lockingBytecode == destination);
                     require(tx.outputs[outputIndex].tokenCategory == token);
-                    require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+                    //require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
 
                     require(tx.outputs[outputIndex].nftCommitment.length > 0, "must provide a commitment");
                     bytes fee_category, bytes fee_next1 = tx.outputs[outputIndex].nftCommitment.split(32);

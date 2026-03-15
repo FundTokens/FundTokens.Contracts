@@ -42,9 +42,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
         // spend input back to the contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        // require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
+        // require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
         require(hash256(fund) == fundHash);
@@ -55,7 +55,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // contract already returns UTXO
         int fundInputIndex = this.activeInputIndex + 1;
         // require(tx.inputs[fundInputIndex].unlockingBytecode.slice(0, 135) == bytes(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken));
-        // require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract); // TODO verify parameters?
+        // require(hash256(tx.inputs[fundInputIndex].unlockingBytecode.slice(135, tx.inputs[fundInputIndex].unlockingBytecode.length)) == fundContract);
         require(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
 
 
@@ -77,7 +77,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
         // feeInputIndex = feeInputIndex + 1; // skip over paid fee, fee contract will verify
 
-        bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(8);
         int fundSats = int(nft_sats);
         int satoshiOutputIndex = fundInputIndex + 2;
         if(fundSats > 0) {
@@ -120,9 +120,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
         // spend input back to the contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        // require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
+        // require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
         require(hash256(fund) == fundHash);
@@ -143,7 +143,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         fundLockingAmount = fundLockingAmount / fundAmount;
 
         //
-        bytes nft_sats, bytes nft_next3 = nft_next2.split(8); // TODO: optimized out? or can we reduce bytes
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(8);
         require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
         // skip over paid fee, fee contract will verify
 

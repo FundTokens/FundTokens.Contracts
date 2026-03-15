@@ -124,7 +124,14 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        const publicFundContract = new Contract(publicJson, [this.#system.authHead, this.#swapped.publicFund, startupContractHash, fundJson.debug.bytecode], { provider: this.provider });
+        const publicFundContract = new Contract(publicJson, [
+            this.#system.authHead,
+            this.#swapped.publicFund,
+            startupContractHash,
+            fundJson.debug.bytecode,
+            this.#swapped.inflow,
+            this.#swapped.outflow,
+        ], { provider: this.provider });
 
         this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract };
     }
@@ -204,35 +211,18 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                 to: startupContract.tokenAddress,
                 amount: broadcastUtxo.satoshis,
                 token: broadcastUtxo.token,
-                // token: {
-                //     ...broadcastUtxo.token,
-                // }
             },
             {
                 to: mintContract.tokenAddress,
                 amount: inflowUtxo.satoshis,
                 token: inflowUtxo.token,
-                // token: {
-                //     ...inflowUtxo.token,
-                // }
             },
             {
                 to: mintContract.tokenAddress,
                 amount: outflowUtxo.satoshis,
                 token: outflowUtxo.token,
             }, 
-            {
-                to: createFundFeeContract.tokenAddress,
-                amount: bestFee.utxo.satoshis,
-                // token: {
-                //     ...bestFee.utxo.
-                // }
-            },
-            {
-                to: bestFee.destination,
-                amount: bestFee.amount,
-                // token // TODO
-            },
+            ...bestFee.outputs,
             {
                 to: managerContract.tokenAddress,
                 amount: DustAmount,

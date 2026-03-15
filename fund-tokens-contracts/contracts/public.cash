@@ -1,11 +1,9 @@
 pragma cashscript ~0.13.0;
 
-contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupContract, bytes fundTokenContract)
+contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupContract, bytes fundContract, bytes32 inflowToken, bytes32 outflowToken)
 {   
     // new threads? okay because it's meant to be read-only?
     function broadcast(bytes fund) {
-        require(fundTokenContract != 0x); // TODO send the token here
-
         require(tx.inputs[0].outpointIndex == 0);
         require(tx.inputs[0].tokenCategory == 0x);
 
@@ -43,8 +41,7 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
             lastAssetCategory = nft_assetCategory;
         } while(nft_assets.length > 0);
 
-
-
+        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + hash256(fund) + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
         require(tx.outputs[this.activeInputIndex + 3].tokenCategory == tx.inputs[0].outpointTransactionHash);
         require(tx.outputs[this.activeInputIndex + 3].tokenAmount == 9223372036854775807); // anything but the max?
 
@@ -62,8 +59,10 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         int outputIndex = 1; // 0 is already validated
         do {
             if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) { // able to improve
-                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
-                require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
+                if(tx.outputs[outputIndex].tokenCategory != 0x) {
+                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
+                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
+                }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);

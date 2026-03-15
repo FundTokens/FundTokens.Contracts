@@ -180,21 +180,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                     amount: fundChangeAmount,
                 },
             },
-            {
-                to: feeContract.tokenAddress,
-                amount: feeUtxo.satoshis,
-                // token: !feeUtxo.token ? null : {
-                //     ...feeUtxo.token,
-                // }
-            },
-            { // TODO verify IMPLEMENTATION
-                to: bestFee.destination ? bestFee.destination : this.#system.fee.pubKey,
-                amount: bestFee.isBitcoin ? bestFee.amount : DustAmount,
-                // token: bestFee.isBitcoin ? null : {
-                //     category: bestFee.category,
-                //     amount: bestFee.amount,
-                // }
-            },
+            ...bestFee.outputs,
             ...assetContracts.map((assetContract, i) => ({
                 to: assetContract.tokenAddress,
                 amount: DustAmount,
@@ -320,21 +306,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                     amount: updatedFundAmount,
                 },
             },
-            {
-                to: feeContract.tokenAddress,
-                amount: feeUtxo.satoshis,
-                // token: !feeUtxo.token ? null : {
-                //     ...feeUtxo.token,
-                // }
-            },
-            { // TODO verify IMPLEMENTATION
-                to: bestFee.destination ? bestFee.destination : this.#system.fee.pubKey,
-                amount: bestFee.isBitcoin ? bestFee.amount : DustAmount,
-                // token: bestFee.isBitcoin ? null : {
-                //     category: bestFee.category,
-                //     amount: bestFee.amount,
-                // }
-            },
+            ...bestFee.outputs,
             ...assetOutputs
         ]);
 

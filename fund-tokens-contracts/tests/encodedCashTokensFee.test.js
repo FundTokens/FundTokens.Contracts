@@ -13,7 +13,7 @@ import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
 
-describe('happy path', () => {
+describe('encoded CashTokens fee testing', () => {
     const network = Network.MOCKNET;
     const genesisPartial = { vout: 0, satoshis: DustAmount };
 
@@ -26,6 +26,9 @@ describe('happy path', () => {
     const systemOwnerWallet = generateWallet(network);
     const authHeadOwnerWallet = generateWallet(network);
 
+    const payByToken = randomToken();
+    const destinationWallet = generateWallet(network);
+
     const system = {
         inflow: '1111111111111111111111111111111111111111111111111111111111111111', // 32 byte, tx id/token id
         outflow: '2222222222222222222222222222222222222222222222222222222222222222', // 32 byte, tx id/token id
@@ -35,16 +38,16 @@ describe('happy path', () => {
         fees: {
             create: {
                 nft: '4444444444444444444444444444444444444444444444444444444444444444', // 32 byte, tx id/token id
-                value: 10000n, // bigint
+                value: 100000n, // bigint
             },
             execute: {
                 nft: '5555555555555555555555555555555555555555555555555555555555555555', // 32 byte, tx id/token id
-                value: 100000n, // bigint
+                value: 10000n, // bigint
             }
         },
     };
 
-    it('should initialize control tokens', async () => {
+    it('should initialize control tokens', async ({ expect }) => {
         const inflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.inflow });
         const outflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.outflow });
         const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
@@ -67,7 +70,7 @@ describe('happy path', () => {
         console.log('initialize system tx size', response.hex.length / 2);
     });
 
-    it('should create new system threads', async () => {
+    it('should create new system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         const transaction = new SystemTransactionBuilder({ provider, system });
         const signature = systemOwnerWallet.signatureTemplate;
@@ -85,7 +88,24 @@ describe('happy path', () => {
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
-    it('should create additional system threads', async () => {
+    it('should create new encoded fee threads', async ({ expect }) => {
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const transaction = new SystemTransactionBuilder({ provider, system });
+        const signature = systemOwnerWallet.signatureTemplate;
+
+        addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
+
+        await transaction.addCreateFundFee({ fee: { category: payByToken.category, amount: 50000n, destination: destinationWallet.tokenAddress }, signature });
+        transaction.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addExecuteFundFee({ fee: { category: payByToken.category, amount: 5000n, destination: destinationWallet.tokenAddress }, signature });
+
+        expect(transaction).not.toFailRequire();
+
+        const response = await transaction.send();
+        console.log('create new public fund threads tx size', response.hex.length / 2);
+    });
+
+    it('should create additional system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         const transaction = new SystemTransactionBuilder({ provider, system });
         const signature = systemOwnerWallet.signatureTemplate;
@@ -123,16 +143,16 @@ describe('happy path', () => {
         ]
     };
 
-    it('should broadcast a new fund', async () => {
+    it('should broadcast a new fund', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
+        const feeUtxo = randomUtxo({ satoshis: 200000n, token: { category: payByToken.category, amount: 50000n } });
 
         addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
-        await transaction.addBroadcast({ fund });
+        await transaction.addBroadcast({ fund, payBy: payByToken.category });
         transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
 
         expect(transaction).not.toFailRequire();
@@ -141,9 +161,9 @@ describe('happy path', () => {
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
 
-    it('should complete an inflow tx', async () => {
+    it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
-        const feeUtxo = randomUtxo({ satoshis: 110000n });
+        const feeUtxo = randomUtxo({ satoshis: 10000n, token: { category: payByToken.category, amount: 5000n }});
         const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
@@ -151,7 +171,7 @@ describe('happy path', () => {
         const inflowAmount = 1n;
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        await transaction.addInflow({ amount: inflowAmount });
+        await transaction.addInflow({ amount: inflowAmount, payBy: payByToken.category });
         transaction
             .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
@@ -169,9 +189,9 @@ describe('happy path', () => {
         console.log('inflow tx size', response.hex.length / 2);
     });
 
-    it('should complete an outflow tx', async () => {
+    it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
-        const feeUtxo = randomUtxo({ satoshis: 1000000n });
+        const feeUtxo = randomUtxo({ satoshis: 10000n, token: { category: payByToken.category, amount: 5000n } });
         const outflowAmount = 1n;
         const fundTokenUtxo = randomUtxo({
             token: randomToken({
@@ -183,7 +203,7 @@ describe('happy path', () => {
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        await transaction.addOutflow({ amount: outflowAmount });
+        await transaction.addOutflow({ amount: outflowAmount, payBy: payByToken.category });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs(fund.assets.map(a => ({
