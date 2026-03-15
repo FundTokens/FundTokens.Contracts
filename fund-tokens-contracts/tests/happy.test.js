@@ -44,7 +44,7 @@ describe('happy path', () => {
         },
     };
 
-    it('should initialize control tokens', async () => {
+    it('should initialize control tokens', async ({ expect }) => {
         const inflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.inflow });
         const outflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.outflow });
         const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
@@ -67,7 +67,7 @@ describe('happy path', () => {
         console.log('initialize system tx size', response.hex.length / 2);
     });
 
-    it('should create new system threads', async () => {
+    it('should create new system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         const transaction = new SystemTransactionBuilder({ provider, system });
         const signature = systemOwnerWallet.signatureTemplate;
@@ -85,7 +85,7 @@ describe('happy path', () => {
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
-    it('should create additional system threads', async () => {
+    it('should create additional system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         const transaction = new SystemTransactionBuilder({ provider, system });
         const signature = systemOwnerWallet.signatureTemplate;
@@ -123,7 +123,7 @@ describe('happy path', () => {
         ]
     };
 
-    it('should broadcast a new fund', async () => {
+    it('should broadcast a new fund', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
@@ -141,7 +141,7 @@ describe('happy path', () => {
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
 
-    it('should complete an inflow tx', async () => {
+    it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 110000n });
         const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
@@ -169,7 +169,7 @@ describe('happy path', () => {
         console.log('inflow tx size', response.hex.length / 2);
     });
 
-    it('should complete an outflow tx', async () => {
+    it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 1000000n });
         const outflowAmount = 1n;
