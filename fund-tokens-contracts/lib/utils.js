@@ -10,7 +10,7 @@ import {
     publicKeyToP2pkhCashAddress,
     cashAddressToLockingBytecode,
     binToBigIntUint64LE,
-    lockingBytecodeToCashAddress,
+    lockingBytecodeToCashAddress
 } from '@bitauth/libauth';
 import { DustAmount, BitcoinCategory } from './constants';
 
@@ -74,8 +74,8 @@ export function decodeFee(hex) {
     const amount = binToBigIntUint64LE(hexToBin(hex.slice(64, 80)));
     if(hex.length > 80) {
         const lockingBytecode = hex.slice(80);
-        const destination = lockingBytecodeToCashAddress(lockingBytecode);
-        return { category, amount, destination };
+        const destination = lockingBytecodeToCashAddress({ bytecode: hexToBin(lockingBytecode), tokenSupport: true });
+        return { category, amount, destination: typeof destination === 'string' ? destination : destination.address };
     }
     return { category, amount };
 }
@@ -87,6 +87,7 @@ export function encodeFee({ category, amount, destination }) {
     let encoded = swapEndianness(category ?? '0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(amount));
     if(destination) {
         encoded += binToHex(cashAddressToLockingBytecode(destination).bytecode);
+        console.log('encoding testing', binToHex(cashAddressToLockingBytecode(destination).bytecode));
     }
     return encoded;
 }
