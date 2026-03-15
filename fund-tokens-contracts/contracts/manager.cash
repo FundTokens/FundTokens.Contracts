@@ -42,9 +42,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
         // spend input back to the contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        // require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
+        // require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
         require(hash256(fund) == fundHash);
@@ -120,9 +120,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
         // spend input back to the contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
+        // require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
+        // require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
         require(hash256(fund) == fundHash);

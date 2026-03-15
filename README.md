@@ -5,10 +5,13 @@ FundTokens lets anyone hold a trustless, self-custodial basket of BitcoinCash na
 ## FundToken's System
 
 * Owner PubKey
-* Fee Token
+* Auth Head PKH
+* Fee Tokens
+    1. Create
+    2. Execute
 * Inflow Token
 * Outflow Token
-* Public Token
+* Public Fund Token
 
 ## Contracts
 
@@ -19,9 +22,10 @@ FundTokens lets anyone hold a trustless, self-custodial basket of BitcoinCash na
     1. GOTO -> New Fund Thread
     1. Public Fund - Verify the FundToken is properly started
 1. New Fund Thread
+    1. Startup - Verify fund details, and only inflow/outflow tokens used in tx
     1. Fee - Verify fee paid
-    1. Inflow Minter - Mint a new inflow token to a fund's manager
-    1. Outflow Minter - Mint a new outflow token to a fund's manager
+    1. Fund Mint (Inflow) - Mint a new inflow token to a fund's manager
+    1. Fund Mint (Outflow) - Mint a new outflow token to a fund's manager
 1. Fund Inflow
     1. Manager - Validate the inflow transaction
     1. Fund - Hold and release the fund tokens

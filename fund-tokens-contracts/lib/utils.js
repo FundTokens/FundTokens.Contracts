@@ -7,9 +7,12 @@ import {
     bigIntToBinUint64LEClamped,
     hexToBin,
     binToHex,
-    publicKeyToP2pkhCashAddress
+    publicKeyToP2pkhCashAddress,
+    cashAddressToLockingBytecode,
+    binToBigIntUint64LE,
+    lockingBytecodeToCashAddress,
 } from '@bitauth/libauth';
-import { DustAmount } from './constants';
+import { DustAmount, BitcoinCategory } from './constants';
 
 
 const categoryAscending = (a, b) => {
@@ -34,7 +37,7 @@ export function getFundHex(fund) {
     const hex = [];
     hex.push(swapEndianness(category)); // 32 bytes
     hex.push(binToHex(bigIntToBinUint64LEClamped(amount))); // 8 bytes
-    hex.push(binToHex(bigIntToBinUint64LEClamped(satoshis))); // 8 bytes TODO: consider trimming in size
+    hex.push(binToHex(bigIntToBinUint64LEClamped(satoshis))); // 8 bytes
     assets.sort(categoryAscending).map(asset => {
         hex.push(swapEndianness(asset.category)); // 32 bytes
         hex.push(binToHex(bigIntToBinUint64LEClamped(asset.amount))); // 8 bytes
@@ -66,6 +69,28 @@ export function getFund(hex) {
 
 export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
+export function decodeFee(hex) {
+    const category = hex.slice(0, 64);
+    const amount = binToBigIntUint64LE(hexToBin(hex.slice(64, 80)));
+    if(hex.length > 80) {
+        const lockingBytecode = hex.slice(80);
+        const destination = lockingBytecodeToCashAddress(lockingBytecode);
+        return { category, amount, destination };
+    }
+    return { category, amount };
+}
+
+export function encodeFee({ category, amount, destination }) {
+    if(!amount) {
+        throw new Error('Unable to encode fee, amount is required');
+    }
+    let encoded = swapEndianness(category ?? '0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(amount));
+    if(destination) {
+        encoded += binToHex(cashAddressToLockingBytecode(destination).bytecode);
+    }
+    return encoded;
+}
+
 export async function getBestFee({ feeContract, payBy, fee, owner }) {
     if(!feeContract) {
         throw new Error('Expected fee contract');
@@ -73,77 +98,94 @@ export async function getBestFee({ feeContract, payBy, fee, owner }) {
     if(!owner) {
         throw new Error('Expected system owner pk')
     }
+    
     const network = feeContract.provider.network;
+    const pubKeyBin = hexToBin(owner);
+    const encoded = publicKeyToP2pkhCashAddress({ publicKey: pubKeyBin, prefix: network === Network.MAINNET ? 'bitcoincash' : 'bchtest', tokenSupport: true });
+    const defaultDestination = typeof encoded === 'string' ? encoded : encoded.address;
+
     const {
         nft,
         value: defaultValue,
     } = fee;
-    const feeUtxos = (await feeContract.getUtxos()).filter(u => {
-        const payByBitcoin = !payBy || payBy === '';
-        if(!!u.token && u.token.category === nft) {
-            const fee = u.token.nftCommittment; // TODO
-            const feeCategory = fee.split();
-            const feeAmount = fee.split();
-            // const feeDestination = fee.length ? 
-            if(fee === '000000') {
-                return payByBitcoin;
+    const feeUtxos = (await feeContract.getUtxos())
+        .filter(u => {
+            if(!u.token) {
+                return true;
             } else {
-                return !payByBitcoin;
+                return u.token.category === nft;
             }
-        }
-        return payByBitcoin && !u.token;
-    }).sort((a, b) => {
-        let aAmount = a.satoshis;
-        let bAmount = b.satoshis;
-        if(a.token) {
-            aAmount = a.token.nftCommittment; // TODO: split
-        }
-        if(b.token) {
-            bAmount = b.token.nftCommittment; // TODO: split
-        }
-        return aAmount > bAmount;
-    }); // TODO need to verify sort func and check nfts too
+        })
+        .map(u => {
+            if(!u.token) {
+                return {
+                    isBitcoin: true,
+                    amount: defaultValue,
+                    destination: defaultDestination,
+                    utxo: u,
+                };
+            }
+
+            const encodedFee = decodeFee(u.token.nft.commitment);
+            
+            return {
+                isBitcoin: encodedFee.category === BitcoinCategory,
+                category: encodedFee.category,
+                amount: encodedFee.amount,
+                destination: encodedFee.destination ?? defaultDestination,
+                utxo: u,
+            };
+        })
+        .filter(b => {
+            const payByBitcoin = !payBy || payBy === '' || payBy === BitcoinCategory;
+            if(payByBitcoin) {
+                return b.isBitcoin;
+            } else {
+                return b.categoy === payBy;
+            }
+        })
+        .sort((a, b) => {
+            return a.amount > b.amount;
+        });
 
     if(!feeUtxos) {
-        return null;
+        throw new Error('No acceptable fee UTXOs found');
     }
 
-    const feeUtxo = feeUtxos[0];
-    
-    const pubKeyBin = hexToBin(owner);
-    const encoded = publicKeyToP2pkhCashAddress({ publicKey: pubKeyBin, prefix: network === Network.MAINNET ? 'bitcoincash' : 'bchtest', tokenSupport: true });
-    const address = typeof encoded === 'string' ? encoded : encoded.address;
+    const bestFee = feeUtxos[0];
 
-    const bestFee = {
-        isBitcoin: true,
-        category: null,
-        amount: feeUtxo.token ? 0 : defaultValue,
-        destination: address,
-        utxo: feeUtxo,
+    const result = {
+        isBitcoin: bestFee.isBitcoin,
+        category: bestFee.category,
+        amount: bestFee.amount,
+        destination: bestFee.destination,
+        utxo: bestFee.utxo,
         outputs: [{
-            ...feeUtxo,
+            ...bestFee.utxo,
             to: feeContract.tokenAddress,
             amount: DustAmount,
         }],
     };
 
-    if(bestFee.isBitcoin) {
-        bestFee.outputs.push({
-            to: bestFee.destination,
-            amount: bestFee.amount,
+    if(result.isBitcoin) {
+        result.outputs.push({
+            to: result.destination,
+            amount: result.amount,
         });
     } else {
-        bestFee.outputs.push({
-            to: bestFee.destination,
+        result.outputs.push({
+            to: result.destination,
             amount: DustAmount,
             token: {
-                category: bestFee.category,
-                amount: bestFee.amount,
+                category: result.category,
+                amount: result.amount,
             }
         });
     }
 
-    return bestFee;
+    console.log('found best fee', result);
+
+    return result;
 }
 
 //

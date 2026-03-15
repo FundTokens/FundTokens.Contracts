@@ -15,7 +15,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['json-summary'],
     },
-    disableConsoleIntercept: true,
+    disableConsoleIntercept: false,
   },
   resolve: {
     alias: {

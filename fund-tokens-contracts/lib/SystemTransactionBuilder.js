@@ -4,15 +4,12 @@ import {
 } from 'cashscript';
 import {
     swapEndianness,
-    hash256,
-    hexToBin,
-    binToHex,
     cashAddressToLockingBytecode,
-    lockingbytecode
 } from '@bitauth/libauth';
 
 import { DustAmount } from './constants.js';
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
+import { encodeFee } from './utils.js';
 
 import feeMinterJson from './art/fee_minter.json' with { type: 'json' };
 import simpleMinterJson from './art/simple_minter.json' with { type: 'json' };
@@ -187,10 +184,14 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                 amount: DustAmount,
             });
         } else {
+            const {
+                fee,
+                signature
+            } = newFee;
             const feeTokenUtxos = await contract.getUtxos();
             const feeTokenUtxo = feeTokenUtxos.filter(u => u.token.category === nft)[0];
 
-            this.addInput(feeTokenUtxo, contract.unlock.mint())
+            this.addInput(feeTokenUtxo, contract.unlock.mint(signature))
                 .addOutputs([
                     {
                         to: contract.tokenAddress,
@@ -206,7 +207,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                             ...feeTokenUtxo.token,
                             nft: {
                                 capability: 'none',
-                                commitment: encodeFee(newFee),
+                                commitment: encodeFee(fee),
                             }
                         }
                     }
@@ -215,11 +216,11 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         return this;
     }
 
-    addCreateFundFee(fee) {
+    addCreateFundFee(newFee) {
         const contract = this.#contracts.mintCreateFundFeeContract;
         const to = this.#contracts.createFundFeeContract.tokenAddress;
         const nft = this.#system.fees.create.nft;
-        return this.#addFee(fee, { contract, to, nft });
+        return this.#addFee(newFee, { contract, to, nft });
     }
 
     addExecuteFundFee(newFee) {
