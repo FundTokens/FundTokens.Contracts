@@ -30,8 +30,6 @@ contract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)
                 require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));
             }
             
-            int iFee = int(fee_amount);
-            console.log('fee testing', fee_category, iFee);
             if(int(fee_category) == 0) {
                 require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));
             } else {
