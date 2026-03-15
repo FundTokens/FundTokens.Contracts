@@ -10,7 +10,7 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
         require(tx.inputs[this.activeInputIndex].tokenCategory == (inflowToken + 0x02));
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         // require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
+        // require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
 
 
         // outflow token
@@ -21,13 +21,13 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
 
         int assetContractStart = 0;
-        int assetContractStop = assetContractStart + assetContract.length + 2; // <= 75 bytes
+        int assetContractStop = assetContractStart + assetContract.length + 2; // > 75 bytes
         bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
 
 
         int fundContractStart = assetContractStop;
         int fundContractStop = fundContractStart + fundContract.length + 2; // > 75 bytes
-        bytes fundContractParam = this.activeBytecode.slice(fundContractStart, fundContractStop);
+        bytes fundContractParam = this.activeBytecode.slice(fundContractStart, fundContractStop); // Get the fund contract plus push byte
 
         require(tx.outputs[this.activeInputIndex + 4].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
         require(tx.outputs[this.activeInputIndex + 4].tokenCategory == inflowToken);
@@ -46,7 +46,7 @@ contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         // require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount); // Is this needed?
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
+        // require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment); // If NFT capability is none, then is this needed?
 
         // mint a new token to the next contract
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);

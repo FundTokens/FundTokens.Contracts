@@ -124,7 +124,14 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        const publicFundContract = new Contract(publicJson, [this.#system.authHead, this.#swapped.publicFund, startupContractHash, fundJson.debug.bytecode], { provider: this.provider });
+        const publicFundContract = new Contract(publicJson, [
+            this.#system.authHead,
+            this.#swapped.publicFund,
+            startupContractHash,
+            fundJson.debug.bytecode,
+            this.#swapped.inflow,
+            this.#swapped.outflow,
+        ], { provider: this.provider });
 
         this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract };
     }
