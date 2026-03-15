@@ -74,7 +74,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeWithDestinationUtxo);
     provider.addUtxo(systemUnderTest.tokenAddress, encodedBitcoinFeeUtxo);
 
-    it('pay with default fee', async () => {
+    it('pay with default fee', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         provider.addUtxo(userWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider });
@@ -94,7 +94,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('should fail when fee doesnt match default', async () => {
+    it('should fail when fee doesnt match default', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         provider.addUtxo(userWallet.address, feeUtxo);
 
@@ -119,7 +119,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         }
     });
 
-    it('pay with encoded fee, no new destination', async () => {
+    it('pay with encoded fee, no new destination', async ({ expect }) => {
         const feeUtxo = randomUtxo({
             token: {
                 category: payByToken.category,
@@ -149,7 +149,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('pay with encoded Bitcoin fee, no new destination', async () => {
+    it('pay with encoded Bitcoin fee, no new destination', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         provider.addUtxo(userWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider });
@@ -170,7 +170,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('should fail when encoded fee doesnt match', async () => {
+    it('should fail when encoded fee doesnt match', async ({ expect }) => {
         const feeUtxo = randomUtxo({
             token: {
                 category: payByToken.category,
@@ -205,7 +205,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         }
     });
 
-    it('pay with encoded fee, use new destination', async () => {
+    it('pay with encoded fee, use new destination', async ({ expect }) => {
         const feeUtxo = randomUtxo({
             token: {
                 category: payByToken.category,
@@ -235,7 +235,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('allows the owner to close the fee thread', async () => {
+    it('allows the owner to close the fee thread', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
             .addInput(defaultFeeUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
@@ -248,7 +248,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('prevents the owner from moving the encoded fee', async () => {
+    it('prevents the owner from moving the encoded fee', async ({ expect }) => {
         const feeUtxo = randomUtxo();
         provider.addUtxo(ownerWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });

@@ -76,7 +76,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         }
     ];
 
-    it('should mint to destination', async () => {
+    it('should mint to destination', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
@@ -89,7 +89,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         await transaction.send();
     });
 
-    it('should allow minting with encoded destination', async () => {
+    it('should allow minting with encoded destination', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
@@ -112,7 +112,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('should ensure unable to mint anywhere else', async () => {
+    it('should ensure unable to mint anywhere else', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
@@ -144,7 +144,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).toFailRequire();
     });
 
-    it('should ensure the owner approves the tx', async () => {
+    it('should ensure the owner approves the tx', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxo, systemUnderTest.unlock.mint(secondaryWallet.signatureTemplate))
