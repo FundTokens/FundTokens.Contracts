@@ -66,11 +66,12 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         provider,
         system,
         logger,
+        allowImplicitFungibleTokenBurn,
     }) {
         if (!system) {
             throw new Error('No system configuration provided, unable to continue');
         }
-        super({ provider });
+        super({ provider, allowImplicitFungibleTokenBurn });
         this.#system = system;
         this.#swapped = {
             inflow: swapEndianness(system.inflow),
@@ -228,6 +229,39 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const to = this.#contracts.executeFundFeeContract.tokenAddress;
         const nft = this.#system.fees.execute.nft;
         return this.#addFee(newFee, { contract, to, nft });
+    }
+
+    async #closeFee(fee, { contract, nft }) {
+        const {
+            txId,
+            signature, // required
+        } = fee;
+        const utxos = (await contract.getUtxos()).filter(u => !u.token || u.token.category === nft);
+        const closing = [];
+        
+        if(!txId) {
+            closing.push(...utxos);
+        } else {
+            const utxo = utxos.find(u => u.txid === txId);
+            if(!utxo) {
+                throw new Error(`Unable to find '${txId}'`);
+            }
+            closing.push(utxo);
+        }
+
+        this.addInputs(closing, contract.unlock.close(signature));
+    }
+
+    closeCreateFundFee(fee) {
+        const contract = this.#contracts.createFundFeeContract;
+        const nft = this.#system.fees.create.nft;
+        return this.#closeFee(fee, { contract, nft });
+    }
+
+    closeExecuteFundFee(fee) {
+        const contract = this.#contracts.executeFundFeeContract;
+        const nft = this.#system.fees.execute.nft;
+        return this.#closeFee(fee, { contract, nft });
     }
 
     // can only be invoked once to initialize the system

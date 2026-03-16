@@ -10,13 +10,11 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(authHeadDestination));
         require(tx.outputs[0].tokenCategory == 0x);
 
-
         require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));
 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 4].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex + 4].tokenCategory);
-
-        require(token != 0x);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == bytes(token + 0x02));
 
 
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);

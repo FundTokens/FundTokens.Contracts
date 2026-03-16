@@ -204,4 +204,25 @@ describe('happy path', () => {
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);
     });
+
+    it('should allow closing fee threads', async () => {
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const transaction = new SystemTransactionBuilder({ provider, system, allowImplicitFungibleTokenBurn: true });
+        const signature = systemOwnerWallet.signatureTemplate;
+
+        addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
+
+        await transaction.closeCreateFundFee({ signature });
+        await transaction.closeExecuteFundFee({ signature });
+        transaction.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: systemOwnerWallet.tokenAddress,
+            amount: DustAmount,
+        });
+
+        expect(transaction).not.toFailRequire();
+
+        const response = await transaction.send();
+        console.log('close fee threads tx size', response.hex.length / 2);
+    })
 });
