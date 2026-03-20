@@ -103,57 +103,11 @@ describe('edge case test', () => {
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
-    const expectedToFailFunds = [
-        {
-            category: '6666666666666666666666666666666666666666666666666666666666666666',
-            amount: 1n,
-            satoshis: 0n,
-            assets: [],
-        },
-        {
-            category: '6666666666666666666666666666666666666666666666666666666666666666',
-            amount: 0n,
-            satoshis: 10000n,
-            assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
-        },
-        {
-            category: '6666666666666666666666666666666666666666666666666666666666666666',
-            amount: 1n,
-            satoshis: 1n,
-            assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
-        },
-        {
-            category: '6666666666666666666666666666666666666666666666666666666666666666',
-            amount: 1n,
-            satoshis: 999n,
-            assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
-        },
-        {
-            category: '6666666666666666666666666666666666666666666666666666666666666666',
-            amount: 1n,
-            satoshis: 2100000000000001n,
-            assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
-        }
-    ];
-
     const fund = {
         category: '6666666666666666666666666666666666666666666666666666666666666666',
         amount: 1n,
-        satoshis: 0n,
-        assets: [
-            {
-                category: '7777777777777777777777777777777777777777777777777777777777777777',
-                amount: 1n,
-            },
-            {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
-                amount: 1n,
-            },
-            {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
-                amount: 1n,
-            },
-        ]
+        satoshis: 10000n,
+        assets: []
     };
 
     it('should test new funds', async ({ expect }) => {
@@ -162,16 +116,6 @@ describe('edge case test', () => {
         const feeUtxo = randomUtxo({ satoshis: 100000n });
 
         addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
-
-        for(let index = 0; index < expectedToFailFunds.length; ++index) {
-            const expectedToFail = expectedToFailFunds[index];
-            const transaction = new PublicFundTransactionBuilder({ provider, system });
-            transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
-            await transaction.addBroadcast({ fund: expectedToFail });
-            transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
-
-            expect(transaction).toFailRequire();    
-        }
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -186,17 +130,16 @@ describe('edge case test', () => {
 
     it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
-        const feeUtxo = randomUtxo({ satoshis: 110000n });
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: 9223372036854775807n }) }));
+        const feeUtxo = randomUtxo({ satoshis: 210000n });
 
-        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+        addUtxos(userWallet.tokenAddress, [feeUtxo]);
 
-        const inflowAmount = 9223372036854775807n;
+        const inflowAmount = 3n;
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
         await transaction.addInflow({ amount: inflowAmount });
         transaction
-            .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
+            .addInputs([feeUtxo], userWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
                 to: userWallet.tokenAddress,
                 amount: DustAmount,

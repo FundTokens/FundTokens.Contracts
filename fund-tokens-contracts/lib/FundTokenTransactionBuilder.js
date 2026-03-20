@@ -264,74 +264,81 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         const satoshiAssetOutputs = [];
         const satoshiAssetChangeAmounts = [];
 
-        if (this.#meta.isBitcoinFund) {
-            const satoshiAssetUtxos = (await satoshiAssetContract.getUtxos()).filter(u => !u.token);
-            if(!satoshiAssetUtxos) {
-                throw new Error('Missing required satoshi asset UTXO');
-            }
-            let satoshiAmountAdded = 0n;
-            for (let index = 0; index < satoshiAssetUtxos.length; ++index) {
-                satoshiAssetInputs.push({
-                    ...satoshiAssetUtxos[index],
-                    unlocker: this.#contracts.satoshiAssetContract.unlock.release()
-                });
-                satoshiAmountAdded += satoshiAssetUtxos[index].satoshis;
-                if (satoshiAmountAdded >= amount * this.#fund.satoshis) {
-                    satoshiAssetChangeAmounts.push(satoshiAmountAdded - (amount * this.#fund.satoshis));
-                    break;
+        const calcSatoshiAsset = async () => {
+            if (this.#meta.isBitcoinFund) {
+                const satoshiAssetUtxos = (await satoshiAssetContract.getUtxos()).filter(u => !u.token);
+                if(!satoshiAssetUtxos) {
+                    throw new Error('Missing required satoshi asset UTXO');
+                }
+                let satoshiAmountAdded = 0n;
+                for (let index = 0; index < satoshiAssetUtxos.length; ++index) {
+                    satoshiAssetInputs.push({
+                        ...satoshiAssetUtxos[index],
+                        unlocker: this.#contracts.satoshiAssetContract.unlock.release()
+                    });
+                    satoshiAmountAdded += satoshiAssetUtxos[index].satoshis;
+                    if (satoshiAmountAdded >= amount * this.#fund.satoshis) {
+                        satoshiAssetChangeAmounts.push(satoshiAmountAdded - (amount * this.#fund.satoshis));
+                        break;
+                    }
+                }
+
+                for (let i = 0; i < satoshiAssetChangeAmounts.length; ++i) {
+                    if (!satoshiAssetChangeAmounts[i]) {
+                        continue;
+                    }
+                    this.#logger.log('adding satoshi output change');
+                    satoshiAssetOutputs.push({
+                        to: satoshiAssetContract.tokenAddress,
+                        amount: satoshiAssetChangeAmounts[i],
+                    });
                 }
             }
-        }
+        };
 
-        for (let i = 0; i < satoshiAssetChangeAmounts.length; ++i) {
-            if (!satoshiAssetChangeAmounts[i]) {
-                continue;
-            }
-            this.#logger.log('adding satoshi output change');
-            satoshiAssetOutputs.push({
-                to: satoshiAssetContract.tokenAddress,
-                amount: satoshiAssetChangeAmounts[i],
-            });
-        }
-
+        await calcSatoshiAsset();
 
         const assetInputs = [];
         const assetOutputs = [];
         const assetChangeAmounts = [];
 
-        for (let i = 0; i < assetContracts.length; ++i) {
-            const assetUtxos = (await assetContracts[i].getUtxos()).filter(u => u.token?.category === this.#fund.assets[i].category).sort(sortDecreasingTokenAmount);
-            if (!assetUtxos.length) {
-                throw new Error(`Missing required asset '${this.#fund.assets[i].category}' UTXO`);
-            }
-            let tokenAmountAdded = 0n;
-            for (let j = 0; j < assetUtxos.length; ++j) {
-                assetInputs.push({
-                    ...assetUtxos[j],
-                    unlocker: assetContracts[i].unlock.release()
-                });
-                tokenAmountAdded += assetUtxos[j].token.amount;
-                if (tokenAmountAdded >= amount * this.#fund.assets[i].amount) {
-                    assetChangeAmounts.push(tokenAmountAdded - (amount * this.#fund.assets[i].amount));
-                    break;
+        const calcTokenAssets = async () => {
+            for (let i = 0; i < assetContracts.length; ++i) {
+                const assetUtxos = (await assetContracts[i].getUtxos()).filter(u => u.token?.category === this.#fund.assets[i].category).sort(sortDecreasingTokenAmount);
+                if (!assetUtxos.length) {
+                    throw new Error(`Missing required asset '${this.#fund.assets[i].category}' UTXO`);
+                }
+                let tokenAmountAdded = 0n;
+                for (let j = 0; j < assetUtxos.length; ++j) {
+                    assetInputs.push({
+                        ...assetUtxos[j],
+                        unlocker: assetContracts[i].unlock.release()
+                    });
+                    tokenAmountAdded += assetUtxos[j].token.amount;
+                    if (tokenAmountAdded >= amount * this.#fund.assets[i].amount) {
+                        assetChangeAmounts.push(tokenAmountAdded - (amount * this.#fund.assets[i].amount));
+                        break;
+                    }
                 }
             }
-        }
-        
-        for (let i = 0; i < assetChangeAmounts.length; ++i) {
-            if (!assetChangeAmounts[i]) {
-                continue;
+            
+            for (let i = 0; i < assetChangeAmounts.length; ++i) {
+                if (!assetChangeAmounts[i]) {
+                    continue;
+                }
+                this.#logger.log('adding output change');
+                assetOutputs.push({
+                    to: assetContracts[i].tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: this.#fund.assets[i].category,
+                        amount: assetChangeAmounts[i],
+                    },
+                });
             }
-            this.#logger.log('adding output change');
-            assetOutputs.push({
-                to: assetContracts[i].tokenAddress,
-                amount: DustAmount,
-                token: {
-                    category: this.#fund.assets[i].category,
-                    amount: assetChangeAmounts[i],
-                },
-            });
         }
+
+        await calcTokenAssets();
 
         this.addInputs([
             {
