@@ -100,7 +100,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
         const testRange = [-1n, 1n];
 
-        for (const offset in testRange) {
+        for (let index = 0; index < testRange.length; ++index) {
+            const offset = testRange[index];
             const transaction = new TransactionBuilder({ provider });
             transaction
                 .addInput(defaultFeeUtxo, systemUnderTest.unlock.pay())
@@ -108,11 +109,11 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 .addOutputs([
                     {
                         to: systemUnderTest.tokenAddress,
-                        amount: defaultFeeUtxo.satoshis + offset,
+                        amount: DustAmount,
                     },
                     {
                         to: ownerWallet.address,
-                        amount: defaultFeeAmount,
+                        amount: defaultFeeAmount + offset,
                     }
                 ]);
             expect(transaction).toFailRequire();
@@ -181,7 +182,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
         const testRange = [-1n, 1n];
 
-        for (const offset in testRange) {
+        for (let index = 0; index < testRange.length; ++index) {
+            const offset = testRange[index];
             const transaction = new TransactionBuilder({ provider });
             transaction
             .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.pay())

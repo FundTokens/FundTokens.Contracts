@@ -16,6 +16,7 @@ export default defineConfig({
       reporter: ['json-summary'],
     },
     disableConsoleIntercept: true,
+    printConsoleTrace: false,
   },
   resolve: {
     alias: {

@@ -23,7 +23,7 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
         require(int(nft_fundAmount) > 0);
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
-        require(within(int(nft_satoshis), 0, 2100000000000000));
+        require(int(nft_satoshis) == 0 || within(int(nft_satoshis), 1000 sats, 21000000 bitcoin)); // minimum is 1k sats
 
         bytes lastAssetCategory = 0x;
         do {

@@ -255,7 +255,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
 
         //
         const outflowAmount = this.#fund.amount * amount;
-        const updatedFundAmount = fundUtxo.token?.amount + outflowAmount;
+        const updatedFundAmount = (fundUtxo.token?.amount ?? 0n) + outflowAmount;
 
         const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee, owner: this.#system.owner });
         const feeUtxo = bestFee.utxo;
