@@ -104,36 +104,36 @@ describe('edge case test', () => {
     });
 
     const expectedToFailFunds = [
-        {
+        { // no bitcoin or assets
             category: '6666666666666666666666666666666666666666666666666666666666666666',
             amount: 1n,
             satoshis: 0n,
             assets: [],
         },
-        {
+        { // no fund amount
             category: '6666666666666666666666666666666666666666666666666666666666666666',
             amount: 0n,
             satoshis: 10000n,
             assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
         },
-        {
+        { // does not meet minimum bitcoin amount
             category: '6666666666666666666666666666666666666666666666666666666666666666',
             amount: 1n,
             satoshis: 1n,
             assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
         },
-        {
+        { // does not meet minimum bitcoin amount
             category: '6666666666666666666666666666666666666666666666666666666666666666',
             amount: 1n,
             satoshis: 999n,
             assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
         },
-        {
+        { // exceeds max bitcoin amount
             category: '6666666666666666666666666666666666666666666666666666666666666666',
             amount: 1n,
             satoshis: 2100000000000001n,
             assets: [{ category: '7777777777777777777777777777777777777777777777777777777777777777', amount: 1n }]
-        }
+        },
     ];
 
     const fund = {
@@ -142,7 +142,7 @@ describe('edge case test', () => {
         satoshis: 0n,
         assets: [
             {
-                category: '7777777777777777777777777777777777777777777777777777777777777777',
+                category: '9999999999999999999999999999999999999999999999999999999999999999',
                 amount: 1n,
             },
             {
@@ -150,7 +150,7 @@ describe('edge case test', () => {
                 amount: 1n,
             },
             {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
+                category: '7777777777777777777777777777777777777777777777777777777777777777',
                 amount: 1n,
             },
         ]
