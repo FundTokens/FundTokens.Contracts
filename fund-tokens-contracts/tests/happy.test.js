@@ -105,8 +105,8 @@ describe('happy path', () => {
 
     const fund = {
         category: '6666666666666666666666666666666666666666666666666666666666666666',
-        amount: 1n,
-        satoshis: 0n,
+        amount: 10n,
+        satoshis: 10000n,
         assets: [
             {
                 category: '7777777777777777777777777777777777777777777777777777777777777777',
@@ -144,11 +144,10 @@ describe('happy path', () => {
     it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 110000n });
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a }) }));
+        const inflowAmount = 3n;
+        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
-
-        const inflowAmount = 1n;
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
         await transaction.addInflow({ amount: inflowAmount });
@@ -161,7 +160,15 @@ describe('happy path', () => {
                     category: fund.category,
                     amount: inflowAmount * fund.amount,
                 }
-            });
+            })
+            .addOutputs(fund.assets.map(a => ({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: a.category,
+                    amount: 1n,
+                }
+            })));
         
         expect(transaction).not.toFailRequire();
 
@@ -172,11 +179,11 @@ describe('happy path', () => {
     it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 1000000n });
-        const outflowAmount = 1n;
+        const outflowAmount = 2n;
         const fundTokenUtxo = randomUtxo({
             token: randomToken({
                 category: fund.category,
-                amount: outflowAmount * fund.amount,
+                amount: (outflowAmount * fund.amount) + 1n,
             })
         });
 
@@ -197,6 +204,10 @@ describe('happy path', () => {
             .addOutput({
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
+                token: {
+                    category: fund.category,
+                    amount: 1n,
+                }
             });
         
         expect(transaction).not.toFailRequire();

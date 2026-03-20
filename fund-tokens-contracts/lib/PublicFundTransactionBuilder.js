@@ -276,9 +276,6 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         let curr = 0;
         let next = maxSize;
 
-        // fundHexParts.push(genesisUtxo.txid + fundHex.slice(curr, curr - genesisUtxo.txid.length + maxSize));
-        // curr = next;
-        // next += maxSize
 
         while(curr < fundHex.length) {
             fundHexParts.push(fundHex.slice(curr, next));
@@ -286,11 +283,10 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             next += maxSize
         }
 
-        // only one op return is possible per transaction
         fundHexParts.forEach(part => {
             this.addOutput({
                 to: publicFundContract.tokenAddress, // TODO: update destination?
-                amount: 1065n,
+                amount: DustAmount + 65n,
                 token: {
                     category: this.#system.publicFund,
                     amount: 0n,
