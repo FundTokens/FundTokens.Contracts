@@ -117,7 +117,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
     //
     // o - inflow manager
     // o + 1 - fund manager
-    function outflow(bytes fund) {
+    function outflow(bytes fund, bytes densityPadding) {
+        require(densityPadding.length == 0 || densityPadding.length > 0);
         // check input
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
         // spend input back to the contract

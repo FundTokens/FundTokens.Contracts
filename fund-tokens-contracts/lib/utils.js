@@ -49,20 +49,28 @@ export function getFundBin(fund) {
     return hexToBin(getFundHex(fund));
 }
 
-export function getFund(hex) {
+export function decodeFund(hex) {
     if(typeof hex !== 'string' && typeof hex !== 'number') {
         throw new Error('provide the fund hex as a string or number');
     }
     hex = typeof hex === 'number' ? hex.toString(16) : hex;
 
     const fund = {
-        category: hex.substring(0, 32),
-        amount: hex.substring(32, 40),
-        satoshis: hex.substring(40, 48),
-        assets: hex.slice(48),
+        category: hex.slice(0, 64),
+        amount: binToBigIntUint64LE(hexToBin(hex.slice(64, 80))),
+        satoshis: binToBigIntUint64LE(hexToBin(hex.slice(80, 96))),
+        assets: [],
     };
 
-    // TODO assets
+    let assetsHex = hex.slice(96);
+
+    while(assetsHex.length > 0) {
+        fund.assets.push({
+            category: assetsHex.slice(0, 64),
+            amount: binToBigIntUint64LE(hexToBin(assetsHex.slice(64, 80))),
+        });
+        assetsHex = assetsHex.slice(80);
+    }
 
     return fund;
 }
@@ -87,7 +95,6 @@ export function encodeFee({ category, amount, destination }) {
     let encoded = swapEndianness(category ?? '0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(amount));
     if(destination) {
         encoded += binToHex(cashAddressToLockingBytecode(destination).bytecode);
-        console.log('encoding testing', binToHex(cashAddressToLockingBytecode(destination).bytecode));
     }
     return encoded;
 }

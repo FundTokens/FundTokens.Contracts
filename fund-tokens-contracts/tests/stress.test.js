@@ -107,48 +107,10 @@ describe('happy path', () => {
         category: '6666666666666666666666666666666666666666666666666666666666666666',
         amount: 10n,
         satoshis: 1000n,
-        assets: [
-            {
-                category: '7777777777777777777777777777777777777777777777777777777777777777',
-                amount: 2n,
-            },
-            {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
-                amount: 3n,
-            },
-            {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
-                amount: 4n,
-            },
-            {
-                category: randomToken().category,
-                amount: 5n,
-            },
-            {
-                category: randomToken().category,
-                amount: 6n,
-            },
-            {
-                category: randomToken().category,
-                amount: 7n,
-            },
-            {
-                category: randomToken().category,
-                amount: 8n,
-            },
-            {
-                category: randomToken().category,
-                amount: 9n,
-            },
-            // {
-            //     category: randomToken().category,
-            //     amount: 9n,
-            // },
-            // {
-            //     category: randomToken().category,
-            //     amount: 11n,
-            // },
-        ]
+        assets: Array.from({ length: 21 }, (_, index) => ({
+            category: randomToken().category,
+            amount: BigInt(index + 1),
+        })),
     };
 
     it('should broadcast a new fund', async ({ expect }) => {
@@ -196,7 +158,11 @@ describe('happy path', () => {
                     category: a.category,
                     amount: 1n,
                 }
-            })));
+            })))
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+            });
         
         expect(transaction).not.toFailRequire();
 
@@ -218,7 +184,7 @@ describe('happy path', () => {
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        await transaction.addOutflow({ amount: outflowAmount });
+        await transaction.addOutflow({ amount: outflowAmount, bufferHex: '00'.repeat(4500) });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs(fund.assets.map(a => ({
@@ -236,6 +202,10 @@ describe('happy path', () => {
                     category: fund.category,
                     amount: 1n,
                 }
+            })
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
             });
         
         expect(transaction).not.toFailRequire();

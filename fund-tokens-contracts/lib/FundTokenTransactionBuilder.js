@@ -229,6 +229,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     async addOutflow({
         amount,
         payBy,
+        bufferHex,
     }) {
         this.#logger.log('transaction builder...adding redemption transaction');
 
@@ -339,11 +340,14 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         }
 
         await calcTokenAssets();
+        
+        // 180 is good up to 12
+        const densityBuffer = this.#fund.assets.length <= 8 ? '' : '00'.repeat(180 * (this.#fund.assets.length - 8));
 
         this.addInputs([
             {
                 ...outflowUtxo,
-                unlocker: managerContract.unlock.outflow(getFundBin(this.#fund))
+                unlocker: managerContract.unlock.outflow(getFundBin(this.#fund), bufferHex ?? densityBuffer) // TODO: support density better // '00'.repeat(4325)
             },
             {
                 ...fundUtxo,

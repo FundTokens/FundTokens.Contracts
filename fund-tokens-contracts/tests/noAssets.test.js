@@ -8,6 +8,7 @@ import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
 
+import { decodeFund, getFundHex } from '@lib/utils';
 import { DustAmount } from '@lib/constants.js';
 import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
@@ -126,6 +127,28 @@ describe('edge case test', () => {
 
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
+    });
+
+    it('should reconstruct broadcast fund', async ({ expect }) => {
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        const { publicFundContract } = transaction.getContracts();
+
+        const utxos = await publicFundContract.getUtxos();
+
+        const fundParts = utxos.filter(u => u.token.nft.capability === 'none');
+        let fundHex = '';
+
+        fundParts.forEach(p => fundHex += p.token.nft.commitment);
+        
+        expect(getFundHex(fund)).to.equal(fundHex);
+        
+        const decodedFund = decodeFund(fundHex);
+
+        expect(decodedFund.category).to.equal(fund.category);
+        expect(decodedFund.amount).to.equal(fund.amount);
+        expect(decodedFund.satoshis).to.equal(fund.satoshis);
+
+        expect(decodedFund.assets.length).to.equal(0);
     });
 
     it('should complete an inflow tx', async ({ expect }) => {
