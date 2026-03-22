@@ -23,21 +23,25 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
         require(int(nft_fundAmount) > 0);
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
-        require(within(int(nft_satoshis), 0, 2100000000000000));
 
-        bytes lastAssetCategory = 0x;
-        do {
-            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
-            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
-            require(int(nft_assetAmount) > 0);
+        if(nft_assets.length > 0) {
+            require(int(nft_satoshis) == 0 || within(int(nft_satoshis), 1000 sats, 21000000 bitcoin)); // minimum is 1k sats, 21mil bitcoin
+            bytes lastAssetCategory = 0x;
+            do {
+                bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
+                bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
+                require(int(nft_assetAmount) > 0);
 
-            if(lastAssetCategory != 0x) {
-                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
-            }
+                if(lastAssetCategory != 0x) {
+                    require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
+                }
 
-            nft_assets = nft_next4;
-            lastAssetCategory = nft_assetCategory;
-        } while(nft_assets.length > 0);
+                nft_assets = nft_next4;
+                lastAssetCategory = nft_assetCategory;
+            } while(nft_assets.length > 0);
+        } else {
+            require(within(int(nft_satoshis), 1000 sats, 21000000 bitcoin)); 
+        }
 
         require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + hash256(fund) + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
         require(tx.outputs[this.activeInputIndex + 3].tokenCategory == tx.inputs[0].outpointTransactionHash);

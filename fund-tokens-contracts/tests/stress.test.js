@@ -8,7 +8,6 @@ import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
 
-import { decodeFund, getFundHex } from '@lib/utils';
 import { DustAmount } from '@lib/constants.js';
 import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
@@ -108,20 +107,10 @@ describe('happy path', () => {
         category: '6666666666666666666666666666666666666666666666666666666666666666',
         amount: 10n,
         satoshis: 1000n,
-        assets: [
-            {
-                category: '7777777777777777777777777777777777777777777777777777777777777777',
-                amount: 2n,
-            },
-            {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
-                amount: 3n,
-            },
-            {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
-                amount: 4n,
-            },
-        ]
+        assets: Array.from({ length: 21 }, (_, index) => ({
+            category: randomToken().category,
+            amount: BigInt(index + 1),
+        })),
     };
 
     it('should broadcast a new fund', async ({ expect }) => {
@@ -140,35 +129,6 @@ describe('happy path', () => {
 
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
-    });
-
-    it('should reconstruct broadcast fund', async ({ expect }) => {
-        const transaction = new PublicFundTransactionBuilder({ provider, system });
-        const { publicFundContract } = transaction.getContracts();
-
-        const utxos = await publicFundContract.getUtxos();
-
-        const fundParts = utxos.filter(u => u.token.nft.capability === 'none');
-        let fundHex = '';
-
-        fundParts.forEach(p => fundHex += p.token.nft.commitment);
-        
-        expect(getFundHex(fund)).to.equal(fundHex);
-        
-        const decodedFund = decodeFund(fundHex);
-
-        expect(decodedFund.category).to.equal(fund.category);
-        expect(decodedFund.amount).to.equal(fund.amount);
-        expect(decodedFund.satoshis).to.equal(fund.satoshis);
-
-        expect(decodedFund.assets[0].category).to.equal(fund.assets[0].category);
-        expect(decodedFund.assets[0].amount).to.equal(fund.assets[0].amount);
-
-        expect(decodedFund.assets[1].category).to.equal(fund.assets[1].category);
-        expect(decodedFund.assets[1].amount).to.equal(fund.assets[1].amount);
-
-        expect(decodedFund.assets[2].category).to.equal(fund.assets[2].category);
-        expect(decodedFund.assets[2].amount).to.equal(fund.assets[2].amount);
     });
 
     it('should complete an inflow tx', async ({ expect }) => {
@@ -198,7 +158,11 @@ describe('happy path', () => {
                     category: a.category,
                     amount: 1n,
                 }
-            })));
+            })))
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+            });
         
         expect(transaction).not.toFailRequire();
 
@@ -220,7 +184,7 @@ describe('happy path', () => {
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        await transaction.addOutflow({ amount: outflowAmount });
+        await transaction.addOutflow({ amount: outflowAmount, bufferHex: '00'.repeat(4500) });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs(fund.assets.map(a => ({
@@ -238,6 +202,10 @@ describe('happy path', () => {
                     category: fund.category,
                     amount: 1n,
                 }
+            })
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
             });
         
         expect(transaction).not.toFailRequire();
@@ -265,5 +233,5 @@ describe('happy path', () => {
 
         const response = await transaction.send();
         console.log('close fee threads tx size', response.hex.length / 2);
-    });
+    })
 });

@@ -16,19 +16,21 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
         require(within(int(nft_satoshis), 0, 2100000000000000));
 
-        bytes lastAssetCategory = 0x;
-        do {
-            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
-            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
-            require(int(nft_assetAmount) > 0);
+        if (nft_assets.length > 0) {
+            bytes lastAssetCategory = 0x;
+            do {
+                bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
+                bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
+                require(int(nft_assetAmount) > 0);
 
-            if(lastAssetCategory != 0x) {
-                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
-            }
+                if(lastAssetCategory != 0x) {
+                    require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
+                }
 
-            nft_assets = nft_next4;
-            lastAssetCategory = nft_assetCategory;
-        } while(nft_assets.length > 0);
+                nft_assets = nft_next4;
+                lastAssetCategory = nft_assetCategory;
+            } while(nft_assets.length > 0);
+        }
 
         require(tx.inputs[this.activeInputIndex + 1].tokenCategory == bytes(inflowToken + 0x02));
         require(tx.inputs[this.activeInputIndex + 2].tokenCategory == bytes(outflowToken + 0x02));

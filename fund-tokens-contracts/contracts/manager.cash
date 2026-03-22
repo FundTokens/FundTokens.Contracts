@@ -89,22 +89,24 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             require(satoshiCollectedAmount == fundReleasedAmount);
         }
 
-        int assetIndex = 0;
         bytes nft_assetData = nft_next3;
-        do {
-            bytes nft_assetCategory, bytes nft_assetNext = nft_assetData.split(32);
-            bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
-            int assetAmount = int(nft_assetAmount);
+        if(nft_assetData.length > 0) {
+            int assetIndex = 0;
+            do {
+                bytes nft_assetCategory, bytes nft_assetNext = nft_assetData.split(32);
+                bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
+                int assetAmount = int(nft_assetAmount);
 
-            int assetOutputIndex = satoshiOutputIndex + 1 + assetIndex;
-            require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
-            require(tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory);
-            require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount
-            int assetCollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / assetAmount;
-            require(assetCollectedAmount == fundReleasedAmount);
-            nft_assetData = nft_remaining;
-            assetIndex = assetIndex + 1;
-        } while(nft_assetData.length > 0);
+                int assetOutputIndex = satoshiOutputIndex + 1 + assetIndex;
+                require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
+                require(tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory);
+                require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0); // ensure a multiple of the asset amount
+                int assetCollectedAmount = tx.outputs[assetOutputIndex].tokenAmount / assetAmount;
+                require(assetCollectedAmount == fundReleasedAmount);
+                nft_assetData = nft_remaining;
+                assetIndex = assetIndex + 1;
+            } while(nft_assetData.length > 0);
+        }
     }
 
     // i - outflow signal
@@ -115,7 +117,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
     //
     // o - inflow manager
     // o + 1 - fund manager
-    function outflow(bytes fund) {
+    function outflow(bytes fund, bytes densityPadding) {
+        require(densityPadding.length == 0 || densityPadding.length > 0);
         // check input
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
         // spend input back to the contract
@@ -174,36 +177,38 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         }
 
         bytes nft_assetData = nft_next3;
-        do {
-            bytes nft_assetCategory, bytes nft_assetNext = nft_assetData.split(32);
-            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
-
-
-            int inputIndex = 0;
-            int assetReleaseAmount = 0;
+        if(nft_assetData.length > 0) {
             do {
-                if(tx.inputs[inputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[inputIndex].tokenCategory == nft_assetCategory) {
-                    assetReleaseAmount = assetReleaseAmount + tx.inputs[inputIndex].tokenAmount;
-                }
+                bytes nft_assetCategory, bytes nft_assetNext = nft_assetData.split(32);
+                bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
 
-                inputIndex = inputIndex + 1;
-            } while(inputIndex < tx.inputs.length);
 
-            // account for change back to the contract
-            int outputIndex = 0;
-            do {
-                if(tx.outputs[outputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[outputIndex].tokenCategory == nft_assetCategory) {
-                    assetReleaseAmount = assetReleaseAmount - tx.outputs[outputIndex].tokenAmount;
-                }
+                int inputIndex = 0;
+                int assetReleaseAmount = 0;
+                do {
+                    if(tx.inputs[inputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[inputIndex].tokenCategory == nft_assetCategory) {
+                        assetReleaseAmount = assetReleaseAmount + tx.inputs[inputIndex].tokenAmount;
+                    }
 
-                outputIndex = outputIndex + 1;
-            } while(outputIndex < tx.outputs.length);
+                    inputIndex = inputIndex + 1;
+                } while(inputIndex < tx.inputs.length);
 
-            bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
-            int assetAmount = int(nft_assetAmount);
-            require((assetReleaseAmount % assetAmount) == 0); // ensure a multiple of the fund amount
-            require((assetReleaseAmount / assetAmount) == fundLockingAmount);
-            nft_assetData = nft_remaining;
-        } while(nft_assetData.length > 0);
+                // account for change back to the contract
+                int outputIndex = 0;
+                do {
+                    if(tx.outputs[outputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[outputIndex].tokenCategory == nft_assetCategory) {
+                        assetReleaseAmount = assetReleaseAmount - tx.outputs[outputIndex].tokenAmount;
+                    }
+
+                    outputIndex = outputIndex + 1;
+                } while(outputIndex < tx.outputs.length);
+
+                bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
+                int assetAmount = int(nft_assetAmount);
+                require((assetReleaseAmount % assetAmount) == 0); // ensure a multiple of the fund amount
+                require((assetReleaseAmount / assetAmount) == fundLockingAmount);
+                nft_assetData = nft_remaining;
+            } while(nft_assetData.length > 0);
+        }
     }
 }

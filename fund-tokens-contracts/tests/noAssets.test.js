@@ -14,7 +14,7 @@ import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
 
-describe('happy path', () => {
+describe('edge case test', () => {
     const network = Network.MOCKNET;
     const genesisPartial = { vout: 0, satoshis: DustAmount };
 
@@ -106,25 +106,12 @@ describe('happy path', () => {
 
     const fund = {
         category: '6666666666666666666666666666666666666666666666666666666666666666',
-        amount: 10n,
-        satoshis: 1000n,
-        assets: [
-            {
-                category: '7777777777777777777777777777777777777777777777777777777777777777',
-                amount: 2n,
-            },
-            {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
-                amount: 3n,
-            },
-            {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
-                amount: 4n,
-            },
-        ]
+        amount: 1n,
+        satoshis: 10000n,
+        assets: []
     };
 
-    it('should broadcast a new fund', async ({ expect }) => {
+    it('should test new funds', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
@@ -161,28 +148,21 @@ describe('happy path', () => {
         expect(decodedFund.amount).to.equal(fund.amount);
         expect(decodedFund.satoshis).to.equal(fund.satoshis);
 
-        expect(decodedFund.assets[0].category).to.equal(fund.assets[0].category);
-        expect(decodedFund.assets[0].amount).to.equal(fund.assets[0].amount);
-
-        expect(decodedFund.assets[1].category).to.equal(fund.assets[1].category);
-        expect(decodedFund.assets[1].amount).to.equal(fund.assets[1].amount);
-
-        expect(decodedFund.assets[2].category).to.equal(fund.assets[2].category);
-        expect(decodedFund.assets[2].amount).to.equal(fund.assets[2].amount);
+        expect(decodedFund.assets.length).to.equal(0);
     });
 
     it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
-        const feeUtxo = randomUtxo({ satoshis: 110000n });
-        const inflowAmount = 3n;
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
+        const feeUtxo = randomUtxo({ satoshis: 210000n });
 
-        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+        addUtxos(userWallet.tokenAddress, [feeUtxo]);
+
+        const inflowAmount = 3n;
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
         await transaction.addInflow({ amount: inflowAmount });
         transaction
-            .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
+            .addInputs([feeUtxo], userWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
@@ -190,15 +170,7 @@ describe('happy path', () => {
                     category: fund.category,
                     amount: inflowAmount * fund.amount,
                 }
-            })
-            .addOutputs(fund.assets.map(a => ({
-                to: userWallet.tokenAddress,
-                amount: DustAmount,
-                token: {
-                    category: a.category,
-                    amount: 1n,
-                }
-            })));
+            });
         
         expect(transaction).not.toFailRequire();
 
@@ -209,11 +181,11 @@ describe('happy path', () => {
     it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 1000000n });
-        const outflowAmount = 2n;
+        const outflowAmount = 1n;
         const fundTokenUtxo = randomUtxo({
             token: randomToken({
                 category: fund.category,
-                amount: (outflowAmount * fund.amount) + 1n,
+                amount: outflowAmount * fund.amount,
             })
         });
 
@@ -234,10 +206,6 @@ describe('happy path', () => {
             .addOutput({
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
-                token: {
-                    category: fund.category,
-                    amount: 1n,
-                }
             });
         
         expect(transaction).not.toFailRequire();
