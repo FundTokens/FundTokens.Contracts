@@ -107,7 +107,7 @@ describe('happy path', () => {
         category: '6666666666666666666666666666666666666666666666666666666666666666',
         amount: 10n,
         satoshis: 1000n,
-        assets: Array.from({ length: 21 }, (_, index) => ({
+        assets: Array.from({ length: 20 }, (_, index) => ({
             category: randomToken().category,
             amount: BigInt(index + 1),
         })),

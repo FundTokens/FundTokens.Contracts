@@ -5,11 +5,12 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "cashc": "0.13.0-next.4",
-    "cashscript": "0.13.0-next.4"
+    "cashc": "0.13.0-next.6",
+    "cashscript": "0.13.0-next.6"
   },
   "scripts": {
     "test": "vitest run",
+    "test:build": "yarn build && yarn test",
     "test:watch": "vitest",
     "build": "yarn build:fund && yarn build:startup && yarn build:system",
     "build:fund": "cashc ./contracts/manager.cash --output ./lib/art/manager.json && cashc ./contracts/fund.cash --output ./lib/art/fund.json && cashc ./contracts/asset.cash --output ./lib/art/asset.json",
