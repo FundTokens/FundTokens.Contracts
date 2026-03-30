@@ -178,6 +178,33 @@ describe('testing transaction integrity', () => {
         expect(transaction).toFailRequire();
     });
 
+    it('ensure unable to mint fund tokens outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: fund.category,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: '',
+                }
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
     it('should broadcast a new fund', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
