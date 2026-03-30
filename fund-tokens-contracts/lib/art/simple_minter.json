@@ -68,10 +68,10 @@
   },
   "compiler": {
     "name": "cashc",
-    "version": "0.13.0-next.4",
+    "version": "0.13.0-next.6",
     "options": {
       "enforceFunctionParameterTypes": true
     }
   },
-  "updatedAt": "2026-03-21T03:38:42.104Z"
+  "updatedAt": "2026-03-30T18:48:56.614Z"
 }

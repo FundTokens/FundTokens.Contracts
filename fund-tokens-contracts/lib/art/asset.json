@@ -20,33 +20,33 @@
       "inputs": []
     }
   ],
-  "bytecode": "OP_0 OP_INPUTINDEX OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_IF OP_DUP OP_UTXOTOKENCOMMITMENT 40 OP_SPLIT OP_DROP 20 OP_SPLIT OP_NIP OP_4 OP_PICK OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_ENDIF OP_DUP OP_1SUB OP_NIP OP_DUP OP_0 OP_LESSTHAN OP_UNTIL OP_SWAP OP_VERIFY 0000000000000000000000000000000000000000000000000000000000000000 OP_4 OP_PICK OP_EQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_0 OP_EQUALVERIFY OP_ELSE OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_ENDIF OP_2DROP OP_2DROP OP_1",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\n// hold the token assets that make-up a fund token\r\n\r\n// outflowToken -> NFT category held to show outflow manager in transaction\r\n// fundCategory -> Verify the NFT being executed is for this fund\r\n// fundHash -> A has of the fund's details, stored in the NFT commitment\r\n// assetCategory -> Mostly to create distinct contracts for the assets\r\ncontract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory) \r\n{\r\n    // The asset manager is relying on the outflow manager to ensure this contract is spent correctly\r\n    function release() {\r\n        bool outflowTokenSeen = false;\r\n        int inputIndex = this.activeInputIndex;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == outflowToken) {\r\n                if(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash) {\r\n                    outflowTokenSeen = true;\r\n                }\r\n            }\r\n            inputIndex = inputIndex - 1;\r\n        } while(inputIndex >= 0);\r\n        require(outflowTokenSeen);\r\n        \r\n        bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;\r\n        if(assetCategory == satoshiAsset) {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);\r\n        } else {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);\r\n        }\r\n    }\r\n}",
+  "bytecode": "OP_0 OP_0 OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_IF OP_DUP OP_UTXOTOKENCOMMITMENT 40 OP_SPLIT OP_DROP 20 OP_SPLIT OP_NIP OP_4 OP_PICK OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXINPUTCOUNT OP_LESSTHAN OP_2 OP_PICK OP_NOT OP_BOOLAND OP_NOT OP_UNTIL OP_SWAP OP_VERIFY 0000000000000000000000000000000000000000000000000000000000000000 OP_4 OP_PICK OP_EQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_0 OP_EQUALVERIFY OP_ELSE OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_ENDIF OP_2DROP OP_2DROP OP_1",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n// hold the token assets that make-up a fund token\r\n\r\n// outflowToken -> NFT category held to show outflow manager in transaction\r\n// fundCategory -> Verify the NFT being executed is for this fund\r\n// fundHash -> A has of the fund's details, stored in the NFT commitment\r\n// assetCategory -> Mostly to create distinct contracts for the assets\r\ncontract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory) \r\n{\r\n    // The asset manager is relying on the outflow manager to ensure this contract is spent correctly\r\n    function release() {\r\n        bool outflowTokenSeen = false;\r\n        int inputIndex = 0;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == outflowToken) {\r\n                if(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash) {\r\n                    outflowTokenSeen = true;\r\n                }\r\n            }\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length && !outflowTokenSeen);\r\n        require(outflowTokenSeen);\r\n        \r\n        bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;\r\n        if(assetCategory == satoshiAsset) {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);\r\n        } else {\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);\r\n        }\r\n    }\r\n}",
   "debug": {
-    "bytecode": "00c06576ce5379876376cf01407f7501207f7754798763517b757c6868768c7776009f667c6920000000000000000000000000000000000000000000000000000000000000000054798763c0ce008867c0ce547988686d6d51",
-    "sourceMap": "13:32:13:37;14:25:14:46;15:8:22:33;16:25:16:35;:15::50:1;:54::66:0;;:15:::1;:68:20:13:0;17:29:17:39;:19::54:1;:65::67:0;:19::68:1;;:61::63:0;:19::68:1;;:72::80:0;;:19:::1;:82:19:17:0;18:39:18:43;:20::44:1;;;17:82:19:17;16:68:20:13;21:25:21:35:0;:::39:1;:12::40;22:16:22:26:0;:30::31;15:8::33:1;;23:16:23:32:0;:8::34:1;25:31:25:97:0;26:11:26:24;;:::40:1;:42:28:9:0;27:30:27:51;:20::66:1;:70::72:0;:12::74:1;28:15:30:9:0;29:30:29:51;:20::66:1;:70::83:0;;:12::85:1;28:15:30:9;12:4:31:5;;",
+    "bytecode": "00006576ce5379876376cf01407f7501207f7754798763517b757c6868768b7776c39f5279919a91667c6920000000000000000000000000000000000000000000000000000000000000000054798763c0ce008867c0ce547988686d6d51",
+    "sourceMap": "13:32:13:37;14:25:14:26;15:8:22:68;16:25:16:35;:15::50:1;:54::66:0;;:15:::1;:68:20:13:0;17:29:17:39;:19::54:1;:65::67:0;:19::68:1;;:61::63:0;:19::68:1;;:72::80:0;;:19:::1;:82:19:17:0;18:39:18:43;:20::44:1;;;17:82:19:17;16:68:20:13;21:25:21:35:0;:::39:1;:12::40;22:16:22:26:0;:29::45;:16:::1;:50::66:0;;:49:::1;:16;15:8::68;;23:16:23:32:0;:8::34:1;25:31:25:97:0;26:11:26:24;;:::40:1;:42:28:9:0;27:30:27:51;:20::66:1;:70::72:0;:12::74:1;28:15:30:9:0;29:30:29:51;:20::66:1;:70::83:0;;:12::85:1;28:15:30:9;12:4:31:5;;",
     "logs": [],
     "requires": [
       {
-        "ip": 38,
+        "ip": 43,
         "line": 23
       },
       {
-        "ip": 47,
+        "ip": 52,
         "line": 27
       },
       {
-        "ip": 53,
+        "ip": 58,
         "line": 29
       }
     ]
   },
   "compiler": {
     "name": "cashc",
-    "version": "0.13.0-next.4",
+    "version": "0.13.0-next.6",
     "options": {
       "enforceFunctionParameterTypes": true
     }
   },
-  "updatedAt": "2026-03-21T03:38:40.254Z"
+  "updatedAt": "2026-03-30T18:48:54.796Z"
 }

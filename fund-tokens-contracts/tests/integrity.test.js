@@ -14,7 +14,7 @@ import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
 
-describe('happy path', () => {
+describe('testing transaction integrity', () => {
     const network = Network.MOCKNET;
     const genesisPartial = { vout: 0, satoshis: DustAmount };
 
@@ -124,6 +124,87 @@ describe('happy path', () => {
         ]
     };
 
+    it('ensure unable to mint inflow token outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: system.inflow,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: '',
+                }
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('ensure unable to mint outflow token outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: system.outflow,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: '',
+                }
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('ensure unable to mint fund tokens outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: fund.category,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: '',
+                }
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
     it('should broadcast a new fund', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
@@ -134,12 +215,7 @@ describe('happy path', () => {
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
         await transaction.addBroadcast({ fund });
-        transaction
-            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
-            .addOutput({
-                to: userWallet.tokenAddress,
-                amount: DustAmount,
-            });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
 
         expect(transaction).not.toFailRequire();
 
