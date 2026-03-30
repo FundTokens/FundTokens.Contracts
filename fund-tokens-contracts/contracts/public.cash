@@ -48,13 +48,14 @@ contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupC
         require(tx.outputs[this.activeInputIndex + 3].tokenAmount == 9223372036854775807); // anything but the max?
 
         int lastOutput = this.activeInputIndex + 5;
-        int count = 0;
+        bytes fundRemaining = fund;
         do {
-            bytes part = fund.slice(count * 128, min((count + 1) * 128, fund.length));
+            int chunkSize = min(128, fundRemaining.length);
+            bytes part, bytes fundNext = fundRemaining.split(chunkSize);
             require(tx.outputs[lastOutput].nftCommitment == part);
             lastOutput = lastOutput + 1;
-            count = count + 1;
-        } while(lastOutput < tx.outputs.length);
+            fundRemaining = fundNext;
+        } while(fundRemaining.length > 0);
 
 
         // verify no more outputs, fund tokens, public token

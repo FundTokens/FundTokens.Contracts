@@ -134,7 +134,12 @@ describe('happy path', () => {
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
         await transaction.addBroadcast({ fund });
-        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction
+            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+            });
 
         expect(transaction).not.toFailRequire();
 
