@@ -19,7 +19,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         inflow: '', // 32 byte, tx id/token id
         outflow: '', // 32 byte, tx id/token id
         publicFund: '', // 32 byte, tx id/token id
-        authHead: '', // public key hash
+        authHead: '', // 32 byte, tx id/token id
         owner: '', // 32 byte, tx id/token id
         fees: {
             create: {
@@ -60,6 +60,9 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
         mintExecuteFundFeeContract: null,
         executeFundFeeContract: null,
+
+        authHeadVaultContract: null,
+        feeVaultContract: null,
     };
     #logger = console;
 

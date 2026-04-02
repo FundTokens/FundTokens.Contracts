@@ -12,10 +12,11 @@
     "test": "vitest run",
     "test:build": "yarn build && yarn test",
     "test:watch": "vitest",
-    "build": "yarn build:fund && yarn build:startup && yarn build:system",
+    "build": "yarn build:fund && yarn build:startup && yarn build:vault && yarn build:system",
     "build:fund": "cashc ./contracts/manager.cash --output ./lib/art/manager.json && cashc ./contracts/fund.cash --output ./lib/art/fund.json && cashc ./contracts/asset.cash --output ./lib/art/asset.json",
     "build:startup": "cashc ./contracts/public.cash --output ./lib/art/public.json && cashc ./contracts/startup.cash --output ./lib/art/startup.json && cashc ./contracts/fee.cash --output ./lib/art/fee.json && cashc ./contracts/mint.cash --output ./lib/art/mint.json",
-    "build:system": "cashc ./contracts/fee_minter.cash --output ./lib/art/fee_minter.json && cashc ./contracts/simple_minter.cash --output ./lib/art/simple_minter.json && cashc ./contracts/simple_vault.cash --output ./lib/art/simple_vault.json"
+    "build:vault": "cashc ./contracts/simple_vault.cash --output ./lib/art/simple_vault.json && cashc ./contracts/authhead_vault.cash --output ./lib/art/authhead_vault.json",
+    "build:system": "cashc ./contracts/fee_minter.cash --output ./lib/art/fee_minter.json && cashc ./contracts/simple_minter.cash --output ./lib/art/simple_minter.json"
   },
   "devDependencies": {
     "vitest": "^4.0.18"

@@ -1,6 +1,5 @@
 import {
     Contract,
-    Network,
     TransactionBuilder,
 } from 'cashscript';
 import {
@@ -8,7 +7,6 @@ import {
     hash256,
     hexToBin,
     binToHex,
-    encodeCashAddress,
     cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 import { DustAmount } from './constants.js';
@@ -28,13 +26,14 @@ import fundJson from './art/fund.json' with { type: 'json' };
 import assetJson from './art/asset.json' with { type: 'json' };
 import publicJson from './art/public.json' with { type: 'json' };
 import simpleVaultJson from './art/simple_vault.json' with { type: 'json' };
+import authHeadVaultJson from './art/authhead_vault.json' with { type: 'json' };
 
 export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #system = {
         inflow: '', // 32 byte, token id
         outflow: '', // 32 byte, token id
         publicFund: '', // 32 byte, token id
-        authHead: '', // public key hash
+        authHead: '', // 32 byte, token id
         owner: '', // 32 byte, token id
         fees: {
             create: {
@@ -51,6 +50,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         inflow: '',
         outflow: '',
         publicFund: '',
+        authHead: '',
         owner: '',
         fees: {
             create: {
@@ -75,6 +75,9 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         mintExecuteFundFeeContract: null,
         executeFundFeeContract: null,
+
+        authHeadVaultContract: null,
+        feeVaultContract: null,
     };
     #logger = null;
 
@@ -92,6 +95,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
             publicFund: swapEndianness(system.publicFund),
+            authHead: swapEndianness(system.authHead),
             owner: swapEndianness(system.owner),
             fees: {
                 create: {
@@ -131,8 +135,11 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
+        const authHeadVaultContract = new Contract(authHeadVaultJson, [this.#swapped.authHead], { provider: this.provider });
+        const authHeadVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(authHeadVaultContract.tokenAddress).bytecode);
+
         const publicFundContract = new Contract(publicJson, [
-            this.#system.authHead,
+            authHeadVaultLockingBytecode,
             this.#swapped.publicFund,
             startupContractHash,
             fundJson.debug.bytecode,
@@ -140,7 +147,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             this.#swapped.outflow,
         ], { provider: this.provider });
 
-        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract, feeVaultContract };
+        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract, feeVaultContract, authHeadVaultContract };
     }
 
     getContracts() {
@@ -151,7 +158,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         fund,
         payBy,
     }) {
-        const { feeVaultContract, createFundFeeContract, startupContract, mintContract, publicFundContract } = this.#contracts;
+        const { feeVaultContract, createFundFeeContract, startupContract, mintContract, publicFundContract, authHeadVaultContract } = this.#contracts;
 
         const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
@@ -183,8 +190,6 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         var { managerContract, fundContract } = new FundTokenTransactionBuilder({ provider: this.provider, system: { ...this.#system, fee: this.#system.fees.execute }, fund }).getContracts();
 
-        const authHeadTokenAddress = encodeCashAddress({ prefix: this.provider.network === Network.MAINNET ? 'bitcoincash' : 'bchtest', type: 'p2pkhWithTokens', payload: hexToBin(this.#system.authHead) });
-
         const fundTokenAmount = 9223372036854775807n;
 
         this.addInputs([
@@ -211,7 +216,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         ])
         .addOutputs([
             {
-                to: authHeadTokenAddress.address,
+                to: authHeadVaultContract.tokenAddress,
                 amount: DustAmount,
             },
             {

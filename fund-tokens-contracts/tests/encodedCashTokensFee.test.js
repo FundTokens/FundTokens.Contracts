@@ -24,7 +24,6 @@ describe('encoded CashTokens fee testing', () => {
     const addUtxos = (address, utxos) => utxos.forEach(u => provider.addUtxo(address, u));
 
     const ownerWallet = generateWallet(network);
-    const authHeadOwnerWallet = generateWallet(network);
 
     const payByToken = randomToken();
     const destinationWallet = generateWallet(network);
@@ -33,7 +32,7 @@ describe('encoded CashTokens fee testing', () => {
         inflow: '1111111111111111111111111111111111111111111111111111111111111111',
         outflow: '2222222222222222222222222222222222222222222222222222222222222222',
         publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
-        authHead: authHeadOwnerWallet.pubKeyHashHex,
+        authHead: randomToken().category,
         owner: '4444444444444444444444444444444444444444444444444444444444444444',
         fees: {
             create: {

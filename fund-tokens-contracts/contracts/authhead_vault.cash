@@ -1,8 +1,11 @@
 pragma cashscript ~0.13.0;
 
-contract SimpleVault(bytes32 authToken)
+contract AuthHeadVault(bytes32 authToken)
 {
     function release() {
+        require(this.activeInputIndex == 0, "expected to be the first input");
+        require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
+
         bool authorized = false;
         int inputIndex = 0;
         do {
