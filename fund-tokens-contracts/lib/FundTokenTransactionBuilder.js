@@ -330,7 +330,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 if (!assetChangeAmounts[i]) {
                     continue;
                 }
-                this.#logger.log('adding output change');
                 assetOutputs.push({
                     to: assetContracts[i].tokenAddress,
                     amount: DustAmount,

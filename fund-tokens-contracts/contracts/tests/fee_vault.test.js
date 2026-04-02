@@ -47,7 +47,6 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
 
     it('should allow owner to release', ({ expect }) => {
-        console.log('testing', authUtxo.token, utxoUnderTest.token);
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxoUnderTest, systemUnderTest.unlock.release())
