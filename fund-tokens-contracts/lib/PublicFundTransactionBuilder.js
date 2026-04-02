@@ -9,6 +9,7 @@ import {
     hexToBin,
     binToHex,
     encodeCashAddress,
+    cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 import { DustAmount } from './constants.js';
 import {
@@ -26,6 +27,7 @@ import managerJson from './art/manager.json' with { type: 'json' };
 import fundJson from './art/fund.json' with { type: 'json' };
 import assetJson from './art/asset.json' with { type: 'json' };
 import publicJson from './art/public.json' with { type: 'json' };
+import feeVaultJson from './art/fee_vault.json' with { type: 'json' };
 
 export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #system = {
@@ -106,8 +108,11 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
     // build and get the contracts
     #buildContracts() {
-        const createFundFeeContract = new Contract(feeJson, [this.#swapped.owner, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
-        const executeFundFeeContract = new Contract(feeJson, [this.#swapped.owner, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
+        const feeVaultContract = new Contract(feeVaultJson, [this.#swapped.owner], { provider: this.provider });
+        const feeVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(feeVaultContract.tokenAddress).bytecode);
+
+        const createFundFeeContract = new Contract(feeJson, [this.#swapped.owner, feeVaultLockingBytecode, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
+        const executeFundFeeContract = new Contract(feeJson, [this.#swapped.owner, feeVaultLockingBytecode, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
 
         const startupContract = new Contract(startupJson, [
             binToHex(hash256(hexToBin(createFundFeeContract.bytecode))),
@@ -135,7 +140,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             this.#swapped.outflow,
         ], { provider: this.provider });
 
-        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract };
+        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract, feeVaultContract };
     }
 
     getContracts() {
@@ -146,9 +151,9 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         fund,
         payBy,
     }) {
-        const { createFundFeeContract, startupContract, mintContract, publicFundContract } = this.#contracts;
+        const { feeVaultContract, createFundFeeContract, startupContract, mintContract, publicFundContract } = this.#contracts;
 
-        const bestFee = await getBestFee({ feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
+        const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
         const broadcastUtxos = await startupContract.getUtxos();
         const mintUtxos = await mintContract.getUtxos();

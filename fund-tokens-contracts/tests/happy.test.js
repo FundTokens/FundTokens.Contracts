@@ -24,24 +24,23 @@ describe('happy path', () => {
     });
     const addUtxos = (address, utxos) => utxos.forEach(u => provider.addUtxo(address, u));
 
-    const systemOwnerWallet = generateWallet(network);
+    const ownerWallet = generateWallet(network);
     const authHeadOwnerWallet = generateWallet(network);
 
     const system = {
-        inflow: '1111111111111111111111111111111111111111111111111111111111111111', // 32 byte, tx id/token id
-        outflow: '2222222222222222222222222222222222222222222222222222222222222222', // 32 byte, tx id/token id
-        publicFund: '3333333333333333333333333333333333333333333333333333333333333333', // 32 byte, tx id/token id
-        authHead: authHeadOwnerWallet.pubKeyHashHex, // public key hash
-        owner: systemOwnerWallet.pubKeyHex, // public key
-        vault: '',
+        inflow: '1111111111111111111111111111111111111111111111111111111111111111',
+        outflow: '2222222222222222222222222222222222222222222222222222222222222222',
+        publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
+        authHead: authHeadOwnerWallet.pubKeyHashHex,
+        owner: '4444444444444444444444444444444444444444444444444444444444444444',
         fees: {
             create: {
-                nft: '4444444444444444444444444444444444444444444444444444444444444444', // 32 byte, tx id/token id
-                value: 10000n, // bigint
+                nft: '5555555555555555555555555555555555555555555555555555555555555555',
+                value: 10000n,
             },
             execute: {
-                nft: '5555555555555555555555555555555555555555555555555555555555555555', // 32 byte, tx id/token id
-                value: 100000n, // bigint
+                nft: '6666666666666666666666666666666666666666666666666666666666666666',
+                value: 100000n,
             }
         },
     };
@@ -52,16 +51,30 @@ describe('happy path', () => {
         const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
         const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
         const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
+        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.owner });
         const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
         const feeUtxo = randomUtxo({ satoshis: 10000n });
 
-        addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo, ...genesisInputs]);
+        addUtxos(ownerWallet.tokenAddress, [feeUtxo, ...genesisInputs, authGenesisUtxo]);
 
         const transaction = new SystemTransactionBuilder({ provider, system });
         transaction
-            .addInputs(genesisInputs, systemOwnerWallet.signatureTemplate.unlockP2PKH())
+            .addInputs(genesisInputs, ownerWallet.signatureTemplate.unlockP2PKH())
             .addInitializeSystem()
-            .addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+            .addInput(authGenesisUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: system.owner,
+                    amount: 0n,
+                    nft: {
+                        capability: 'none',
+                        commitment: '',
+                    }
+                }
+            });
 
         expect(transaction).not.toFailRequire();
 
@@ -71,15 +84,21 @@ describe('happy path', () => {
 
     it('should create new system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemTransactionBuilder({ provider, system });
-        const signature = systemOwnerWallet.signatureTemplate;
 
-        addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
+        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
-        await transaction.addSystemThreads({ signature });
+        await transaction.addSystemThreads();
         await transaction.addCreateFundFee();
         await transaction.addExecuteFundFee();
-        transaction.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+        transaction.addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH());
+        transaction.addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: ownerWallet.tokenAddress,
+            amount: DustAmount,
+            token: authUtxo.token,
+        });
 
         expect(transaction).not.toFailRequire();
 
@@ -89,15 +108,23 @@ describe('happy path', () => {
 
     it('should create additional system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemTransactionBuilder({ provider, system });
-        const signature = systemOwnerWallet.signatureTemplate;
 
-        addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
+        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
-        await transaction.addSystemThreads({ signature });
+        await transaction.addSystemThreads();
         await transaction.addCreateFundFee();
         await transaction.addExecuteFundFee();
-        transaction.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
+
+        transaction
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: authUtxo.token,
+            });
 
         expect(transaction).not.toFailRequire();
 
@@ -106,20 +133,20 @@ describe('happy path', () => {
     });
 
     const fund = {
-        category: '6666666666666666666666666666666666666666666666666666666666666666',
+        category: '7777777777777777777777777777777777777777777777777777777777777777',
         amount: 10n,
         satoshis: 1000n,
         assets: [
             {
-                category: '7777777777777777777777777777777777777777777777777777777777777777',
+                category: '8888888888888888888888888888888888888888888888888888888888888888',
                 amount: 2n,
             },
             {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
+                category: '9999999999999999999999999999999999999999999999999999999999999999',
                 amount: 3n,
             },
             {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
+                category: '1212121212121212121212121212121212121212121212121212121212121212',
                 amount: 4n,
             },
         ]
@@ -254,18 +281,21 @@ describe('happy path', () => {
 
     it('should allow closing fee threads', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemTransactionBuilder({ provider, system, allowImplicitFungibleTokenBurn: true });
-        const signature = systemOwnerWallet.signatureTemplate;
 
-        addUtxos(systemOwnerWallet.tokenAddress, [feeUtxo]);
+        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
-        await transaction.closeCreateFundFee({ signature });
-        await transaction.closeExecuteFundFee({ signature });
-        transaction.addInput(feeUtxo, systemOwnerWallet.signatureTemplate.unlockP2PKH());
-        transaction.addOutput({
-            to: systemOwnerWallet.tokenAddress,
-            amount: DustAmount,
-        });
+        await transaction.closeCreateFundFee();
+        await transaction.closeExecuteFundFee();
+        transaction
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: authUtxo.token,
+            });
 
         expect(transaction).not.toFailRequire();
 

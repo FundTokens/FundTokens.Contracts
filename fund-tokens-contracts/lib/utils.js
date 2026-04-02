@@ -99,7 +99,7 @@ export function encodeFee({ category, amount, destination }) {
     return encoded;
 }
 
-export async function getBestFee({ feeContract, payBy, fee, owner }) {
+export async function getBestFee({ feeVaultContract, feeContract, payBy, fee, owner }) {
     if(!feeContract) {
         throw new Error('Expected fee contract');
     }
@@ -107,10 +107,7 @@ export async function getBestFee({ feeContract, payBy, fee, owner }) {
         throw new Error('Expected system owner pk')
     }
     
-    const network = feeContract.provider.network;
-    const pubKeyBin = hexToBin(owner);
-    const encoded = publicKeyToP2pkhCashAddress({ publicKey: pubKeyBin, prefix: network === Network.MAINNET ? 'bitcoincash' : 'bchtest', tokenSupport: true });
-    const defaultDestination = typeof encoded === 'string' ? encoded : encoded.address;
+    const defaultDestination = feeVaultContract.tokenAddress;
 
     const {
         nft,
