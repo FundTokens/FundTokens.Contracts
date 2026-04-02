@@ -1,0 +1,16 @@
+pragma cashscript ~0.13.0;
+
+contract FeeVault(bytes32 ownerToken)
+{
+    function release() {
+        bool ownerSeen = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == ownerToken) {
+                ownerSeen = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !ownerSeen);
+        require(ownerSeen, "owner not seen");
+    }
+}

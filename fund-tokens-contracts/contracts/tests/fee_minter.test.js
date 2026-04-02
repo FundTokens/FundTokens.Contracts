@@ -27,128 +27,190 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         updateUtxoSet: true,
     });
 
-    const wallet = generateWallet(network);
-    const destination = generateWallet(network);
-    const secondaryWallet = generateWallet(network);
+    const ownerWallet = generateWallet(network);
+    const destinationWallet = generateWallet(network);
+    const anonWallet = generateWallet(network);
 
-    const token = randomToken({
+    const authToken = randomToken({
+        nft: {
+            capability: 'none',
+            commitment: '',
+        }
+    });
+    const tokenUnderTest = randomToken({
         amount: 0n,
         nft: {
             capability: 'minting',
             commitment: '',
         }
     });
-    const utxo = randomUtxo({ token });
+    const utxoUnderTest = randomUtxo({ satoshis: DustAmount, token: tokenUnderTest });
+    const authUtxo = randomUtxo({ satoshis: DustAmount, token: authToken });
+    const bitcoinUtxo = randomUtxo({ satoshis: 10000n });
 
-    const systemUnderTest = new Contract(systemUnderTestJson, [wallet.pubKeyHex, swapEndianness(token.category), cashAddressToLockingBytecode(destination.address).bytecode], { provider });
+    const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category), swapEndianness(tokenUnderTest.category), cashAddressToLockingBytecode(destinationWallet.address).bytecode], { provider });
 
-    provider.addUtxo(systemUnderTest.tokenAddress, utxo);
+    provider.addUtxo(systemUnderTest.tokenAddress, utxoUnderTest);
+    provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
+    provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
 
-    const testingToken = randomToken();
+    const newFeeToken = randomToken();
 
-    const outputTemplate = {
-        to: systemUnderTest.tokenAddress,
-        amount: DustAmount,
-        token: {
-            category: token.category,
-            amount: 0n,
-            nft: {
-                capability: 'minting',
-                commitment: '',
-            }
-        }
-    };
-
-    const requiredOutputs = [
-        {
-            ...outputTemplate
-        },
-        {
-            ...outputTemplate,
-            to: destination.address,
-            token: {
-                ...outputTemplate.token,
-                nft: {
-                    capability: 'none',
-                    commitment: testingToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
-                }
-            }
-        }
-    ];
-
-    it('should mint to destination', async ({ expect }) => {
+    it('should mint to destination', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
-            .addOutputs(requiredOutputs)
-            .addOutput({
-                to: secondaryWallet.address,
-                amount: DustAmount,
-            });
-        expect(transaction).not.toFailRequire();
-        await transaction.send();
-    });
-
-    it('should allow minting with encoded destination', async ({ expect }) => {
-        const transaction = new TransactionBuilder({ provider });
-        transaction
-            .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([
                 {
-                    ...outputTemplate
-                },
-                {
-                    ...outputTemplate,
-                    to: destination.address,
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
                     token: {
-                        ...outputTemplate.token,
+                        category: tokenUnderTest.category,
+                        amount: 0n,
                         nft: {
-                            capability: 'none',
-                            commitment: testingToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)) + binToHex(cashAddressToLockingBytecode(wallet.address).bytecode),
+                            capability: 'minting',
+                            commitment: '',
                         }
                     }
+                },
+                {
+                    to: destinationWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: tokenUnderTest.category,
+                        amount: 0n,
+                        nft: {
+                            capability: 'none',
+                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                        }
+                    }
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: authUtxo.token,
                 }
             ]);
         expect(transaction).not.toFailRequire();
     });
 
-    it('should ensure unable to mint anywhere else', async ({ expect }) => {
+    it('should mint to destination with encoded destination', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
-            .addOutput({
-                ...outputTemplate,
-                to: systemUnderTest.tokenAddress,
-            })
-            .addOutput({
-                ...outputTemplate,
-                to: secondaryWallet.address,
-            });
-        expect(transaction).toFailRequire();
-        transaction.outputs = [];
-        transaction.addOutputs([
-            ...requiredOutputs,
-            { 
-                to: secondaryWallet.address,
-                amount: DustAmount,
-                token: {
-                    category: token.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    },
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: tokenUnderTest.category,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                            commitment: '',
+                        }
+                    }
+                },
+                {
+                    to: destinationWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: tokenUnderTest.category,
+                        amount: 0n,
+                        nft: {
+                            capability: 'none',
+                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)) + binToHex(cashAddressToLockingBytecode(ownerWallet.address).bytecode),
+                        }
+                    }
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: authUtxo.token,
                 }
-            }
-        ]);
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('should ensure unable to mint anywhere else', ({ expect }) => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: tokenUnderTest.category,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                            commitment: '',
+                        }
+                    }
+                },
+                {
+                    to: anonWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: tokenUnderTest.category,
+                        amount: 0n,
+                        nft: {
+                            capability: 'none',
+                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                        }
+                    }
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: authUtxo.token,
+                }
+            ]);
         expect(transaction).toFailRequire();
     });
 
-    it('should ensure the owner approves the tx', async ({ expect }) => {
+    it('should ensure the owner approves the tx', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(utxo, systemUnderTest.unlock.mint(secondaryWallet.signatureTemplate))
-            .addOutputs(requiredOutputs);
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: tokenUnderTest.category,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                            commitment: '',
+                        }
+                    }
+                },
+                {
+                    to: destinationWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: tokenUnderTest.category,
+                        amount: 0n,
+                        nft: {
+                            capability: 'none',
+                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                        }
+                    }
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                }
+            ]);
         expect(transaction).toFailRequire();
     });
 });

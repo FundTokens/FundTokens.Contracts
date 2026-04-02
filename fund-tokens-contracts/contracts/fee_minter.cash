@@ -1,16 +1,26 @@
 pragma cashscript ~0.13.0;
 
-contract FeeMinter(pubkey owner, bytes32 token, bytes destination)
+contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
 {
-    function mint(sig signature) {
-        require(checkSig(signature, owner));
-
+    function mint() {
         require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         //require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+
+        bool ownerSeen = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == ownerToken) {
+                ownerSeen = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !ownerSeen);
+        require(ownerSeen);
+
 
         int outputIndex = 0;
         do {
