@@ -1,13 +1,13 @@
 pragma cashscript ~0.13.0;
 
-contract PublicFund(bytes20 authHeadDestination, bytes32 token, bytes32 startupContract, bytes fundContract, bytes32 inflowToken, bytes32 outflowToken)
+contract PublicFund(bytes authHeadDestination, bytes32 token, bytes32 startupContract, bytes fundContract, bytes32 inflowToken, bytes32 outflowToken)
 {   
     // new threads? okay because it's meant to be read-only?
     function broadcast(bytes fund) {
         require(tx.inputs[0].outpointIndex == 0);
         require(tx.inputs[0].tokenCategory == 0x);
 
-        require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(authHeadDestination));
+        require(tx.outputs[0].lockingBytecode == authHeadDestination);
         require(tx.outputs[0].tokenCategory == 0x);
 
         require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));

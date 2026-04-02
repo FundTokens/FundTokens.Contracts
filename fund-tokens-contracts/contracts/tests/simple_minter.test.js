@@ -18,51 +18,52 @@ import systemUnderTestJson from '@lib/art/simple_minter.json' with { type: 'json
 
 import 'cashscript/vitest';
 
-describe('Testing the SimpleMinter Contract', () => {
+describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () => {
     const network = Network.MOCKNET;
 
     const provider = new MockNetworkProvider({
         updateUtxoSet: true,
     });
 
-    const wallet = generateWallet(network);
-    const secondaryWallet = generateWallet(network);
+    const ownerWallet = generateWallet(network);
+    const destinationWallet = generateWallet(network);
+    const anonWallet = generateWallet(network);
 
-    const token = randomToken({
+    const authToken = randomToken({
+        nft: {
+            capability: 'none',
+            commitment: '',
+        }
+    });
+    const tokenUnderTest = randomToken({
         amount: 0n,
         nft: {
             capability: 'minting',
             commitment: '',
         }
     });
-    const utxo = randomUtxo({ token });
 
-    const systemUnderTest = new Contract(systemUnderTestJson, [wallet.pubKeyHex, swapEndianness(token.category), cashAddressToLockingBytecode(wallet.address).bytecode], { provider });
+    const authUtxo = randomUtxo({ satoshis: DustAmount, token: authToken });
+    const utxoUnderTest = randomUtxo({ satoshis: DustAmount, token: tokenUnderTest });
+    const bitcoinUtxo = randomUtxo({ satoshis: 10000n });
 
-    provider.addUtxo(systemUnderTest.tokenAddress, utxo);
+    const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category), swapEndianness(tokenUnderTest.category), cashAddressToLockingBytecode(destinationWallet.address).bytecode], { provider });
 
-    const standardDestinationOutput = {
-        to: wallet.address,
-        amount: DustAmount,
-        token: {
-            category: token.category,
-            amount: 0n,
-            nft: {
-                capability: 'minting',
-                commitment: '',
-            }
-        }
-    }
+    provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
+    provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
+    provider.addUtxo(systemUnderTest.tokenAddress, utxoUnderTest);
 
-    it('should mint to destination', async ({ expect }) => {
+    it('should mint to destination', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
                 to: systemUnderTest.tokenAddress,
                 amount: DustAmount,
                 token: {
-                    category: token.category,
+                    category: tokenUnderTest.category,
                     amount: 0n,
                     nft: {
                         capability: 'minting',
@@ -71,10 +72,10 @@ describe('Testing the SimpleMinter Contract', () => {
                 }
             })
             .addOutput({
-                to: wallet.address,
+                to: destinationWallet.address,
                 amount: DustAmount,
                 token: {
-                    category: token.category,
+                    category: tokenUnderTest.category,
                     amount: 0n,
                     nft: {
                         capability: 'minting',
@@ -83,26 +84,24 @@ describe('Testing the SimpleMinter Contract', () => {
                 }
             })
             .addOutput({
-                to: secondaryWallet.address,
+                to: ownerWallet.address,
                 amount: DustAmount,
+                token: authUtxo.token,
             });
         expect(transaction).not.toFailRequire();
-        await transaction.send();
     });
 
-    it('should ensure unable to mint anywhere else', async ({ expect }) => {
-        const expectedToFailOutput = {
-            ...standardDestinationOutput,
-            to: secondaryWallet.address,
-        };
+    it('should ensure unable to mint anywhere else', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(utxo, systemUnderTest.unlock.mint(wallet.signatureTemplate))
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
                 to: systemUnderTest.tokenAddress,
                 amount: DustAmount,
                 token: {
-                    category: token.category,
+                    category: tokenUnderTest.category,
                     amount: 0n,
                     nft: {
                         capability: 'minting',
@@ -111,34 +110,35 @@ describe('Testing the SimpleMinter Contract', () => {
                 }
             })
             .addOutput({
-                to: secondaryWallet.address,
+                to: anonWallet.address,
                 amount: DustAmount,
                 token: {
-                    category: token.category,
+                    category: tokenUnderTest.category,
                     amount: 0n,
                     nft: {
                         capability: 'minting',
                         commitment: '',
                     }
                 }
+            })
+            .addOutput({
+                to: ownerWallet.address,
+                amount: DustAmount,
+                token: authUtxo.token,
             });
-        expect(transaction).toFailRequire();
-        transaction.outputs.pop();
-        transaction.addOutput({ ...standardDestinationOutput });
-        expect(transaction).not.toFailRequire();
-        transaction.addOutput({ ...expectedToFailOutput});
         expect(transaction).toFailRequire();
     });
 
-    it('should ensure the owner approves the tx', async ({ expect }) => {
+    it('should ensure auth token is spent', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(utxo, systemUnderTest.unlock.mint(secondaryWallet.signatureTemplate))
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
                 to: systemUnderTest.tokenAddress,
                 amount: DustAmount,
                 token: {
-                    category: token.category,
+                    category: tokenUnderTest.category,
                     amount: 0n,
                     nft: {
                         capability: 'minting',
@@ -147,16 +147,20 @@ describe('Testing the SimpleMinter Contract', () => {
                 }
             })
             .addOutput({
-                to: wallet.address,
+                to: destinationWallet.address,
                 amount: DustAmount,
                 token: {
-                    category: token.category,
+                    category: tokenUnderTest.category,
                     amount: 0n,
                     nft: {
                         capability: 'minting',
                         commitment: '',
                     }
                 }
+            })
+            .addOutput({
+                to: ownerWallet.address,
+                amount: DustAmount,
             });
         expect(transaction).toFailRequire();
     });

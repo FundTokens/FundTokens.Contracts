@@ -19,8 +19,8 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         inflow: '', // 32 byte, tx id/token id
         outflow: '', // 32 byte, tx id/token id
         publicFund: '', // 32 byte, tx id/token id
-        authHead: '', // public key hash
-        owner: '', // public key
+        authHead: '', // 32 byte, tx id/token id
+        owner: '', // 32 byte, tx id/token id
         fees: {
             create: {
                 nft: '', // 32 byte, tx id/token id
@@ -36,6 +36,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         inflow: '',
         outflow: '',
         publicFund: '',
+        owner: '',
         fees: {
             create: {
                 nft: '',
@@ -59,6 +60,9 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
         mintExecuteFundFeeContract: null,
         executeFundFeeContract: null,
+
+        authHeadVaultContract: null,
+        feeVaultContract: null,
     };
     #logger = console;
 
@@ -77,6 +81,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
             publicFund: swapEndianness(system.publicFund),
+            owner: swapEndianness(system.owner),
             fees: {
                 create: {
                     nft: swapEndianness(system.fees.create.nft),
@@ -96,19 +101,19 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
 
         const inflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
-        const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
+        const inflowHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
 
         const outflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
-        const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
+        const outflowHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
         const publicFundDestination = cashAddressToLockingBytecode(publicFundContract.tokenAddress).bytecode;
-        const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
+        const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
 
         const createFundFeeDestination = cashAddressToLockingBytecode(createFundFeeContract.tokenAddress).bytecode;
-        const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
+        const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#swapped.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
 
         const executeFundFeeDestination = cashAddressToLockingBytecode(executeFundFeeContract.tokenAddress).bytecode;
-        const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
+        const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#swapped.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
         this.#contracts = { startupContract, mintContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicFundHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
     }
@@ -117,11 +122,11 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
-    async #addContractIO({ contract, nft, signature }) {
+    async #addContractIO({ contract, nft }) {
         const tokenUtxos = await contract.getUtxos();
         const tokenUtxo = tokenUtxos.filter(u => u.token.category === nft)[0];
         this
-            .addInput(tokenUtxo, contract.unlock.mint(signature))
+            .addInput(tokenUtxo, contract.unlock.mint())
             .addOutput({
                 to: contract.tokenAddress,
                 amount: DustAmount,
@@ -155,7 +160,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         return this;
     }
 
-    async addSystemThreads({ signature }) {
+    async addSystemThreads() {
         const contracts = [
             { contract: this.#contracts.inflowHoldingContract, to: this.#contracts.mintContract.tokenAddress, nft: this.#system.inflow },
             { contract: this.#contracts.outflowHoldingContract, to: this.#contracts.mintContract.tokenAddress, nft: this.#system.outflow },
@@ -164,7 +169,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
         for (let i = 0; i < contracts.length; i++) {
             const contract = contracts[i];
-            await this.#addContractIO({ ...contract, signature });
+            await this.#addContractIO({ ...contract });
         }
 
         for (let i = 0; i < contracts.length; i++) {
@@ -187,12 +192,11 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         } else {
             const {
                 fee,
-                signature
             } = newFee;
             const feeTokenUtxos = await contract.getUtxos();
             const feeTokenUtxo = feeTokenUtxos.filter(u => u.token.category === nft)[0];
 
-            this.addInput(feeTokenUtxo, contract.unlock.mint(signature))
+            this.addInput(feeTokenUtxo, contract.unlock.mint())
                 .addOutputs([
                     {
                         to: contract.tokenAddress,
@@ -234,8 +238,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     async #closeFee(fee, { contract, nft }) {
         const {
             txId,
-            signature, // required
-        } = fee;
+        } = fee ?? {};
         const utxos = (await contract.getUtxos()).filter(u => !u.token || u.token.category === nft);
         const closing = [];
         
@@ -249,7 +252,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
             closing.push(utxo);
         }
 
-        this.addInputs(closing, contract.unlock.close(signature));
+        this.addInputs(closing, contract.unlock.close());
     }
 
     closeCreateFundFee(fee) {

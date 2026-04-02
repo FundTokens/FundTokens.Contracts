@@ -1,9 +1,20 @@
 pragma cashscript ~0.13.0;
 
-contract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)
+contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int defaultValue)
 {
-    function close(sig signature) {
-        require(checkSig(signature, owner)); // verify owner
+    function close() {
+        // Check for authorization
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authToken) {
+                authorized = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
+
+        // Ensure the token is burned
         int outputIndex = 0;
         do {
             require(tx.outputs[outputIndex].tokenCategory != feeToken);
@@ -27,7 +38,7 @@ contract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)
             if(fee_destination.length > 0) {
                 require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination); // locking bytecode
             } else {
-                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));
+                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
             }
             
             if(int(fee_category) == 0) {
@@ -38,7 +49,7 @@ contract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)
             }
         } else {
             // "default"
-            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));
+            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
             require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);
         }
     }

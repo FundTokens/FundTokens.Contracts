@@ -7,6 +7,7 @@ import {
     hash256,
     hexToBin,
     binToHex,
+    cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 import { BitcoinCategory, DustAmount } from './constants.js';
 import {
@@ -20,18 +21,17 @@ import managerJson from './art/manager.json' with { type: 'json' };
 import fundJson from './art/fund.json' with { type: 'json' };
 import assetJson from './art/asset.json' with { type: 'json' };
 import feeJson from './art/fee.json' with { type: 'json' };
+import simpleVaultJson from './art/simple_vault.json' with { type: 'json' };
 
 const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
 
 export default class FundTokenTransactionBuilder extends TransactionBuilder {
     #system = {
-        inflow: '', // 32 byte, tx id/token id
-        outflow: '', // 32 byte, tx id/token id
-        publicFund: '', // 32 byte, tx id/token id
-        authHead: '', // public key hash
-        owner: '', // public key
+        inflow: '', // 32 byte, token id
+        outflow: '', // 32 byte, token id
+        owner: '', // 32 byte, token id
         fee: {
-            nft: '', // 32 byte, tx id/token id
+            nft: '', // 32 byte, token id
             value: -1n, // bigint
         },
     };
@@ -74,6 +74,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         this.#swapped = {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
+            owner: swapEndianness(system.owner),
             fee: {
                 nft: swapEndianness(system.fee.nft),
             },
@@ -113,7 +114,9 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         // 32 32 32 32 + 4 128 132 * 2 264
         const fundContract = new Contract(fundJson, [this.#swapped.inflow, this.#swapped.outflow, swapEndianness(category), fundHash], { provider: this.provider });
 
-        const feeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fee.nft, this.#system.fee.value], { provider: this.provider });
+        const feeVaultContract = new Contract(simpleVaultJson, [this.#swapped.owner], { provider: this.provider });
+        const feeVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(feeVaultContract.tokenAddress).bytecode);
+        const feeContract = new Contract(feeJson, [this.#swapped.owner, feeVaultLockingBytecode, this.#swapped.fee.nft, this.#system.fee.value], { provider: this.provider });
 
         const managerContract = new Contract(managerJson, [
             binToHex(hash256(hexToBin(feeContract.bytecode))),
@@ -125,7 +128,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        this.#contracts = { managerContract, fundContract, assetContracts, feeContract, satoshiAssetContract };
+        this.#contracts = { managerContract, fundContract, assetContracts, feeContract, satoshiAssetContract, feeVaultContract };
     }
 
     getContracts() {
@@ -145,11 +148,11 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     }) {
         this.#logger.log('transaction builder...adding minting transaction');
 
-        const { managerContract, fundContract, assetContracts, feeContract } = this.#contracts;
+        const { managerContract, fundContract, assetContracts, feeContract, feeVaultContract } = this.#contracts;
 
         const inflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.inflow);
         const fundUtxos = (await fundContract.getUtxos()).filter(u => u.token?.category === this.#fund.category);
-        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee, owner: this.#system.owner });
+        const bestFee = await getBestFee({ feeVaultContract, feeContract, payBy, fee: this.#system.fee, owner: this.#system.owner });
 
         if (!inflowUtxos?.length || !fundUtxos?.length || !bestFee) {
             this.#logger.error('Missing required UTXO', !inflowUtxos?.length, !fundUtxos?.length, !bestFee);
@@ -233,7 +236,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     }) {
         this.#logger.log('transaction builder...adding redemption transaction');
 
-        const { managerContract, fundContract, assetContracts, feeContract, satoshiAssetContract } = this.#contracts;
+        const { managerContract, fundContract, assetContracts, feeContract, satoshiAssetContract, feeVaultContract } = this.#contracts;
 
         //
         const outflowUtxos = (await managerContract.getUtxos()).filter(u => u.token?.category === this.#system.outflow);
@@ -258,7 +261,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         const outflowAmount = this.#fund.amount * amount;
         const updatedFundAmount = (fundUtxo.token?.amount ?? 0n) + outflowAmount;
 
-        const bestFee = await getBestFee({ feeContract, payBy, fee: this.#system.fee, owner: this.#system.owner });
+        const bestFee = await getBestFee({ feeVaultContract, feeContract, payBy, fee: this.#system.fee, owner: this.#system.owner });
         const feeUtxo = bestFee.utxo;
 
         const satoshiAssetInputs = [];
@@ -327,7 +330,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 if (!assetChangeAmounts[i]) {
                     continue;
                 }
-                this.#logger.log('adding output change');
                 assetOutputs.push({
                     to: assetContracts[i].tokenAddress,
                     amount: DustAmount,

@@ -30,6 +30,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const ownerWallet = generateWallet(network);
     const userWallet = generateWallet(network);
 
+    const authToken = randomToken();
     const payByToken = randomToken();
     const payByTokenAmount = 1000n;
     const contractToken = randomToken();
@@ -67,7 +68,10 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const defaultFeeUtxo = randomUtxo();
     const defaultFeeAmount = 2000n;
 
-    const systemUnderTest = new Contract(systemUnderTestJson, [ownerWallet.pubKeyHex, swapEndianness(contractToken.category), defaultFeeAmount], { provider });
+    const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category), binToHex(cashAddressToLockingBytecode(ownerWallet.tokenAddress).bytecode), swapEndianness(contractToken.category), defaultFeeAmount], { provider });
+
+    const authUtxo = randomUtxo({ token: authToken });
+    provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
 
     provider.addUtxo(systemUnderTest.tokenAddress, defaultFeeUtxo);
     provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeUtxo);
@@ -240,28 +244,38 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     it('allows the owner to close the fee thread', async ({ expect }) => {
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
-            .addInput(defaultFeeUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
-            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
-            .addInput(encodedTokenFeeWithDestinationUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
+            .addInput(defaultFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(encodedTokenFeeWithDestinationUtxo, systemUnderTest.unlock.close())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutput({
                 to: ownerWallet.address,
                 amount: DustAmount,
+                token: authUtxo.token,
             });
-        expect(transaction).not.toFailRequire();
+        expect(transaction).not.toFailRequireWith("unauthorized user");
     });
 
-    it('prevents the owner from moving the encoded fee', async ({ expect }) => {
+    it('prevents the owner from moving a fee', async ({ expect }) => {
         const feeUtxo = randomUtxo();
         provider.addUtxo(ownerWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
             .addInput(feeUtxo, ownerWallet.signatureTemplate)
-            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close(ownerWallet.signatureTemplate))
-            .addOutput({
-                to: ownerWallet.address,
-                amount: DustAmount,
-                token: encodedTokenFeeUtxo.token,
-            });
+            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token: encodedTokenFeeUtxo.token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token:authUtxo.token,
+                },
+            ]);
         expect(transaction).toFailRequire();
     });
 });

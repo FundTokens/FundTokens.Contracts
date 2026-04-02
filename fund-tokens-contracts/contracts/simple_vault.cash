@@ -1,0 +1,16 @@
+pragma cashscript ~0.13.0;
+
+contract SimpleVault(bytes32 authToken)
+{
+    function release() {
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authToken) {
+                authorized = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
+    }
+}
