@@ -19,7 +19,7 @@ contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length && !ownerSeen);
-        require(ownerSeen);
+        require(ownerSeen, "unauthorized user");
 
 
         int outputIndex = 0;

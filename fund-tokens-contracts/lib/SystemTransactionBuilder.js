@@ -20,7 +20,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         outflow: '', // 32 byte, tx id/token id
         publicFund: '', // 32 byte, tx id/token id
         authHead: '', // public key hash
-        owner: '', // public key
+        owner: '', // 32 byte, tx id/token id
         fees: {
             create: {
                 nft: '', // 32 byte, tx id/token id
@@ -36,6 +36,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         inflow: '',
         outflow: '',
         publicFund: '',
+        owner: '',
         fees: {
             create: {
                 nft: '',
@@ -77,6 +78,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
             publicFund: swapEndianness(system.publicFund),
+            owner: swapEndianness(system.owner),
             fees: {
                 create: {
                     nft: swapEndianness(system.fees.create.nft),
@@ -96,19 +98,19 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
 
         const inflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
-        const inflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
+        const inflowHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
 
         const outflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
-        const outflowHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
+        const outflowHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
         const publicFundDestination = cashAddressToLockingBytecode(publicFundContract.tokenAddress).bytecode;
-        const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#system.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
+        const publicFundHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.publicFund, publicFundDestination], { provider: this.provider });
 
         const createFundFeeDestination = cashAddressToLockingBytecode(createFundFeeContract.tokenAddress).bytecode;
-        const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
+        const mintCreateFundFeeContract = new Contract(feeMinterJson, [this.#swapped.owner, this.#swapped.fees.create.nft, createFundFeeDestination], { provider: this.provider });
 
         const executeFundFeeDestination = cashAddressToLockingBytecode(executeFundFeeContract.tokenAddress).bytecode;
-        const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#system.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
+        const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#swapped.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
         this.#contracts = { startupContract, mintContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicFundHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
     }

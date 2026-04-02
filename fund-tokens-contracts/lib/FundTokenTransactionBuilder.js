@@ -25,13 +25,12 @@ const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
 
 export default class FundTokenTransactionBuilder extends TransactionBuilder {
     #system = {
-        inflow: '', // 32 byte, tx id/token id
-        outflow: '', // 32 byte, tx id/token id
-        publicFund: '', // 32 byte, tx id/token id
-        authHead: '', // public key hash
-        owner: '', // public key
+        inflow: '', // 32 byte, token id
+        outflow: '', // 32 byte, token id
+        owner: '', // 32 byte, token id
+        vault: '', // 32 byte, contract hash
         fee: {
-            nft: '', // 32 byte, tx id/token id
+            nft: '', // 32 byte, token id
             value: -1n, // bigint
         },
     };

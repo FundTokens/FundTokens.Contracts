@@ -33,6 +33,7 @@ describe('happy path', () => {
         publicFund: '3333333333333333333333333333333333333333333333333333333333333333', // 32 byte, tx id/token id
         authHead: authHeadOwnerWallet.pubKeyHashHex, // public key hash
         owner: systemOwnerWallet.pubKeyHex, // public key
+        vault: '',
         fees: {
             create: {
                 nft: '4444444444444444444444444444444444444444444444444444444444444444', // 32 byte, tx id/token id

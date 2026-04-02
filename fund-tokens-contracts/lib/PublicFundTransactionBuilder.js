@@ -29,11 +29,11 @@ import publicJson from './art/public.json' with { type: 'json' };
 
 export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #system = {
-        inflow: '', // 32 byte, tx id/token id
-        outflow: '', // 32 byte, tx id/token id
-        publicFund: '', // 32 byte, tx id/token id
+        inflow: '', // 32 byte, token id
+        outflow: '', // 32 byte, token id
+        publicFund: '', // 32 byte, token id
         authHead: '', // public key hash
-        owner: '', // public key
+        owner: '', // 32 byte, token id
         fees: {
             create: {
                 nft: '', // 32 byte, tx id/token id
@@ -49,6 +49,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         inflow: '',
         outflow: '',
         publicFund: '',
+        owner: '',
         fees: {
             create: {
                 nft: '',
@@ -89,6 +90,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
             publicFund: swapEndianness(system.publicFund),
+            owner: swapEndianness(system.owner),
             fees: {
                 create: {
                     nft: swapEndianness(system.fees.create.nft),
@@ -104,8 +106,8 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
     // build and get the contracts
     #buildContracts() {
-        const createFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
-        const executeFundFeeContract = new Contract(feeJson, [this.#system.owner, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
+        const createFundFeeContract = new Contract(feeJson, [this.#swapped.owner, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
+        const executeFundFeeContract = new Contract(feeJson, [this.#swapped.owner, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
 
         const startupContract = new Contract(startupJson, [
             binToHex(hash256(hexToBin(createFundFeeContract.bytecode))),

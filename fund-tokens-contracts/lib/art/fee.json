@@ -2,8 +2,12 @@
   "contractName": "FeeManager",
   "constructorInputs": [
     {
-      "name": "owner",
-      "type": "pubkey"
+      "name": "authToken",
+      "type": "bytes32"
+    },
+    {
+      "name": "destination",
+      "type": "bytes"
     },
     {
       "name": "feeToken",
@@ -17,72 +21,68 @@
   "abi": [
     {
       "name": "close",
-      "inputs": [
-        {
-          "name": "signature",
-          "type": "sig"
-        }
-      ]
+      "inputs": []
     },
     {
       "name": "pay",
       "inputs": []
     }
   ],
-  "bytecode": "OP_3 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_4 OP_ROLL OP_SWAP OP_CHECKSIGVERIFY OP_0 OP_BEGIN OP_DUP OP_OUTPUTTOKENCATEGORY OP_2 OP_PICK OP_EQUAL OP_NOT OP_VERIFY OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_1 OP_ELSE OP_3 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_ROT OP_EQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT 20 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_DUP OP_SIZE OP_NIP OP_0 OP_GREATERTHAN OP_IF OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE OP_OVER OP_EQUALVERIFY OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE 76a914 OP_6 OP_PICK OP_HASH160 OP_CAT 88ac OP_CAT OP_EQUALVERIFY OP_ENDIF OP_3 OP_PICK OP_BIN2NUM OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENAMOUNT OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_2DROP OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE 76a914 OP_2 OP_PICK OP_HASH160 OP_CAT 88ac OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_2 OP_PICK OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_1 OP_ENDIF",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract FeeManager(pubkey owner, bytes32 feeToken, int defaultValue)\r\n{\r\n    function close(sig signature) {\r\n        require(checkSig(signature, owner)); // verify owner\r\n        int outputIndex = 0;\r\n        do {\r\n            require(tx.outputs[outputIndex].tokenCategory != feeToken);\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n\r\n    function pay() {\r\n        // can't change this UTXO\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        //require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        //require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        // if a token, it must be the owner's \r\n        if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {\r\n            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);\r\n            bytes fee_amount, bytes fee_destination = fee_next1.split(8);\r\n\r\n            if(fee_destination.length > 0) {\r\n                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination); // locking bytecode\r\n            } else {\r\n                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));\r\n            }\r\n            \r\n            if(int(fee_category) == 0) {\r\n                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));\r\n            } else {\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));\r\n            }\r\n        } else {\r\n            // \"default\"\r\n            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == new LockingBytecodeP2PKH(hash160(owner)));\r\n            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);\r\n        }\r\n    }\r\n}\r\n",
+  "bytecode": "OP_4 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_0 OP_0 OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXINPUTCOUNT OP_LESSTHAN OP_2 OP_PICK OP_NOT OP_BOOLAND OP_NOT OP_UNTIL OP_SWAP OP_VERIFY OP_0 OP_BEGIN OP_DUP OP_OUTPUTTOKENCATEGORY OP_5 OP_PICK OP_EQUAL OP_NOT OP_VERIFY OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_2DROP OP_DROP OP_1 OP_ELSE OP_4 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_3 OP_ROLL OP_EQUAL OP_IF OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT 20 OP_SPLIT OP_DUP OP_8 OP_SPLIT OP_DUP OP_SIZE OP_NIP OP_0 OP_GREATERTHAN OP_IF OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE OP_OVER OP_EQUALVERIFY OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE OP_6 OP_PICK OP_EQUALVERIFY OP_ENDIF OP_3 OP_PICK OP_BIN2NUM OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTTOKENAMOUNT OP_2 OP_PICK OP_BIN2NUM OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_2DROP OP_ELSE OP_INPUTINDEX OP_1ADD OP_OUTPUTBYTECODE OP_2 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_1ADD OP_OUTPUTVALUE OP_3 OP_PICK OP_NUMEQUALVERIFY OP_ENDIF OP_2DROP OP_DROP OP_1 OP_ENDIF",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int defaultValue)\r\n{\r\n    function close() {\r\n        // Check for authorization\r\n        bool authorized = false;\r\n        int inputIndex = 0;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == authToken) {\r\n                authorized = true;\r\n            }\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length && !authorized);\r\n        require(authorized, \"unauthorized user\");\r\n\r\n        // Ensure the token is burned\r\n        int outputIndex = 0;\r\n        do {\r\n            require(tx.outputs[outputIndex].tokenCategory != feeToken);\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n\r\n    function pay() {\r\n        // can't change this UTXO\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        //require(tx.inputs[this.activeInputIndex].value == tx.outputs[this.activeInputIndex].value);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        //require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        // if a token, it must be the owner's \r\n        if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {\r\n            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);\r\n            bytes fee_amount, bytes fee_destination = fee_next1.split(8);\r\n\r\n            if(fee_destination.length > 0) {\r\n                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination); // locking bytecode\r\n            } else {\r\n                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);\r\n            }\r\n            \r\n            if(int(fee_category) == 0) {\r\n                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));\r\n            } else {\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);\r\n                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));\r\n            }\r\n        } else {\r\n            // \"default\"\r\n            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);\r\n            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);\r\n        }\r\n    }\r\n}\r\n",
   "debug": {
-    "bytecode": "5379009c63547a7cad006576d15279879169768b7776c4a2666d6d5167537a519dc0c7c0cd88c0cec0d188c0cfc0d288c0ce7b8763c0cf01207f76587f76827700a063c08bcd788867c08bcd0376a9145679a97e0288ac7e8868537981009c63c08bcc5279819d67c08bd1547988c08bd35279819d686d6d67c08bcd0376a9145279a97e0288ac7e88c08bcc52799d686d5168",
-    "sourceMap": "5:4:12:5;;;;;6:25:6:34;;:36::41;:8::44:1;7:26:7:27:0;8:8:11:49;9:31:9:42;:20::57:1;:61::69:0;;:20:::1;;:12::71;10:26:10:37:0;:::41:1;:12::42;11:16:11:27:0;:30::47;8:8::49:1;;5:4:12:5;;;;14::44::0;;;;16:26:16:47;:16::64:1;:79::100:0;:68::117:1;:8::119;18:26:18:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;20:26:20:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;23:21:23:42:0;:11::57:1;:61::69:0;:11:::1;:71:39:9:0;24:60:24:81;:50::96:1;:103::105:0;:50::106:1;25:54:25:63:0;:70::71;:54::72:1;27:15:27:30:0;:::37:1;;:40::41:0;:15:::1;:43:29:13:0;28:35:28:56;:::60:1;:24::77;:81::96:0;:16::98:1;29:19:31:13:0;30:35:30:56;:::60:1;:24::77;:81::121:0;:114::119;;:106::120:1;:81::121;;;:16::123;29:19:31:13;33::33:31:0;;:15::32:1;:36::37:0;:15:::1;:39:35:13:0;34:35:34:56;:::60:1;:24::67;:75::85:0;;:71::86:1;:16::88;35:19:38:13:0;36:35:36:56;:::60:1;:24::75;:79::91:0;;:16::93:1;37:35:37:56:0;:::60:1;:24::73;:81::91:0;;:77::92:1;:16::94;35:19:38:13;23:71:39:9;;39:15:43::0;41:31:41:52;:::56:1;:20::73;:77::117:0;:110::115;;:102::116:1;:77::117;;;:12::119;42:31:42:52:0;:::56:1;:20::63;:67::79:0;;:12::81:1;39:15:43:9;14:4:44:5;;3:0:45:1",
+    "bytecode": "5479009c6300006576ce53798763517b757c68768b7776c39f5279919a91667c69006576d15579879169768b7776c4a2666d6d6d755167547a519dc0c7c0cd88c0cec0d188c0cfc0d288c0ce537a8763c0cf01207f76587f76827700a063c08bcd788867c08bcd56798868537981009c63c08bcc5279819d67c08bd1547988c08bd35279819d686d6d67c08bcd527988c08bcc53799d686d755168",
+    "sourceMap": "5:4:23:5;;;;;7:26:7:31;8:25:8:26;9:8:14:62;10:25:10:35;:15::50:1;:54::63:0;;:15:::1;:65:12:13:0;11:29:11:33;:16::34:1;;;10:65:12:13;13:25:13:35:0;:::39:1;:12::40;14:16:14:26:0;:29::45;:16:::1;:50::60:0;;:49:::1;:16;9:8::62;;15:16:15:26:0;:8::49:1;18:26:18:27:0;19:8:22:49;20:31:20:42;:20::57:1;:61::69:0;;:20:::1;;:12::71;21:26:21:37:0;:::41:1;:12::42;22:16:22:27:0;:30::47;19:8::49:1;;5:4:23:5;;;;;;25::55::0;;;;27:26:27:47;:16::64:1;:79::100:0;:68::117:1;:8::119;29:26:29:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;31:26:31:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;34:21:34:42:0;:11::57:1;:61::69:0;;:11:::1;:71:50:9:0;35:60:35:81;:50::96:1;:103::105:0;:50::106:1;36:54:36:63:0;:70::71;:54::72:1;38:15:38:30:0;:::37:1;;:40::41:0;:15:::1;:43:40:13:0;39:35:39:56;:::60:1;:24::77;:81::96:0;:16::98:1;40:19:42:13:0;41:35:41:56;:::60:1;:24::77;:81::92:0;;:16::94:1;40:19:42:13;44::44:31:0;;:15::32:1;:36::37:0;:15:::1;:39:46:13:0;45:35:45:56;:::60:1;:24::67;:75::85:0;;:71::86:1;:16::88;46:19:49:13:0;47:35:47:56;:::60:1;:24::75;:79::91:0;;:16::93:1;48:35:48:56:0;:::60:1;:24::73;:81::91:0;;:77::92:1;:16::94;46:19:49:13;34:71:50:9;;50:15:54::0;52:31:52:52;:::56:1;:20::73;:77::88:0;;:12::90:1;53:31:53:52:0;:::56:1;:20::63;:67::79:0;;:12::81:1;50:15:54:9;25:4:55:5;;;3:0:56:1",
     "logs": [],
     "requires": [
       {
-        "ip": 11,
-        "line": 6
-      },
-      {
-        "ip": 20,
-        "line": 9
-      },
-      {
-        "ip": 40,
-        "line": 16
+        "ip": 36,
+        "line": 15,
+        "message": "unauthorized user"
       },
       {
         "ip": 45,
-        "line": 18
-      },
-      {
-        "ip": 50,
         "line": 20
       },
       {
-        "ip": 73,
-        "line": 28
+        "ip": 67,
+        "line": 27
       },
       {
-        "ip": 85,
-        "line": 30
+        "ip": 72,
+        "line": 29
       },
       {
-        "ip": 99,
-        "line": 34
+        "ip": 77,
+        "line": 31
       },
       {
-        "ip": 106,
-        "line": 36
+        "ip": 101,
+        "line": 39
       },
       {
-        "ip": 113,
-        "line": 37
-      },
-      {
-        "ip": 128,
+        "ip": 108,
         "line": 41
       },
       {
-        "ip": 134,
-        "line": 42
+        "ip": 122,
+        "line": 45
+      },
+      {
+        "ip": 129,
+        "line": 47
+      },
+      {
+        "ip": 136,
+        "line": 48
+      },
+      {
+        "ip": 146,
+        "line": 52
+      },
+      {
+        "ip": 152,
+        "line": 53
       }
     ]
   },
@@ -93,5 +93,5 @@
       "enforceFunctionParameterTypes": true
     }
   },
-  "updatedAt": "2026-04-02T14:07:52.099Z"
+  "updatedAt": "2026-04-02T15:28:34.579Z"
 }

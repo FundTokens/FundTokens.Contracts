@@ -18,7 +18,7 @@ import systemUnderTestJson from '@lib/art/simple_minter.json' with { type: 'json
 
 import 'cashscript/vitest';
 
-describe('Testing the SimpleMinter Contract', () => {
+describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () => {
     const network = Network.MOCKNET;
 
     const provider = new MockNetworkProvider({

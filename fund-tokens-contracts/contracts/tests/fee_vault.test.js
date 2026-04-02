@@ -80,6 +80,6 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     token: utxoUnderTest.token,
                 }
             ]);
-        expect(transaction).toFailRequireWith("owner not seen");
+        expect(transaction).toFailRequireWith("unauthorized user");
     });
 });
