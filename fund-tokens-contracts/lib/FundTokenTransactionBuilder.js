@@ -21,7 +21,7 @@ import managerJson from './art/manager.json' with { type: 'json' };
 import fundJson from './art/fund.json' with { type: 'json' };
 import assetJson from './art/asset.json' with { type: 'json' };
 import feeJson from './art/fee.json' with { type: 'json' };
-import feeVaultJson from './art/fee_vault.json' with { type: 'json' };
+import simpleVaultJson from './art/simple_vault.json' with { type: 'json' };
 
 const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
 
@@ -114,7 +114,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         // 32 32 32 32 + 4 128 132 * 2 264
         const fundContract = new Contract(fundJson, [this.#swapped.inflow, this.#swapped.outflow, swapEndianness(category), fundHash], { provider: this.provider });
 
-        const feeVaultContract = new Contract(feeVaultJson, [this.#swapped.owner], { provider: this.provider });
+        const feeVaultContract = new Contract(simpleVaultJson, [this.#swapped.owner], { provider: this.provider });
         const feeVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(feeVaultContract.tokenAddress).bytecode);
         const feeContract = new Contract(feeJson, [this.#swapped.owner, feeVaultLockingBytecode, this.#swapped.fee.nft, this.#system.fee.value], { provider: this.provider });
 

@@ -8,15 +8,12 @@ import {
 } from 'cashscript';
 import {
     swapEndianness,
-    binToHex,
-    cashAddressToLockingBytecode,
-    bigIntToBinUint64LEClamped,
 } from '@bitauth/libauth';
 
 import { generateWallet } from '@/wallet.js';
 import { DustAmount } from '@lib/constants.js';
 
-import systemUnderTestJson from '@lib/art/fee_vault.json' with { type: 'json' };
+import systemUnderTestJson from '@lib/art/simple_vault.json' with { type: 'json' };
 
 import 'cashscript/vitest';
 
