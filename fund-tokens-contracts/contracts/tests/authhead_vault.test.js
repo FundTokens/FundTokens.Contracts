@@ -13,7 +13,7 @@ import {
 import { generateWallet } from '@/wallet.js';
 import { DustAmount } from '@lib/constants.js';
 
-import systemUnderTestJson from '@lib/art/simple_vault.json' with { type: 'json' };
+import systemUnderTestJson from '@lib/art/authhead_vault.json' with { type: 'json' };
 
 import 'cashscript/vitest';
 
@@ -43,13 +43,17 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
     provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
 
-    it('should allow authorized user to release', ({ expect }) => {
+    it('should allow authorized user to release as authhead', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxoUnderTest, systemUnderTest.unlock.release())
             .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount
+                },
                 {
                     to: ownerWallet.tokenAddress,
                     amount: DustAmount,
@@ -73,9 +77,47 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 {
                     to: ownerWallet.tokenAddress,
                     amount: DustAmount,
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
                     token: utxoUnderTest.token,
                 }
             ]);
         expect(transaction).toFailRequireWith("unauthorized user");
+    });
+
+    it('should ensure authhead contains no tokens', ({ expect }) => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(utxoUnderTest, systemUnderTest.unlock.release())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: utxoUnderTest.token,
+                }
+            ]);
+        expect(transaction).toFailRequireWith("no token allowed on authhead");
+    });
+
+    it('should ensure input is first to keep separate', ({ expect }) => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+        .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+        .addInput(utxoUnderTest, systemUnderTest.unlock.release())
+            .addOutputs([
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: utxoUnderTest.token,
+                }
+            ]);
+        expect(transaction).toFailRequireWith("expected to be the first input");
     });
 });
