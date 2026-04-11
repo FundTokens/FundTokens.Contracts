@@ -1,13 +1,9 @@
 import {
-    Network,
-} from 'cashscript';
-import {
     swapEndianness,
     hash256,
     bigIntToBinUint64LEClamped,
     hexToBin,
     binToHex,
-    publicKeyToP2pkhCashAddress,
     cashAddressToLockingBytecode,
     binToBigIntUint64LE,
     lockingBytecodeToCashAddress
@@ -16,9 +12,7 @@ import { DustAmount, BitcoinCategory } from './constants';
 
 
 const categoryAscending = (a, b) => {
-    const aValue = BigInt(`0x${a.category}`);
-    const bValue = BigInt(`0x${b.category}`);
-    return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    return a.category.localeCompare(b.category);
 };
 
 // base - 48bytes
