@@ -1,16 +1,42 @@
 pragma cashscript ~0.13.0;
 
+/**
+ * FeeMinter: Owner-controlled fee token minting with encoded commitments
+ * 
+ * Similar to SimpleMinter, but allows encoding fee details in NFT commitments.
+ * Fee tokens carry commitment data: [category | amount | destination_override]
+ * Used to create tokens that encode specific fee amounts and routing.
+ * 
+ * Parameters:
+ *   ownerToken: Token category that authorizes minting
+ *   token: Fee token category being minted
+ *   destination: Default destination for fee payments
+ */
 contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
 {
+    /**
+     * mint(): Mints fee tokens with commitment encoding
+     * 
+     * Fee commitment format: [fee_category (32) | fee_amount (8) | destination_override (0+)]
+     * - Category: 0x00 = Bitcoin satoshis, else = token category
+     * - Amount: uint64 LE integer
+     * - Destination: Optional locking bytecode override for fee routing
+     */
     function mint() {
+        // Verify this is a fee minting token
         require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
 
+        // Contract returns to itself (locked pattern)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        
+        // Keep the fee minting token
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        //require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+        
+        // Preserve NFT commitment (minting capability)
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
 
+        // Require owner authorization
         bool ownerSeen = false;
         int inputIndex = 0;
         do {
@@ -22,20 +48,27 @@ contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
         require(ownerSeen, "unauthorized user");
 
 
+        // Verify all outputs minting fee tokens have proper commitment
         int outputIndex = 0;
         do {
             if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
                 if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
+                    // Fee tokens go to the destination
                     require(tx.outputs[outputIndex].lockingBytecode == destination);
                     require(tx.outputs[outputIndex].tokenCategory == token);
-                    //require(tx.outputs[outputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
 
+                    // Fee token MUST have a commitment encoding fee details
                     require(tx.outputs[outputIndex].nftCommitment.length > 0, "must provide a commitment");
+                    
+                    // Parse commitment: [fee_category | fee_amount | destination_override]
                     bytes fee_category, bytes fee_next1 = tx.outputs[outputIndex].nftCommitment.split(32);
-                    require(fee_category != 0x); // any validation?
+                    // Fee category must be specified (0x00 for Bitcoin, or token category)
+                    require(fee_category != 0x);
+                    
                     bytes fee_amount, bytes fee_destination = fee_next1.split(8);
-                    require(int(fee_amount) > 0); // 8 bytes signed
-                    require(fee_destination == 0x || fee_destination != 0x); // better validation?
+                    // Fee amount must be positive
+                    require(int(fee_amount) > 0);
+                    // Destination is optional (0x for default, or locking bytecode)
                 }
             }
             outputIndex = outputIndex + 1;

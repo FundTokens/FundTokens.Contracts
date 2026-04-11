@@ -1,45 +1,79 @@
 pragma cashscript ~0.13.0;
 
-// hold the minting/redemption token for the fund
-
-
-// inflowToken -> NFT category held to show inflow manager in transaction
-// outflowToken -> NFT category held to show outflow manager in transaction
-// fundCategory -> Verify the NFT being executed is for this fund
-// fundHash -> A hash of the fund's details, stored in the NFT commitment
+/**
+ * FundManager (Fund): Holds and releases fund tokens
+ * 
+ * Core accounting contract for fund tokens. Maintains the supply of fund tokens
+ * and enforces token conservation during inflow/outflow operations.
+ * 
+ * During mint (inflow/deposit):
+ * - Input has fund tokens (current supply)
+ * - Output has fewer tokens (tokens released to user)
+ * - Release amount = (input - output)
+ * 
+ * During redeem (outflow/withdrawal):
+ * - Input has fund tokens (current supply)
+ * - Output has more tokens (tokens returned from user)
+ * - Collection amount = (output - input)
+ * 
+ * Parameters:
+ *   inflowToken: Inflow token category (signals minting operation)
+ *   outflowToken: Outflow token category (signals redemption operation)
+ *   fundCategory: Fund token category held in this contract
+ *   fundHash: Hash of fund parameters (ensures correct fund)
+ */
 contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCategory, bytes fundHash)
 {
-    // the fund manager always expects the transaction manager to be the previous input and output
-
-
-    // check for the inflow token to "mint" fund tokens
-    // if all fund tokens are redeemed, then spend a no token output back to the contract (for future redemption)
+    /**
+     * mint(): Release fund tokens during inflow (user deposit)
+     * Redeem: Collect fund tokens during outflow (user withdrawal)
+     */
+    
+    /**
+     * mint(): Release fund tokens during inflow (user deposit)
+     * 
+     * Ensures:
+     * - Fund tokens are reduced (tokens released to user)
+     * - If no tokens remain, output has no token (ready for next mint)
+     */
     function mint() {
+        // Previous input must be inflow manager signaling this mint operation
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);
         require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));
 
-        // make sure we spend our input back to ourself
+        // This contract returns to itself (fund UTXO stays alive)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        // Fund token amount must decrease (tokens released to user)
         require(tx.inputs[this.activeInputIndex].tokenAmount > tx.outputs[this.activeInputIndex].tokenAmount);
 
-        // ensure any tokens returned are of the fund but user can take all tokens
+        // Verify token output or empty
         if(tx.outputs[this.activeInputIndex].tokenAmount > 0) {
+            // If tokens remain, they must be the same fund token category
             require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory);
             require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         } else {
+            // If no tokens remain, output has no token (bootstrap for next mint)
             require(tx.outputs[this.activeInputIndex].tokenCategory == 0x);
         }
     }
 
-    // check for the outflow manager token to redeem fund tokens
-    // redeem the fund token by sending it back to this contract
+    /**
+     * redeem(): Collect fund tokens during outflow (user withdrawal)
+     * 
+     * Ensures:
+     * - Fund tokens are increased (tokens collected from user)
+     * - Output amount > input amount (collecting tokens)
+     */
     function redeem() {
+        // Previous input must be outflow manager signaling this redeem operation
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowToken);
         require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));
 
-        // make sure we spend out input back to ourself
+        // This contract returns to itself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        // Output must have the fund token category (collecting tokens)
         require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);
+        // Fund token amount must increase (collecting from user)
         require(tx.inputs[this.activeInputIndex].tokenAmount < tx.outputs[this.activeInputIndex].tokenAmount);
     }
 }

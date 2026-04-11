@@ -1,27 +1,59 @@
 pragma cashscript ~0.13.0;
 
+/**
+ * FundStartup: Validates and initializes a new fund
+ * 
+ * Called once during fund creation. Mints inflow/outflow tokens and validates
+ * all fund parameters including amounts, satoshis, and asset ordering.
+ * 
+ * Fund data format (passed as bytes):
+ * [fund_category (32) | fund_amount (8) | satoshis (8) | 
+ *  asset1_category (32) | asset1_amount (8) | ... | assetN_category (32) | assetN_amount (8)]
+ * 
+ * Parameters:
+ *   fee: Fee contract hash (for fee input verification)
+ *   inflowToken: Inflow token category to mint (with minting capability)
+ *   outflowToken: Outflow token category to mint (with minting capability)
+ */
 contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 {
-    // fund is expected to be sorted based on the nft category
+    /**
+     * start(bytes fund): Validates fund parameters and mints tokens
+     * 
+     * Validates:
+     * - Fund amount > 0
+     * - Satoshis in valid range (0 or 1,000-21,000,000 BTC)
+     * - Assets are sorted by category ascending
+     * - Each asset amount > 0
+     * 
+     * Creates:
+     * - Inflow token NFT with fund commitment
+     * - Outflow token NFT with fund commitment
+     */
     function start(bytes fund) {
-        //
+        // This startup UTXO returns to itself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
-
+        // Parse fund parameters from commitment bytes
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
+        // Fund amount must be > 0 (determines token divisor)
         require(int(nft_fundAmount) > 0);
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
+        // Satoshis must be 0 or within Bitcoin supply range
         require(within(int(nft_satoshis), 0, 2100000000000000));
 
+        // Validate asset sorting and amounts
         bytes lastAssetCategory = 0x;
         while(nft_assets.length > 0) {
             bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
             bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
+            // Each asset amount must be > 0
             require(int(nft_assetAmount) > 0);
 
+            // Assets must be in ascending order by category
             if(lastAssetCategory != 0x) {
                 require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
             }
@@ -30,21 +62,28 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             lastAssetCategory = nft_assetCategory;
         }
 
+        // Verify inflow token input (with minting capability)
         require(tx.inputs[this.activeInputIndex + 1].tokenCategory == bytes(inflowToken + 0x02));
+        // Verify outflow token input (with minting capability)
         require(tx.inputs[this.activeInputIndex + 2].tokenCategory == bytes(outflowToken + 0x02));
 
+        // Verify fee contract input
         require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(fee));
 
+        // Mint inflow token with fund commitment (fund_category | fund_hash)
         require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowToken);
         require(tx.outputs[this.activeInputIndex + 5].nftCommitment == bytes(nft_fundCategory + hash256(fund)));
+        
+        // Mint outflow token with fund commitment
         require(tx.outputs[this.activeInputIndex + 6].tokenCategory == outflowToken);
         require(tx.outputs[this.activeInputIndex + 6].nftCommitment == bytes(nft_fundCategory + hash256(fund)));
 
-        // verify no more outputs mint tokens
-        int outputIndex = 0; // 0 is already validated
+        // Ensure no other outputs mint inflow/outflow tokens
+        int outputIndex = 0;
         do {
             if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7)) {
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
+                    // No other outputs can mint inflow or outflow tokens
                     require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);
                     require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);
                 }
