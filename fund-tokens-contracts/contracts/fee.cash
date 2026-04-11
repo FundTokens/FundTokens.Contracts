@@ -13,6 +13,7 @@ pragma cashscript ~0.13.0;
  * - fee_category: 0x00 = Bitcoin satoshis, else = CashToken category
  * - fee_amount: Amount due (satoshis or token amount)
  * - fee_destination: Optional override destination (empty = use default)
+ *   Note: Variable-length intentionally - allows forward compatibility with future address formats
  * 
  * Authorization:
  * - close() requires authToken to be present (fund owner only)

@@ -7,6 +7,9 @@ pragma cashscript ~0.13.0;
  * Fee tokens carry commitment data: [category | amount | destination_override]
  * Used to create tokens that encode specific fee amounts and routing.
  * 
+ * Destination override is variable-length by design - allows forward compatibility
+ * with future address formats or multisig patterns without redeploying contract.
+ * 
  * Parameters:
  *   ownerToken: Token category that authorizes minting
  *   token: Fee token category being minted
@@ -65,7 +68,7 @@ contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
                     // Fee category must be specified (0x00 for Bitcoin, or token category)
                     require(fee_category != 0x);
                     
-                    bytes fee_amount, bytes fee_destination = fee_next1.split(8);
+                    bytes fee_amount = fee_next1.slice(0, 8);
                     // Fee amount must be positive
                     require(int(fee_amount) > 0);
                     // Destination is optional (0x for default, or locking bytecode)
