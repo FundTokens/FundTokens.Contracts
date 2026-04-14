@@ -10,7 +10,7 @@ import { generateWallet } from '@/wallet.js';
 
 import { decodeFund, getFundHex } from '@lib/utils';
 import { DustAmount } from '@lib/constants.js';
-import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
+import SystemTransactionBuilder from '@internal/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
 

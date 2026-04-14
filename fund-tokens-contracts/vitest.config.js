@@ -21,8 +21,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
+      '@internal': path.resolve(__dirname, './internal'),
       '@lib': path.resolve(__dirname, './lib'),
-      '@contracts': path.resolve(__dirname, './lib'),
     }
   }
 });

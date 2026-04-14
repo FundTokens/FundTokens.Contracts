@@ -7,12 +7,12 @@ import {
     cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 
-import { DustAmount } from './constants.js';
-import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
-import { encodeFee } from './utils.js';
+import { DustAmount } from '../lib/constants.js';
+import PublicFundTransactionBuilder from '../lib/PublicFundTransactionBuilder.js';
+import { encodeFee } from '../lib/utils.js';
 
-import feeMinterJson from './art/fee_minter.json' with { type: 'json' };
-import simpleMinterJson from './art/simple_minter.json' with { type: 'json' };
+import feeMinterJson from '../lib/art/fee_minter.json' with { type: 'json' };
+import simpleMinterJson from '../lib/art/simple_minter.json' with { type: 'json' };
 
 export default class SystemTransactionBuilder extends TransactionBuilder {
     #system = {
