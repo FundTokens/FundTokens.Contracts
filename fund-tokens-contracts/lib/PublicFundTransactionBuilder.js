@@ -20,7 +20,8 @@ import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 
 import feeJson from './art/fee.json' with { type: 'json' };
 import startupJson from './art/startup.json' with { type: 'json' };
-import mintJson from './art/mint.json' with { type: 'json' };
+import mintInflowJson from './art/mint_inflow.json' with { type: 'json' };
+import mintOutflowJson from './art/mint_outflow.json' with { type: 'json' };
 import managerJson from './art/manager.json' with { type: 'json' };
 import fundJson from './art/fund.json' with { type: 'json' };
 import assetJson from './art/asset.json' with { type: 'json' };
@@ -64,7 +65,8 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
     };
     #contracts = {
         startupContract: null,
-        mintContract: null,
+        mintInflowContract: null,
+        mintOutflowContract: null,
         createFundFeeContract: null,
         executeFundFeeContract: null,
         publicFundContract: null,
@@ -118,7 +120,17 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         ], { provider: this.provider });
         const startupContractHash = binToHex(hash256(hexToBin(startupContract.bytecode)))
 
-        const mintContract = new Contract(mintJson, [
+        const mintInflowContract = new Contract(mintInflowJson, [
+            startupContractHash,
+            this.#swapped.inflow,
+            this.#swapped.outflow,
+            binToHex(hash256(hexToBin(executeFundFeeContract.bytecode))),
+            hexToBin(managerJson.debug.bytecode),
+            hexToBin(fundJson.debug.bytecode),
+            hexToBin(assetJson.debug.bytecode),
+        ], { provider: this.provider });
+
+        const mintOutflowContract = new Contract(mintOutflowJson, [
             startupContractHash,
             this.#swapped.inflow,
             this.#swapped.outflow,
@@ -147,7 +159,8 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         this.#contracts = {
             startupContract,
-            mintContract,
+            mintInflowContract,
+            mintOutflowContract,
             createFundFeeContract,
             executeFundFeeContract,
             publicFundContract,
@@ -169,7 +182,8 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             feeVaultContract,
             createFundFeeContract,
             startupContract,
-            mintContract,
+            mintInflowContract,
+            mintOutflowContract,
             publicFundContract,
             authHeadVaultContract,
             publicFundVaultContract,
@@ -178,10 +192,11 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
         const broadcastUtxos = await startupContract.getUtxos();
-        const mintUtxos = await mintContract.getUtxos();
+        const mintInflowUtxos = await mintInflowContract.getUtxos();
+        const mintOutflowUtxos = await mintOutflowContract.getUtxos();
         const publicUtxos = await publicFundContract.getUtxos();
-        const inflowUtxos = mintUtxos.filter(u => u.token?.category === this.#system.inflow);
-        const outflowUtxos = mintUtxos.filter(u => u.token?.category === this.#system.outflow);
+        const inflowUtxos = mintInflowUtxos.filter(u => u.token?.category === this.#system.inflow);
+        const outflowUtxos = mintOutflowUtxos.filter(u => u.token?.category === this.#system.outflow);
         const publicFundUtxos = publicUtxos.filter(u => u.token?.category === this.#system.publicFund)
         
         if(this.inputs.length === 0) {
@@ -214,11 +229,11 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             }, 
             {
                 ...inflowUtxo,
-                unlocker: mintContract.unlock.mintInflow(),
+                unlocker: mintInflowContract.unlock.mint(),
             }, 
             {
                 ...outflowUtxo,
-                unlocker: mintContract.unlock.mintOutflow(),
+                unlocker: mintOutflowContract.unlock.mint(),
             },
             {
                 ...bestFee.utxo,
@@ -240,12 +255,12 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                 token: broadcastUtxo.token,
             },
             {
-                to: mintContract.tokenAddress,
+                to: mintInflowContract.tokenAddress,
                 amount: inflowUtxo.satoshis,
                 token: inflowUtxo.token,
             },
             {
-                to: mintContract.tokenAddress,
+                to: mintOutflowContract.tokenAddress,
                 amount: outflowUtxo.satoshis,
                 token: outflowUtxo.token,
             }, 

@@ -42,14 +42,14 @@ contract FundMintOutflow(bytes32 validator, bytes32 inflowToken, bytes32 outflow
      * Contract calculation uses same formula as mintInflow but different output token.
      * Fund contract is unique per fund and handles token accounting.
      */
-    function mintOutflow() {
+    function mint() {
         // Validator must be 2 positions before this mint (part of sequence)
         require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == new LockingBytecodeP2SH32(validator));
 
         // Inflow token input must be immediately before (handles sequencing)
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == (inflowToken + 0x02));
         // Inflow input must also be same FundMint instance
-        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        // require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
 
         // This FundMint holds outflow token with minting capability
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken + 0x02);

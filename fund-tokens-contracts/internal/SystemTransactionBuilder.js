@@ -48,7 +48,8 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     };
     #contracts = {
         startupContract: null,
-        mintContract: null,
+        mintInflowContract: null,
+        mintOutflowContract: null,
         publicFundContract: null,
 
         inflowHoldingContract: null,
@@ -98,12 +99,12 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
     #buildContracts() {
         const publicFundBuilder = new PublicFundTransactionBuilder({ provider: this.provider, system: this.#system, logger: this.#logger });
 
-        const { mintContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
+        const { mintInflowContract, mintOutflowContract, startupContract, publicFundContract, createFundFeeContract, executeFundFeeContract } = publicFundBuilder.getContracts();
 
-        const inflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
+        const inflowDestination = cashAddressToLockingBytecode(mintInflowContract.tokenAddress).bytecode;
         const inflowHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.inflow, inflowDestination], { provider: this.provider });
 
-        const outflowDestination = cashAddressToLockingBytecode(mintContract.tokenAddress).bytecode;
+        const outflowDestination = cashAddressToLockingBytecode(mintOutflowContract.tokenAddress).bytecode;
         const outflowHoldingContract = new Contract(simpleMinterJson, [this.#swapped.owner, this.#swapped.outflow, outflowDestination], { provider: this.provider });
 
         const publicFundDestination = cashAddressToLockingBytecode(publicFundContract.tokenAddress).bytecode;
@@ -115,7 +116,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const executeFundFeeDestination = cashAddressToLockingBytecode(executeFundFeeContract.tokenAddress).bytecode;
         const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#swapped.owner, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
-        this.#contracts = { startupContract, mintContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicFundHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
+        this.#contracts = { startupContract, mintInflowContract, mintOutflowContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicFundHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
     }
 
     getContracts() {
@@ -162,8 +163,8 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
 
     async addSystemThreads() {
         const contracts = [
-            { contract: this.#contracts.inflowHoldingContract, to: this.#contracts.mintContract.tokenAddress, nft: this.#system.inflow },
-            { contract: this.#contracts.outflowHoldingContract, to: this.#contracts.mintContract.tokenAddress, nft: this.#system.outflow },
+            { contract: this.#contracts.inflowHoldingContract, to: this.#contracts.mintInflowContract.tokenAddress, nft: this.#system.inflow },
+            { contract: this.#contracts.outflowHoldingContract, to: this.#contracts.mintOutflowContract.tokenAddress, nft: this.#system.outflow },
             { contract: this.#contracts.publicFundHoldingContract, to: this.#contracts.publicFundContract.tokenAddress, nft: this.#system.publicFund },
         ]
 
