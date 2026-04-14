@@ -24,7 +24,7 @@ pragma cashscript ~0.13.0;
  *   fundContract: Fund contract bytecode template
  *   assetContract: Asset contract bytecode template
  */
-contract FundMintInflow(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, bytes32 fee, bytes managerContract, bytes fundContract, bytes assetContract)
+contract FundInflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, bytes32 fee, bytes managerContract, bytes fundContract, bytes assetContract)
 {
     /**
      * mintInflow(): Create Asset contract instance for inflow operations

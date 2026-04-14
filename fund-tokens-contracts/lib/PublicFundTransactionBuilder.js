@@ -35,8 +35,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         inflow: '', // 32 byte, token id
         outflow: '', // 32 byte, token id
         publicFund: '', // 32 byte, token id
-        authHead: '', // 32 byte, token id
-        owner: '', // 32 byte, token id
+        authorization: '', // 32 byte, token id
         fees: {
             create: {
                 nft: '', // 32 byte, tx id/token id
@@ -52,8 +51,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         inflow: '',
         outflow: '',
         publicFund: '',
-        authHead: '',
-        owner: '',
+        authorization: '',
         fees: {
             create: {
                 nft: '',
@@ -90,8 +88,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
             publicFund: swapEndianness(system.publicFund),
-            authHead: swapEndianness(system.authHead),
-            owner: swapEndianness(system.owner),
+            authorization: swapEndianness(system.authorization),
             fees: {
                 create: {
                     nft: swapEndianness(system.fees.create.nft),
@@ -107,11 +104,11 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
     // build and get the contracts
     #buildContracts() {
-        const feeVaultContract = new Contract(simpleVaultJson, [this.#swapped.owner], { provider: this.provider });
+        const feeVaultContract = new Contract(simpleVaultJson, [this.#swapped.authorization], { provider: this.provider });
         const feeVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(feeVaultContract.tokenAddress).bytecode);
 
-        const createFundFeeContract = new Contract(feeJson, [this.#swapped.owner, feeVaultLockingBytecode, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
-        const executeFundFeeContract = new Contract(feeJson, [this.#swapped.owner, feeVaultLockingBytecode, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
+        const createFundFeeContract = new Contract(feeJson, [this.#swapped.authorization, feeVaultLockingBytecode, this.#swapped.fees.create.nft, this.#system.fees.create.value], { provider: this.provider });
+        const executeFundFeeContract = new Contract(feeJson, [this.#swapped.authorization, feeVaultLockingBytecode, this.#swapped.fees.execute.nft, this.#system.fees.execute.value], { provider: this.provider });
 
         const startupContract = new Contract(startupJson, [
             binToHex(hash256(hexToBin(createFundFeeContract.bytecode))),
@@ -140,10 +137,10 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             hexToBin(assetJson.debug.bytecode),
         ], { provider: this.provider });
 
-        const authHeadVaultContract = new Contract(authHeadVaultJson, [this.#swapped.authHead], { provider: this.provider });
+        const authHeadVaultContract = new Contract(authHeadVaultJson, [this.#swapped.authorization], { provider: this.provider });
         const authHeadVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(authHeadVaultContract.tokenAddress).bytecode);
 
-        const publicFundVaultContract = new Contract(publicFundVaultJson, [this.#swapped.publicFund], { provider: this.provider });
+        const publicFundVaultContract = new Contract(publicFundVaultJson, [this.#swapped.publicFund, this.#swapped.authorization], { provider: this.provider });
         const publicFundVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(publicFundVaultContract.tokenAddress).bytecode);
 
         const publicFundContract = new Contract(publicJson, [
@@ -189,7 +186,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             publicFundVaultContract,
         } = this.#contracts;
 
-        const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
+        const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create });
 
         const broadcastUtxos = await startupContract.getUtxos();
         const mintInflowUtxos = await mintInflowContract.getUtxos();

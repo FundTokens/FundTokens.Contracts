@@ -12,7 +12,7 @@ pragma cashscript ~0.13.0;
  *   token: Token category being minted
  *   destination: Locking bytecode where minted tokens are sent
  */
-contract SimpleMinter(bytes32 ownerToken, bytes32 token, bytes destination)
+contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
 {
     /**
      * mint(): Mints new tokens to the destination
@@ -36,15 +36,15 @@ contract SimpleMinter(bytes32 ownerToken, bytes32 token, bytes destination)
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         // Check for owner authorization in ANY input
-        bool ownerSeen = false;
+        bool authorized = false;
         int inputIndex = 0;
         do {
-            if(tx.inputs[inputIndex].tokenCategory == ownerToken) {
-                ownerSeen = true;  // Owner token found - authorized
+            if(tx.inputs[inputIndex].tokenCategory == authorization) {
+                authorized = true;  // Owner token found - authorized
             }
             inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !ownerSeen);
-        require(ownerSeen, "unauthorized user");
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
 
 
         // Verify all outputs minting this token go to the destination

@@ -77,8 +77,8 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
 
         // Validate assets (if any exist)
         if(nft_assets.length > 0) {
-            // Satoshis must be valid (0 = no bitcoin satoshi backing, or 1k-21M BTC range)
-            require(int(nft_satoshis) == 0 || within(int(nft_satoshis), 1000 sats, 21000000 bitcoin)); //TODO: reconsider the limits here...
+            // Satoshis must be valid, greater than or equal to zero
+            require(within(int(nft_satoshis), 0, 21000000 bitcoin));
             
             // Verify assets are sorted ascending by category
             bytes lastAssetCategory = 0x;
@@ -97,8 +97,8 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
                 lastAssetCategory = nft_assetCategory;
             } while(nft_assets.length > 0);
         } else {
-            // If no assets, satoshis must still be valid
-            require(within(int(nft_satoshis), 1000 sats, 21000000 bitcoin)); 
+            // If no assets, satoshis must be used
+            require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin)); 
         }
 
         // Create transaction manager contract address from fund parameters

@@ -29,8 +29,7 @@ describe('edge case test', () => {
         inflow: '1111111111111111111111111111111111111111111111111111111111111111',
         outflow: '2222222222222222222222222222222222222222222222222222222222222222',
         publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
-        authHead: randomToken().category,
-        owner: '4444444444444444444444444444444444444444444444444444444444444444',
+        authorization: '4444444444444444444444444444444444444444444444444444444444444444',
         fees: {
             create: {
                 nft: '5555555555555555555555555555555555555555555555555555555555555555',
@@ -49,7 +48,7 @@ describe('edge case test', () => {
         const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
         const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
         const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
-        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.owner });
+        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.authorization });
         const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
         const feeUtxo = randomUtxo({ satoshis: 10000n });
 
@@ -65,7 +64,7 @@ describe('edge case test', () => {
                 to: ownerWallet.tokenAddress,
                 amount: DustAmount,
                 token: {
-                    category: system.owner,
+                    category: system.authorization,
                     amount: 0n,
                     nft: {
                         capability: 'none',
@@ -117,18 +116,6 @@ describe('edge case test', () => {
             satoshis: 10000n,
             assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
         },
-        { // does not meet minimum bitcoin amount
-            category: '7777777777777777777777777777777777777777777777777777777777777777',
-            amount: 1n,
-            satoshis: 1n,
-            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
-        },
-        { // does not meet minimum bitcoin amount
-            category: '7777777777777777777777777777777777777777777777777777777777777777',
-            amount: 1n,
-            satoshis: 999n,
-            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
-        },
         { // exceeds max bitcoin amount
             category: '7777777777777777777777777777777777777777777777777777777777777777',
             amount: 1n,
@@ -136,6 +123,57 @@ describe('edge case test', () => {
             assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
         },
     ];
+
+    it('should ensure funds fail', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        for(let index = 0; index < expectedToFailFunds.length; ++index) {
+            const expectedToFail = expectedToFailFunds[index];
+            const transaction = new PublicFundTransactionBuilder({ provider, system });
+            transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+            await transaction.addBroadcast({ fund: expectedToFail });
+            transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+
+            expect(transaction).toFailRequire();
+        }
+    });
+
+    const expectedToSucceedFunds = [
+        {
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 1n,
+            satoshis: 1n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
+        },
+        {
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 1n,
+            satoshis: 999n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
+        },
+    ];
+
+    it('should ensure funds succeed', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        for(let index = 0; index < expectedToSucceedFunds.length; ++index) {
+            const expectedToFail = expectedToSucceedFunds[index];
+            const transaction = new PublicFundTransactionBuilder({ provider, system });
+            transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+            await transaction.addBroadcast({ fund: expectedToFail });
+            transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+
+            expect(transaction).not.toFailRequire();
+        }
+    });
 
     const fund = {
         category: '7777777777777777777777777777777777777777777777777777777777777777',
@@ -157,22 +195,12 @@ describe('edge case test', () => {
         ]
     };
 
-    it('should test new funds', async ({ expect }) => {
+    it('should verify fund creates', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
 
         addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
-
-        for(let index = 0; index < expectedToFailFunds.length; ++index) {
-            const expectedToFail = expectedToFailFunds[index];
-            const transaction = new PublicFundTransactionBuilder({ provider, system });
-            transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
-            await transaction.addBroadcast({ fund: expectedToFail });
-            transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
-
-            expect(transaction).toFailRequire();    
-        }
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());

@@ -93,12 +93,9 @@ export function encodeFee({ category, amount, destination }) {
     return encoded;
 }
 
-export async function getBestFee({ feeVaultContract, feeContract, payBy, fee, owner }) {
+export async function getBestFee({ feeVaultContract, feeContract, payBy, fee }) {
     if(!feeContract) {
         throw new Error('Expected fee contract');
-    }
-    if(!owner) {
-        throw new Error('Expected system owner pk')
     }
     
     const defaultDestination = feeVaultContract.tokenAddress;

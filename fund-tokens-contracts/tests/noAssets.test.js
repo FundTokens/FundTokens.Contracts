@@ -30,8 +30,7 @@ describe('edge case test', () => {
         inflow: '1111111111111111111111111111111111111111111111111111111111111111',
         outflow: '2222222222222222222222222222222222222222222222222222222222222222',
         publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
-        authHead: randomToken().category,
-        owner: '4444444444444444444444444444444444444444444444444444444444444444',
+        authorization: '4444444444444444444444444444444444444444444444444444444444444444',
         fees: {
             create: {
                 nft: '5555555555555555555555555555555555555555555555555555555555555555',
@@ -50,7 +49,7 @@ describe('edge case test', () => {
         const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
         const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
         const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
-        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.owner });
+        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.authorization });
         const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
         const feeUtxo = randomUtxo({ satoshis: 10000n });
 
@@ -66,7 +65,7 @@ describe('edge case test', () => {
                 to: ownerWallet.tokenAddress,
                 amount: DustAmount,
                 token: {
-                    category: system.owner,
+                    category: system.authorization,
                     amount: 0n,
                     nft: {
                         capability: 'none',

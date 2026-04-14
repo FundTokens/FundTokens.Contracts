@@ -1,12 +1,60 @@
 pragma cashscript ~0.13.0;
 
-contract PublicFundVault(bytes32 publicFund)
+contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 {
-    function prove(bytes hash) {
+    // even if we burn the token, the data can still be recovered
+    // this would be more of a signal
+    // intend to close only in rare occurrences
+    function close(bytes hash) {
+        // sanity check
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+
         // 1. build data
         int fundIndex = this.activeInputIndex;
         bytes fund = 0x;
         do {
+            fund = fund + tx.inputs[fundIndex].nftCommitment;
+            fundIndex = fundIndex + 1;
+        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
+
+        // 2. hash and verify
+        require(hash256(fund) == hash);
+
+        // 3. check for authorization
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authorization) {
+                authorized = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length);
+        require(authorized);
+
+        // 4. burn the tokens
+        int outputIndex = 0;
+        do {
+            require(tx.outputs[outputIndex].tokenCategory != publicFund);
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+    }
+
+    // prove on-chain the FundToken's assets
+    function prove(bytes hash) {
+        // 4. forward input
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        // 1. build data
+        int fundIndex = this.activeInputIndex;
+        bytes fund = 0x;
+        do {
+            require(tx.inputs[fundIndex].lockingBytecode == tx.outputs[fundIndex].lockingBytecode);
+            require(tx.inputs[fundIndex].tokenCategory == tx.outputs[fundIndex].tokenCategory);
+            require(tx.inputs[fundIndex].nftCommitment == tx.outputs[fundIndex].nftCommitment);
+
             fund = fund + tx.inputs[fundIndex].nftCommitment;
             fundIndex = fundIndex + 1;
         } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
@@ -22,21 +70,13 @@ contract PublicFundVault(bytes32 publicFund)
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length);
-
-        // 4. forward input
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
 
+    // supporting commitment data, looking for the head
     function data() {
         require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex - 1].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[this.activeInputIndex - 1].tokenCategory);
         require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[this.activeInputIndex - 1].outpointTransactionHash);
-
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
 }

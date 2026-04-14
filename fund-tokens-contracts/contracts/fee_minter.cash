@@ -15,7 +15,7 @@ pragma cashscript ~0.13.0;
  *   token: Fee token category being minted
  *   destination: Default destination for fee payments
  */
-contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
+contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
 {
     /**
      * mint(): Mints fee tokens with commitment encoding
@@ -40,15 +40,15 @@ contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
 
 
         // Require owner authorization
-        bool ownerSeen = false;
+        bool authorized = false;
         int inputIndex = 0;
         do {
-            if(tx.inputs[inputIndex].tokenCategory == ownerToken) {
-                ownerSeen = true;
+            if(tx.inputs[inputIndex].tokenCategory == authorization) {
+                authorized = true;
             }
             inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !ownerSeen);
-        require(ownerSeen, "unauthorized user");
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
 
 
         // Verify all outputs minting fee tokens have proper commitment

@@ -30,8 +30,7 @@ describe('happy path', () => {
         inflow: '1111111111111111111111111111111111111111111111111111111111111111',
         outflow: '2222222222222222222222222222222222222222222222222222222222222222',
         publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
-        authHead: randomToken().category,
-        owner: '4444444444444444444444444444444444444444444444444444444444444444',
+        authorization: '4444444444444444444444444444444444444444444444444444444444444444',
         fees: {
             create: {
                 nft: '5555555555555555555555555555555555555555555555555555555555555555',
@@ -50,8 +49,8 @@ describe('happy path', () => {
         const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
         const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
         const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
-        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.owner });
         const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
+        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.authorization });
         const feeUtxo = randomUtxo({ satoshis: 10000n });
 
         addUtxos(ownerWallet.tokenAddress, [feeUtxo, ...genesisInputs, authGenesisUtxo]);
@@ -66,7 +65,7 @@ describe('happy path', () => {
                 to: ownerWallet.tokenAddress,
                 amount: DustAmount,
                 token: {
-                    category: system.owner,
+                    category: system.authorization,
                     amount: 0n,
                     nft: {
                         capability: 'none',
@@ -83,7 +82,7 @@ describe('happy path', () => {
 
     it('should create new system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
-        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress)).filter(u => u.token?.category === system.authorization)[0];
         const transaction = new SystemTransactionBuilder({ provider, system });
 
         addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
@@ -107,7 +106,7 @@ describe('happy path', () => {
 
     it('should create additional system threads', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
-        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress)).filter(u => u.token?.category === system.authorization)[0];
         const transaction = new SystemTransactionBuilder({ provider, system });
 
         addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
@@ -304,9 +303,36 @@ describe('happy path', () => {
         console.log('outflow tx size', response.hex.length / 2);
     });
 
+    it('should allow closing public fund UTXO', async ({ expect }) => {
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+
+        provider.addUtxo(ownerWallet.tokenAddress, feeUtxo);
+
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress)).filter(u => u.token?.category === system.authorization)[0];
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system, allowImplicitFungibleTokenBurn: true });
+        const { publicFundVaultContract } = transaction.getContracts();
+
+        const utxos = await publicFundVaultContract.getUtxos();
+
+        transaction
+            .addInput(utxos[0], publicFundVaultContract.unlock.close(hashFund(fund)))
+            .addInputs(utxos.slice(1), publicFundVaultContract.unlock.data())
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: authUtxo.token,
+                }
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
     it('should allow closing fee threads', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
-        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress)).filter(u => u.token?.category === system.authorization)[0];
         const transaction = new SystemTransactionBuilder({ provider, system, allowImplicitFungibleTokenBurn: true });
 
         addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
