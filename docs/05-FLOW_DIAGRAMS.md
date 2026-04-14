@@ -1,6 +1,6 @@
 # Flow Diagrams & Visual Reference
 
-This document contains visual diagrams of key FundTokens workflows.
+This document contains visual diagrams of key FundToken workflows.
 
 ## 1. System Initialization Flow
 
@@ -39,7 +39,7 @@ User
  │
  └──→ PublicFundTransactionBuilder.addBroadcast()
       │
-      ├─ Input: Genesis UTXO (fundToken-1)
+      ├─ Input: Genesis UTXO
       ├─ Input: Startup contract
       ├─ Input: Inflow thread token
       ├─ Input: Outflow thread token
@@ -115,8 +115,8 @@ User Deposits Assets → Fund Tokens
                         ├─ Fee token (returned)
                         ├─ Fee payment
                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
+         ┌──────────────┼───────────────┐
+         │              │               │
     For Each Asset:
          │
          └─ AssetManager.release()

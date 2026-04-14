@@ -8,8 +8,8 @@ import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
 
-import { decodeFund, getFundHex } from '@lib/utils';
-import { DustAmount } from '@lib/constants.js';
+import { decodeFund, getFundHex, hashFund } from '@lib/utils';
+import { DustAmount, DataDustAmount } from '@lib/constants.js';
 import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
@@ -176,9 +176,9 @@ describe('happy path', () => {
 
     it('should reconstruct broadcast fund', async ({ expect }) => {
         const transaction = new PublicFundTransactionBuilder({ provider, system });
-        const { publicFundContract } = transaction.getContracts();
+        const { publicFundVaultContract } = transaction.getContracts();
 
-        const utxos = await publicFundContract.getUtxos();
+        const utxos = await publicFundVaultContract.getUtxos();
 
         const fundParts = utxos.filter(u => u.token.nft.capability === 'none');
         let fundHex = '';
@@ -201,6 +201,32 @@ describe('happy path', () => {
 
         expect(decodedFund.assets[2].category).to.equal(fund.assets[2].category);
         expect(decodedFund.assets[2].amount).to.equal(fund.assets[2].amount);
+    });
+
+    it('should be able to prove public fund in a tx', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        provider.addUtxo(userWallet.tokenAddress, feeUtxo);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        const { publicFundVaultContract } = transaction.getContracts();
+
+        const utxos = await publicFundVaultContract.getUtxos();
+
+        transaction
+            .addInput(utxos[0], publicFundVaultContract.unlock.prove(hashFund(fund)))
+            .addInputs(utxos.slice(1), publicFundVaultContract.unlock.data())
+            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                ...utxos.map(u => ({
+                    to: publicFundVaultContract.tokenAddress,
+                    amount: DataDustAmount,
+                    token: {
+                        ...u.token,
+                    },
+                }))
+            ]);
+        expect(transaction).not.toFailRequire();
     });
 
     it('should complete an inflow tx', async ({ expect }) => {

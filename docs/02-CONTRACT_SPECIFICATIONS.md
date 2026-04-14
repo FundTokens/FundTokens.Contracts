@@ -23,62 +23,17 @@ Allows the owner to mint new tokens to a specified destination.
 
 **Validation**:
 - Input UTXO must have `token` category
-- Input UTXO must return to itself (OP_CODESEPARATOR)
+- Input UTXO must return to itself
 - NFT commitment must be preserved
 - At least one input must contain the `ownerToken` (authorization)
 - Any output with the `token` category must:
   - Send to the specified `destination`
-  - Maintain the token category and CFT commitment
-  - Have empty NFT commitment (fungible)
+  - Maintain the token category and commitment
+  - Have empty NFT commitment to destination
 
 **Usage**: System initialization, adding new threads
 
-**CashScript**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract SimpleMinter(bytes32 ownerToken, bytes32 token, bytes destination)
-{
-    function mint() {
-        // This contract must return to itself
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-                tx.outputs[this.activeInputIndex].lockingBytecode);
-        // Must be minting the specified token
-        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
-        // Return the same token to self
-        require(tx.inputs[this.activeInputIndex].tokenCategory == 
-                tx.outputs[this.activeInputIndex].tokenCategory);
-        // Preserve NFT commitment
-        require(tx.inputs[this.activeInputIndex].nftCommitment == 
-                tx.outputs[this.activeInputIndex].nftCommitment);
-
-        // Check for owner authorization in ANY input
-        bool ownerSeen = false;
-        int inputIndex = 0;
-        do {
-            if(tx.inputs[inputIndex].tokenCategory == ownerToken) {
-                ownerSeen = true;
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !ownerSeen);
-        require(ownerSeen, "unauthorized user");
-
-        // Verify any minted tokens go to destination
-        int outputIndex = 0;
-        do {
-            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
-                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
-                    require(tx.outputs[outputIndex].lockingBytecode == destination);
-                    require(tx.outputs[outputIndex].tokenCategory == 
-                            tx.inputs[this.activeInputIndex].tokenCategory);
-                    require(tx.outputs[outputIndex].nftCommitment == 0x);
-                }
-            }
-            outputIndex = outputIndex + 1;
-        } while(outputIndex < tx.outputs.length);
-    }
-}
-```
+**Implementation**: See [contracts/simple_minter.cash](../fund-tokens-contracts/contracts/simple_minter.cash) for full source code.
 
 ---
 
@@ -107,7 +62,7 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
   - Send to specified `destination`
   - Have NFT commitment with fee parameters:
     - Bytes [0:32] - Fee category (0x00 = satoshis, else token category)
-    - Bytes [32:40] - Fee amount (uint64 LE)
+    - Bytes [32:40] - Fee amount (int64 LE)
     - Bytes [40:...] - Optional destination override (locking bytecode)
 
 **Fee Commitment Format**:
@@ -115,59 +70,7 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 [fee_category (32 bytes) | fee_amount (8 bytes) | destination_override (0+ bytes)]
 ```
 
-**CashScript**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract FeeMinter(bytes32 ownerToken, bytes32 token, bytes destination)
-{
-    function mint() {
-        // Minting token category check
-        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
-
-        // Return to self
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-                tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == 
-                tx.outputs[this.activeInputIndex].tokenCategory);
-        // Preserve NFT commitment
-        require(tx.inputs[this.activeInputIndex].nftCommitment == 
-                tx.outputs[this.activeInputIndex].nftCommitment);
-
-        // Check for owner authorization
-        bool ownerSeen = false;
-        int inputIndex = 0;
-        do {
-            if(tx.inputs[inputIndex].tokenCategory == ownerToken) {
-                ownerSeen = true;
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !ownerSeen);
-        require(ownerSeen, "unauthorized user");
-
-        // Verify fee tokens sent to destination with proper commitment
-        int outputIndex = 0;
-        do {
-            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
-                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
-                    require(tx.outputs[outputIndex].lockingBytecode == destination);
-                    require(tx.outputs[outputIndex].tokenCategory == token);
-
-                    // Commitment must be present and encode fee details
-                    require(tx.outputs[outputIndex].nftCommitment.length > 0, 
-                            "must provide a commitment");
-                    bytes fee_category, bytes fee_next1 = 
-                        tx.outputs[outputIndex].nftCommitment.split(32);
-                    require(fee_category != 0x); // Category must be specified
-                    bytes fee_amount, bytes fee_destination = fee_next1.split(8);
-                    require(int(fee_amount) > 0); // Amount must be positive
-                }
-            }
-            outputIndex = outputIndex + 1;
-        } while(outputIndex < tx.outputs.length);
-    }
-}
-```
+**Implementation**: See [contracts/fee_minter.cash](../fund-tokens-contracts/contracts/fee_minter.cash) for full source code.
 
 ---
 
@@ -190,34 +93,15 @@ Allows funds to be spent only when authorization token is present in transaction
 - At least one input must contain the `authToken` category
 - No other checks - contract is purely authorization-gated
 
-**Usage**: Custodying owner token, fee collection destination
+**Usage**: Custody owner token, fee collection destination
 
-**CashScript**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract SimpleVault(bytes32 authToken)
-{
-    function release() {
-        // Check for authorization in ANY input
-        bool authorized = false;
-        int inputIndex = 0;
-        do {
-            if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                authorized = true;
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !authorized);
-        require(authorized, "unauthorized user");
-    }
-}
-```
+**Implementation**: See [contracts/simple_vault.cash](../fund-tokens-contracts/contracts/simple_vault.cash) for full source code.
 
 ---
 
 ### 4. AuthHeadVault
 
-**Purpose**: Vault gating authorization token `authHead` - authorizes fund creation
+**Purpose**: Vault gating authorization token `authHead` for BCMR
 
 **Location**: [contracts/authhead_vault.cash](../fund-tokens-contracts/contracts/authhead_vault.cash)
 
@@ -228,9 +112,9 @@ contract SimpleVault(bytes32 authToken)
 
 #### `release()`
 
-Identical to SimpleVault - authorizes spending when authHead token present.
+Identical to SimpleVault - authorizes spending when token present.
 
-**Usage**: PublicFund broadcast authorization, fund creation validation
+**Usage**: PublicFund broadcast, BCMR setup
 
 ---
 
@@ -282,77 +166,7 @@ Initializes a fund by validating parameters and minting thread tokens.
 fund_category (32 bytes) | hash256(fund) (32 bytes)
 ```
 
-**CashScript Excerpt**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
-{
-    function start(bytes fund) {
-        // Startup UTXO returns to itself
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-                tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == 
-                tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == 
-                tx.outputs[this.activeInputIndex].nftCommitment);
-
-        // Parse fund parameters from commitment
-        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
-        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
-        require(int(nft_fundAmount) > 0);
-        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
-        require(within(int(nft_satoshis), 0, 2100000000000000));
-
-        // Validate asset sorting and amounts
-        bytes lastAssetCategory = 0x;
-        while(nft_assets.length > 0) {
-            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
-            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
-            require(int(nft_assetAmount) > 0);
-
-            if(lastAssetCategory != 0x) {
-                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
-            }
-
-            nft_assets = nft_next4;
-            lastAssetCategory = nft_assetCategory;
-        }
-
-        // Verify inflow/outflow input tokens
-        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == 
-                bytes(inflowToken + 0x02));
-        require(tx.inputs[this.activeInputIndex + 2].tokenCategory == 
-                bytes(outflowToken + 0x02));
-
-        // Verify fee contract input
-        require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == 
-                new LockingBytecodeP2SH32(fee));
-
-        // Verify inflow token output with commitment
-        require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowToken);
-        require(tx.outputs[this.activeInputIndex + 5].nftCommitment == 
-                bytes(nft_fundCategory + hash256(fund)));
-
-        // Verify outflow token output with commitment
-        require(tx.outputs[this.activeInputIndex + 6].tokenCategory == outflowToken);
-        require(tx.outputs[this.activeInputIndex + 6].nftCommitment == 
-                bytes(nft_fundCategory + hash256(fund)));
-
-        // Ensure no other outputs mint inflow/outflow tokens
-        int outputIndex = 0;
-        do {
-            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7)) {
-                if(tx.outputs[outputIndex].tokenCategory != 0x) {
-                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);
-                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);
-                }
-            }
-            outputIndex = outputIndex + 1;
-        } while(outputIndex < tx.outputs.length);
-    }
-}
-```
+**Implementation**: See [contracts/startup.cash](../fund-tokens-contracts/contracts/startup.cash) for full source code.
 
 ---
 
@@ -387,52 +201,10 @@ Broadcasts fund parameters in chunks via transaction outputs.
    - Fund amount > 0
    - Satoshis valid (0 or 1,000-21,000,000 BTC)
    - If assets present: sorted by category ascending
-6. Outputs [activeInputIndex + 5 onwards] chunk the fund in 128-byte segments
-7. Output [activeInputIndex + 3] must be the new fund contract with proper parameters
+6. Output [activeInputIndex + 3] must be the new fund contract with proper parameters
+7. Outputs [activeInputIndex + 5 onwards] chunk the fund in 128-byte segments
 
-**CashScript Excerpt** (condensed):
-```cashscript
-function broadcast(bytes fund) {
-    require(tx.inputs[0].outpointIndex == 0);
-    require(tx.inputs[0].tokenCategory == 0x);
-
-    require(tx.outputs[0].lockingBytecode == authHeadDestination);
-    require(tx.outputs[0].tokenCategory == 0x);
-
-    require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == 
-            new LockingBytecodeP2SH32(startupContract));
-
-    // Public fund UTXO returns to self
-    require(tx.inputs[this.activeInputIndex].tokenCategory == bytes(token + 0x02));
-    require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-            tx.outputs[this.activeInputIndex + 4].lockingBytecode);
-
-    // Parse and validate fund commitment
-    bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
-    require(nft_fundCategory != 0x);
-    require(nft_fundCategory == tx.inputs[0].outpointTransactionHash);
-    bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
-    require(int(nft_fundAmount) > 0);
-    bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
-
-    // [Asset sorting validation...]
-
-    // Verify fund contract output
-    require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == 
-            new LockingBytecodeP2SH32(hash256(...)));
-
-    // Chunk fund data into outputs
-    int lastOutput = this.activeInputIndex + 5;
-    bytes fundRemaining = fund;
-    do {
-        int chunkSize = min(128, fundRemaining.length);
-        bytes part, bytes fundNext = fundRemaining.split(chunkSize);
-        require(tx.outputs[lastOutput].nftCommitment == part);
-        lastOutput = lastOutput + 1;
-        fundRemaining = fundNext;
-    } while(fundRemaining.length > 0);
-}
-```
+**Implementation**: See [contracts/public.cash](../fund-tokens-contracts/contracts/public.cash) for full source code.
 
 ---
 
@@ -461,43 +233,13 @@ Mints the manager, fund, and asset contracts for a new fund thread.
 
 **Validation** (mintInflow):
 1. Previous input must be validator contract
-2. Input UTXO must contain inflow token with capability "send"
+2. Input UTXO must contain inflow token with capability "minting"
 3. Input UTXO returns to itself
-4. Following input must have outflow token with capability "send"
-5. Output must contain inflow token (fungible minting)
+4. Following input must have outflow token with capability "minting"
+5. Output must contain inflow token (nft minting)
 6. Output [activeInputIndex + 4] is the new manager contract
 
-**CashScript Excerpt**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract FundMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, 
-                  bytes32 fee, bytes managerContract, bytes fundContract, bytes assetContract)
-{
-    function mintInflow() {
-        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == 
-                new LockingBytecodeP2SH32(validator));
-
-        // Inflow token input
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-                tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == (inflowToken + 0x02));
-        require(tx.inputs[this.activeInputIndex].tokenCategory == 
-                tx.outputs[this.activeInputIndex].tokenCategory);
-
-        // Outflow token input
-        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == (outflowToken + 0x02));
-
-        // Extract fund details from outputs
-        bytes fundCategory, bytes fundHash = 
-            tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
-
-        // [Create manager contract instance...]
-        require(tx.outputs[this.activeInputIndex + 4].lockingBytecode == 
-                new LockingBytecodeP2SH32(hash256(...)));
-    }
-}
-```
+**Implementation**: See [contracts/mint.cash](../fund-tokens-contracts/contracts/mint.cash) for full source code.
 
 ---
 
@@ -536,45 +278,7 @@ Validates an inflow (minting) transaction.
 
 **Usage**: Inflow transaction initiation, fund token minting
 
-**CashScript Excerpt**:
-```cashscript
-function inflow(bytes fund) {
-    // Verify inflow token for signal
-    require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
-    // Return to self
-    require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-            tx.outputs[this.activeInputIndex].lockingBytecode);
-    require(tx.inputs[this.activeInputIndex].tokenCategory == 
-            tx.outputs[this.activeInputIndex].tokenCategory);
-    require(tx.inputs[this.activeInputIndex].nftCommitment == 
-            tx.outputs[this.activeInputIndex].nftCommitment);
-    require(tx.inputs[this.activeInputIndex].nftCommitment == 
-            bytes(fundCategory + fundHash));
-    require(hash256(fund) == fundHash);
-
-    // Fund contract is next input
-    int fundInputIndex = this.activeInputIndex + 1;
-    require(tx.inputs[fundInputIndex].lockingBytecode == 
-            new LockingBytecodeP2SH32(hash256(...)));
-
-    // Parse fund details
-    bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
-    require(nft_fundCategory == fundCategory);
-    bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
-    int fundAmount = int(nft_fundAmount);
-
-    // Calculate fund tokens released
-    int fundReleasedAmount = tx.inputs[fundInputIndex].tokenAmount - 
-                              tx.outputs[fundInputIndex].tokenAmount;
-    require(fundReleasedAmount % fundAmount == 0);
-    fundReleasedAmount = fundReleasedAmount / fundAmount;
-
-    // Fee verification
-    require(tx.inputs[fundInputIndex + 1].lockingBytecode == 
-            new LockingBytecodeP2SH32(fee));
-    // [Asset validation...]
-}
-```
+**Implementation**: See [contracts/manager.cash](../fund-tokens-contracts/contracts/manager.cash) for full source code.
 
 #### `redeem(bytes fund)`
 
@@ -582,8 +286,9 @@ Validates an outflow (redemption) transaction.
 
 Similar structure to `inflow()` but:
 - Uses outflow token instead of inflow
-- Fund tokens decreased (input > output)
+- Fund tokens increases (input < output)
 - Assets released to user instead of acquired
+- Multiple input UTXOs of a single asset can be included
 
 ---
 
@@ -609,46 +314,9 @@ Releases fund tokens during inflow (minting) transaction.
 1. Input at [activeInputIndex - 1] must have inflow token (manager)
 2. Input UTXO returns to itself with fund tokens
 3. If output has tokens: must be fund token, same category
-4. If output has no tokens: output category must be empty (no tokens)
+4. If fund tokens are emptied then return to contract output w/ no tokens
 
-**CashScript**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract Fund(bytes32 inflowToken, bytes32 outflowToken, bytes32 fundCategory, bytes32 fundHash)
-{
-    function mint() {
-        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);
-        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == 
-                bytes(fundCategory + fundHash));
-
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-                tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenAmount > 
-                tx.outputs[this.activeInputIndex].tokenAmount);
-
-        if(tx.outputs[this.activeInputIndex].tokenAmount > 0) {
-            require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory);
-            require(tx.inputs[this.activeInputIndex].tokenCategory == 
-                    tx.outputs[this.activeInputIndex].tokenCategory);
-        } else {
-            require(tx.outputs[this.activeInputIndex].tokenCategory == 0x);
-        }
-    }
-
-    function redeem() {
-        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowToken);
-        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == 
-                bytes(fundCategory + fundHash));
-
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-                tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount < 
-                tx.outputs[this.activeInputIndex].tokenAmount);
-    }
-}
-```
+**Implementation**: See [contracts/fund.cash](../fund-tokens-contracts/contracts/fund.cash) for full source code.
 
 ---
 
@@ -674,34 +342,7 @@ Releases held assets during outflow (redemption) transaction.
 2. If asset is satoshis (assetCategory == 0x00...): input must have no token
 3. Otherwise: input must have the specified asset category token
 
-**CashScript**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory)
-{
-    function release() {
-        bool outflowTokenSeen = false;
-        int inputIndex = 0;
-        do {
-            if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
-                if(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash) {
-                    outflowTokenSeen = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !outflowTokenSeen);
-        require(outflowTokenSeen);
-
-        bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
-        if(assetCategory == satoshiAsset) {
-            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
-        } else {
-            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
-        }
-    }
-}
-```
+**Implementation**: See [contracts/asset.cash](../fund-tokens-contracts/contracts/asset.cash) for full source code.
 
 ---
 
@@ -742,64 +383,7 @@ Allows authorized user to burn remaining fee tokens.
 1. At least one input must have authToken
 2. No output can have feeToken (burned)
 
-**CashScript Excerpt**:
-```cashscript
-pragma cashscript ~0.13.0;
-
-contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int defaultValue)
-{
-    function pay() {
-        // UTXO returns to self
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == 
-                tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == 
-                tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == 
-                tx.outputs[this.activeInputIndex].nftCommitment);
-
-        if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {
-            // Parse fee commitment
-            bytes fee_category, bytes fee_next1 = 
-                tx.inputs[this.activeInputIndex].nftCommitment.split(32);
-            bytes fee_amount, bytes fee_destination = fee_next1.split(8);
-
-            if(fee_destination.length > 0) {
-                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
-            } else {
-                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
-            }
-
-            if(int(fee_category) == 0) {
-                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));
-            } else {
-                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);
-                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));
-            }
-        } else {
-            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
-            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);
-        }
-    }
-
-    function close() {
-        bool authorized = false;
-        int inputIndex = 0;
-        do {
-            if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                authorized = true;
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !authorized);
-        require(authorized, "unauthorized user");
-
-        int outputIndex = 0;
-        do {
-            require(tx.outputs[outputIndex].tokenCategory != feeToken);
-            outputIndex = outputIndex + 1;
-        } while(outputIndex < tx.outputs.length);
-    }
-}
-```
+**Implementation**: See [contracts/fee.cash](../fund-tokens-contracts/contracts/fee.cash) for full source code.
 
 ---
 
@@ -810,16 +394,16 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
 ```
 Manager (inflow token) + Fund (fund tokens) + Fee
   ↓
-Manager validates: inflow token + fund commitment
-Fund validates: token release amount
+Manager validates: inflow token + fund commitment + token release amount
+Fund validates: returns with output, fund tokens if with tokens
 Fee validates: payment routing
   ↓
 Manager → Manager (returns with inflow token)
 Fund → Fund (returns with fewer tokens)
 Fee → Fee (returns with fee token intact)
-Asset 1 → User (receives satoshis/tokens)
-Asset 2 → User (receives satoshis/tokens)
-Asset N → User (receives satoshis/tokens)
+User → Asset 1 (deposits satoshis/tokens)
+User → Asset 2 (deposits satoshis/tokens)
+User → Asset N (deposits satoshis/tokens)
 User → User (receives fund tokens)
 ```
 
@@ -828,8 +412,8 @@ User → User (receives fund tokens)
 ```
 Fund (fund tokens) + Manager (outflow token) + Fee + Assets
   ↓
-Manager validates: outflow token + fund commitment
-Fund validates: token collection amount
+Manager validates: outflow token + fund commitment + token collection amount
+Fund validates: returns with fund tokens, more than the input
 Fee validates: payment routing
 Asset contracts validate: outflow token present
   ↓

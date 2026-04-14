@@ -132,9 +132,9 @@ describe('edge case test', () => {
 
     it('should reconstruct broadcast fund', async ({ expect }) => {
         const transaction = new PublicFundTransactionBuilder({ provider, system });
-        const { publicFundContract } = transaction.getContracts();
+        const { publicFundVaultContract } = transaction.getContracts();
 
-        const utxos = await publicFundContract.getUtxos();
+        const utxos = await publicFundVaultContract.getUtxos();
 
         const fundParts = utxos.filter(u => u.token.nft.capability === 'none');
         let fundHex = '';

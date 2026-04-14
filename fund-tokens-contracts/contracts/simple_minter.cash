@@ -57,7 +57,7 @@ contract SimpleMinter(bytes32 ownerToken, bytes32 token, bytes destination)
                     require(tx.outputs[outputIndex].lockingBytecode == destination);
                     // Token category must match for consistency
                     require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
-                    // Minted tokens are fungible (no NFT commitment)
+                    // Minted tokens have no NFT commitment
                     require(tx.outputs[outputIndex].nftCommitment == 0x);
                 }
             }

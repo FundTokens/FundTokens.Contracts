@@ -1,0 +1,10 @@
+{
+  "name": "@fundtokens/builders",
+  "version": "0.1.0-rc1",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "cashc": "0.13.0-next.6",
+    "cashscript": "0.13.0-next.6"
+  }
+}

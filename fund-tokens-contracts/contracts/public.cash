@@ -19,7 +19,7 @@ pragma cashscript ~0.13.0;
  *   inflowToken: Inflow token category (for transaction manager commitment)
  *   outflowToken: Outflow token category (for transaction manager commitment)
  */
-contract PublicFund(bytes authHeadDestination, bytes32 token, bytes32 startupContract, bytes fundContract, bytes32 inflowToken, bytes32 outflowToken)
+contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, bytes32 token, bytes32 startupContract, bytes fundContract, bytes32 inflowToken, bytes32 outflowToken)
 {   
     /**
      * broadcast(bytes fund): Validates and broadcasts fund parameters
@@ -78,7 +78,7 @@ contract PublicFund(bytes authHeadDestination, bytes32 token, bytes32 startupCon
         // Validate assets (if any exist)
         if(nft_assets.length > 0) {
             // Satoshis must be valid (0 = no bitcoin satoshi backing, or 1k-21M BTC range)
-            require(int(nft_satoshis) == 0 || within(int(nft_satoshis), 1000 sats, 21000000 bitcoin));
+            require(int(nft_satoshis) == 0 || within(int(nft_satoshis), 1000 sats, 21000000 bitcoin)); //TODO: reconsider the limits here...
             
             // Verify assets are sorted ascending by category
             bytes lastAssetCategory = 0x;
@@ -120,6 +120,7 @@ contract PublicFund(bytes authHeadDestination, bytes32 token, bytes32 startupCon
             bytes part, bytes fundNext = fundRemaining.split(chunkSize);
             // Store chunk in NFT commitment of output
             require(tx.outputs[lastOutput].nftCommitment == part);
+            require(tx.outputs[lastOutput].lockingBytecode == publicFundDestination);
             lastOutput = lastOutput + 1;
             fundRemaining = fundNext;
         } while(fundRemaining.length > 0);

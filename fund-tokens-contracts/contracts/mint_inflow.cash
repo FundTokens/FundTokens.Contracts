@@ -1,0 +1,137 @@
+pragma cashscript ~0.13.0;
+
+/**
+ * FundMint: Creates per-fund contract instances via bytecode extraction and hashing
+ * 
+ * Mints both inflow and outflow tokens with carefully calculated contract addresses.
+ * Each fund gets unique Asset and Fund manager contract instances derived from:
+ * - Fund category and hash (fund identity)
+ * - Inflow/outflow token categories
+ * - Fee contract hash
+ * - Manager contract bytecode
+ * - Asset and Fund contract templates (extracted from activation bytecode)
+ * 
+ * Contract structure in activation bytecode:
+ * [assetContract bytes (push bytecode) | fundContract bytes (push bytecode)]
+ * Push bytecodes include the CashScript push opcode (overhead ~2 bytes for >75 bytes)
+ * 
+ * Parameters (all provided to FundMint at creation):
+ *   validator: Validator contract hash (initial authorizer)
+ *   inflowToken: Inflow token category (minting capability)
+ *   outflowToken: Outflow token category (minting capability)
+ *   fee: Fee contract hash
+ *   managerContract: TransactionManager bytecode template
+ *   fundContract: Fund contract bytecode template
+ *   assetContract: Asset contract bytecode template
+ */
+contract FundMintInflow(bytes32 validator, bytes32 inflowToken, bytes32 outflowToken, bytes32 fee, bytes managerContract, bytes fundContract, bytes assetContract)
+{
+    /**
+     * mintInflow(): Create Asset contract instance for inflow operations
+     * 
+     * Mints inflow token to newly calculated Asset contract address.
+     * This asset manager controls fund deposits and token releases.
+     * 
+     * Validates:
+     * - Validator input precedes this mint
+     * - This FundMint UTXO returns to itself with minting token
+     * - Outflow token input present with minting capability
+     * - Both inputs from same contract (prevents cross-fund confusion)
+     * - Output receives correct Asset contract address and inflow token
+     * 
+     * Contract calculation by hashing:
+     * hash256(assetContractParam + fundContractParam + fundHash + fundCategory + 
+     *         outflowToken + inflowToken + fee + managerContract)
+     * 
+     * This ensures Asset contract is unique per fund and cannot be reused.
+     */
+    function mintInflow() {
+        // Validator must immediately precede this mint (sequence control)
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == new LockingBytecodeP2SH32(validator));
+
+        // This FundMint UTXO returns to itself (self-contained minting)
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        // Must have inflow token with minting capability (0x02 flag)
+        require(tx.inputs[this.activeInputIndex].tokenCategory == (inflowToken + 0x02));
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+
+        // Outflow token input must be present with minting capability
+        require(tx.inputs[this.activeInputIndex + 1].tokenCategory == (outflowToken + 0x02));
+        // Both tokens must come from same FundMint instance
+        require(tx.inputs[this.activeInputIndex + 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+
+        // Extract fund parameters from output NFT commitment
+        bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
+
+        // Extract asset contract bytecode from this contract's activation bytecode
+        // Push opcodes add ~2 bytes of overhead for >75 byte push
+        int assetContractStart = 0;
+        int assetContractStop = assetContractStart + assetContract.length + 2;
+        bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
+
+        // Extract fund contract bytecode from this contract's activation bytecode
+        // Positioned immediately after asset contract
+        int fundContractStart = assetContractStop;
+        int fundContractStop = fundContractStart + fundContract.length + 2;
+        bytes fundContractParam = this.activeBytecode.slice(fundContractStart, fundContractStop);
+
+        // Compute Asset contract address by hashing:
+        // [asset_bytecode | fund_bytecode | fundHash | fundCategory | outflows | inflows | fees | manager_bytecode]
+        // This calculation must match the per-fund Asset instance created elsewhere
+        require(tx.outputs[this.activeInputIndex + 4].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
+        // Asset receives inflow token to control inflow operations
+        require(tx.outputs[this.activeInputIndex + 4].tokenCategory == inflowToken);
+    }
+
+    /**
+     * mintOutflow(): Create Fund contract instance for fund account management
+     * 
+     * Mints outflow token to newly calculated Fund contract address.
+     * This fund manager controls token accounting and redemption.
+     * 
+     * Validates:
+     * - Validator input 2 positions before this mint (sequence control)
+     * - Inflow token input immediately before this mint with minting capability
+     * - This FundMint UTXO holds outflow token with minting capability
+     * - This UTXO returns to itself
+     * - Output receives correct Fund contract address and outflow token
+     * 
+     * Contract calculation uses same formula as mintInflow but different output token.
+     * Fund contract is unique per fund and handles token accounting.
+     */
+    function mintOutflow() {
+        // Validator must be 2 positions before this mint (part of sequence)
+        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == new LockingBytecodeP2SH32(validator));
+
+        // Inflow token input must be immediately before (handles sequencing)
+        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == (inflowToken + 0x02));
+        // Inflow input must also be same FundMint instance
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+
+        // This FundMint holds outflow token with minting capability
+        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken + 0x02);
+
+        // This FundMint returns to itself
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+
+        // Extract fund parameters from output NFT commitment
+        bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
+        
+        // Extract asset contract bytecode from activation bytecode
+        int assetContractStart = 0;
+        int assetContractStop = assetContractStart + assetContract.length + 2;
+        bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
+
+        // Extract fund contract bytecode from activation bytecode
+        int fundContractStart = assetContractStop;
+        int fundContractStop = fundContractStart + fundContract.length + 2;
+        bytes fundContractParam = this.activeBytecode.slice(fundContractStart, fundContractStop);
+
+        // Compute Fund contract address using same hash as Asset contract
+        // This will differ only in the output token category
+        require(tx.outputs[this.activeInputIndex + 4].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
+        // Fund receives outflow token to control outflow (redemption) operations
+        require(tx.outputs[this.activeInputIndex + 4].tokenCategory == outflowToken);
+    }
+}

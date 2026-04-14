@@ -1,0 +1,89 @@
+{
+  "contractName": "PublicFundVault",
+  "constructorInputs": [
+    {
+      "name": "publicFund",
+      "type": "bytes32"
+    }
+  ],
+  "abi": [
+    {
+      "name": "prove",
+      "inputs": [
+        {
+          "name": "hash",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "data",
+      "inputs": []
+    }
+  ],
+  "bytecode": "OP_OVER OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_0 OP_BEGIN OP_2DUP OP_SWAP OP_UTXOTOKENCOMMITMENT OP_CAT OP_NIP OP_OVER OP_1ADD OP_ROT OP_DROP OP_SWAP OP_OVER OP_TXINPUTCOUNT OP_LESSTHAN OP_2 OP_PICK OP_UTXOTOKENCATEGORY OP_4 OP_PICK OP_EQUAL OP_BOOLAND OP_NOT OP_UNTIL OP_HASH256 OP_4 OP_ROLL OP_EQUALVERIFY OP_0 OP_BEGIN OP_DUP OP_INPUTINDEX OP_3 OP_PICK OP_WITHIN OP_NOTIF OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_NOT OP_VERIFY OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXINPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_2DROP OP_2DROP OP_1 OP_ELSE OP_SWAP OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_1SUB OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_1SUB OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_OUTPOINTTXHASH OP_INPUTINDEX OP_1SUB OP_OUTPOINTTXHASH OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUAL OP_ENDIF",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\ncontract PublicFundVault(bytes32 publicFund)\r\n{\r\n    function prove(bytes hash) {\r\n        // 1. build data\r\n        int fundIndex = this.activeInputIndex;\r\n        bytes fund = 0x;\r\n        do {\r\n            fund = fund + tx.inputs[fundIndex].nftCommitment;\r\n            fundIndex = fundIndex + 1;\r\n        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);\r\n\r\n        // 2. hash and verify\r\n        require(hash256(fund) == hash);\r\n\r\n        // 3. no more proofs in the tx\r\n        int inputIndex = 0;\r\n        do {\r\n            if(!within(inputIndex, this.activeInputIndex, fundIndex)) {\r\n                require(tx.inputs[inputIndex].tokenCategory != publicFund);\r\n            }\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length);\r\n\r\n        // 4. forward input\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n    }\r\n\r\n    function data() {\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex - 1].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[this.activeInputIndex - 1].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[this.activeInputIndex - 1].outpointTransactionHash);\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n    }\r\n}",
+  "debug": {
+    "bytecode": "78009c63c000656e7ccf7e77788b7b757c78c39f5279ce5479879a9166aa547a88006576c05379a56476ce537987916968768b7776c3a266c0c7c0cd88c0cec0d188c0cfc0d2886d6d51677c519dc0ce88c0c7c08cc788c0cec08cce88c0c8c08cc888c0c7c0cd88c0cec0d188c0cfc0d28768",
+    "sourceMap": "5:4:30:5;;;;7:24:7:45;8:21:8:23;9:8:12:98;10:19:10:45;;:26::60:1;:19;:12::61;11:24:11:33:0;:::37:1;:12::38;;;12:16:12:25:0;:28::44;:16:::1;:58::67:0;;:48::82:1;:86::96:0;;:48:::1;:16;9:8::98;;15:16:15:29;:33::37:0;;:8::39:1;18:25:18:26:0;19:8:24:47;20:23:20:33;:35::56;:58::67;;:16::68:1;:15:22:13:0;21:34:21:44;:24::59:1;:63::73:0;;:24:::1;;:16::75;20:70:22:13;23:25:23:35:0;:::39:1;:12::40;24:16:24:26:0;:29::45;19:8::47:1;;27:26:27::0;:16::64:1;:79::100:0;:68::117:1;:8::119;28:26:28:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;29:26:29:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;5:4:30:5;;;;32::41::0;;;33:26:33:47;:16::62:1;:8::78;34:26:34:47:0;:16::64:1;:78::99:0;:::103:1;:68::120;:8::122;35:26:35:47:0;:16::62:1;:76::97:0;:::101:1;:66::116;:8::118;36:26:36:47:0;:16::72:1;:86::107:0;:::111:1;:76::136;:8::138;38:26:38:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;39:26:39:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;40:26:40:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;3:0:42:1",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 33,
+        "line": 15
+      },
+      {
+        "ip": 48,
+        "line": 21
+      },
+      {
+        "ip": 61,
+        "line": 27
+      },
+      {
+        "ip": 66,
+        "line": 28
+      },
+      {
+        "ip": 71,
+        "line": 29
+      },
+      {
+        "ip": 81,
+        "line": 33
+      },
+      {
+        "ip": 87,
+        "line": 34
+      },
+      {
+        "ip": 93,
+        "line": 35
+      },
+      {
+        "ip": 99,
+        "line": 36
+      },
+      {
+        "ip": 104,
+        "line": 38
+      },
+      {
+        "ip": 109,
+        "line": 39
+      },
+      {
+        "ip": 115,
+        "line": 40
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.6",
+    "options": {
+      "enforceFunctionParameterTypes": true
+    }
+  },
+  "updatedAt": "2026-04-14T03:24:12.917Z"
+}

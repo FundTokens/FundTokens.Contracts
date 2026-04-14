@@ -231,33 +231,6 @@ async function createFund({ provider, system, wallet, fundDefinition }) {
 - Fund parameters broadcast on-chain
 - Manager, fund, and asset contracts deployed
 
-### Step 2: Fund Initialization for Users
-
-Before users can mint/redeem, someone must initialize the fund with "seed" tokens:
-
-```javascript
-import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
-
-async function initializeFundThread({ provider, system, wallet, fund }) {
-    const builder = new FundTokenTransactionBuilder({
-        provider,
-        system: {
-            ...system,
-            fee: system.fees.execute  // Use execute fee
-        },
-        fund
-    });
-
-    // Get contracts for inspection
-    const { fundContract } = builder.getContracts();
-
-    // Seed with 1 "empty" fund token to bootstrap
-    // (Ensures fund contract UTXO exists)
-
-    console.log('Fund thread initialized at:', fundContract.tokenAddress);
-}
-```
-
 ---
 
 ## User Operations

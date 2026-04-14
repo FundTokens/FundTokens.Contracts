@@ -9,7 +9,7 @@ import {
     binToHex,
     cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
-import { DustAmount } from './constants.js';
+import { DataDustAmount, DustAmount } from './constants.js';
 import {
     getBestFee,
     getFundBin,
@@ -27,6 +27,7 @@ import assetJson from './art/asset.json' with { type: 'json' };
 import publicJson from './art/public.json' with { type: 'json' };
 import simpleVaultJson from './art/simple_vault.json' with { type: 'json' };
 import authHeadVaultJson from './art/authhead_vault.json' with { type: 'json' };
+import publicFundVaultJson from './art/public_vault.json' with { type: 'json' };
 
 export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #system = {
@@ -64,20 +65,12 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
     #contracts = {
         startupContract: null,
         mintContract: null,
-        publicFundContract: null,
-
-        inflowHoldingContract: null,
-        outflowHoldingContract: null,
-        publicFundHoldingContract: null,
-
-        mintCreateFundFeeContract: null,
         createFundFeeContract: null,
-
-        mintExecuteFundFeeContract: null,
         executeFundFeeContract: null,
-
-        authHeadVaultContract: null,
+        publicFundContract: null,
         feeVaultContract: null,
+        authHeadVaultContract: null,
+        publicFundVaultContract: null,
     };
     #logger = null;
 
@@ -138,8 +131,12 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         const authHeadVaultContract = new Contract(authHeadVaultJson, [this.#swapped.authHead], { provider: this.provider });
         const authHeadVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(authHeadVaultContract.tokenAddress).bytecode);
 
+        const publicFundVaultContract = new Contract(publicFundVaultJson, [this.#swapped.publicFund], { provider: this.provider });
+        const publicFundVaultLockingBytecode = binToHex(cashAddressToLockingBytecode(publicFundVaultContract.tokenAddress).bytecode);
+
         const publicFundContract = new Contract(publicJson, [
             authHeadVaultLockingBytecode,
+            publicFundVaultLockingBytecode,
             this.#swapped.publicFund,
             startupContractHash,
             fundJson.debug.bytecode,
@@ -147,7 +144,17 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             this.#swapped.outflow,
         ], { provider: this.provider });
 
-        this.#contracts = { startupContract, mintContract, createFundFeeContract, executeFundFeeContract, publicFundContract, feeVaultContract, authHeadVaultContract };
+
+        this.#contracts = {
+            startupContract,
+            mintContract,
+            createFundFeeContract,
+            executeFundFeeContract,
+            publicFundContract,
+            feeVaultContract,
+            authHeadVaultContract,
+            publicFundVaultContract,
+        };
     }
 
     getContracts() {
@@ -158,7 +165,15 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         fund,
         payBy,
     }) {
-        const { feeVaultContract, createFundFeeContract, startupContract, mintContract, publicFundContract, authHeadVaultContract } = this.#contracts;
+        const {
+            feeVaultContract,
+            createFundFeeContract,
+            startupContract,
+            mintContract,
+            publicFundContract,
+            authHeadVaultContract,
+            publicFundVaultContract,
+        } = this.#contracts;
 
         const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create, owner: this.#system.owner });
 
@@ -297,8 +312,8 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         fundHexParts.forEach(part => {
             this.addOutput({
-                to: publicFundContract.tokenAddress, // TODO: update destination?
-                amount: DustAmount + 65n,
+                to:  publicFundVaultContract.tokenAddress,
+                amount: DataDustAmount,
                 token: {
                     category: this.#system.publicFund,
                     amount: 0n,

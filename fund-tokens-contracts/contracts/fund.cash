@@ -52,7 +52,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
             require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory);
             require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         } else {
-            // If no tokens remain, output has no token (bootstrap for next mint)
+            // If no tokens remain, output has no token (stay hydrated for next redeem)
             require(tx.outputs[this.activeInputIndex].tokenCategory == 0x);
         }
     }

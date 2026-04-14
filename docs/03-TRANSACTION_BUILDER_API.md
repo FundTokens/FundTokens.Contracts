@@ -35,18 +35,18 @@ new SystemTransactionBuilder({
 
 ```javascript
 {
-    inflow: '0x...',           // 256-bit hex string - inflow token category
-    outflow: '0x...',          // 256-bit hex string - outflow token category
-    publicFund: '0x...',       // 256-bit hex string - public fund token category
-    authHead: '0x...',         // 256-bit hex string - auth head token category
-    owner: '0x...',            // 256-bit hex string - owner token category
+    inflow: '0x...',           // 32-bit hex string - inflow token category
+    outflow: '0x...',          // 32-bit hex string - outflow token category
+    publicFund: '0x...',       // 32-bit hex string - public fund token category
+    authHead: '0x...',         // 32-bit hex string - auth head token category
+    owner: '0x...',            // 32-bit hex string - owner token category
     fees: {
         create: {
-            nft: '0x...',      // 256-bit hex - create fee token category
+            nft: '0x...',      // 32-bit hex string - create fee token category
             value: 10000n      // bigint - create fee in satoshis
         },
         execute: {
-            nft: '0x...',      // 256-bit hex - execute fee token category
+            nft: '0x...',      // 32-bit hex string - execute fee token category
             value: 100000n     // bigint - execute fee in satoshis
         }
     }
@@ -178,9 +178,31 @@ Handles fund creation and public broadcasting.
 ```javascript
 new PublicFundTransactionBuilder({
     provider,    // CashScript Provider instance
-    system,      // System configuration object (same as SystemTransactionBuilder)
+    system,      // System configuration object
     logger       // Optional: logger instance
 })
+```
+
+**System Configuration**:
+
+```javascript
+{
+    inflow: '0x...',           // 32-bit hex string - inflow token category
+    outflow: '0x...',          // 32-bit hex string - outflow token category
+    publicFund: '0x...',       // 32-bit hex string - public fund token category
+    authHead: '0x...',         // 32-bit hex string - auth head token category
+    owner: '0x...',            // 32-bit hex string - owner token category
+    fees: {
+        create: {
+            nft: '0x...',      // 32-bit hex string - create fee token category
+            value: 10000n      // bigint - create fee in satoshis
+        },
+        execute: {
+            nft: '0x...',      // 32-bit hex string - execute fee token category
+            value: 100000n     // bigint - execute fee in satoshis
+        }
+    }
+}
 ```
 
 ### Methods
@@ -210,7 +232,7 @@ Creates a new fund by broadcasting its parameters on-chain.
 ```javascript
 {
     fund: {
-        category: '0x...',      // 256-bit fund token category (usually genesis txid)
+        category: '0x...',      // 32-bit fund token category (genesis txid)
         amount: 10n,            // Fund token divisor (e.g., 10 = each token = 1/10 of fund)
         satoshis: 1000n,        // Bitcoin per fund token (0 if no Bitcoin component)
         assets: [               // Array of assets (sorted by category)
@@ -245,7 +267,7 @@ Creates a new fund by broadcasting its parameters on-chain.
 
 **Fund Creation Validation** (performed by contract):
 1. Fund amount must be > 0
-2. Satoshis must be 0 or between 1,000 and 21,000,000 BTC
+2. Satoshis must be 0 or between 1,000 and 21,000,000 satoshis
 3. Assets must be sorted by category
 4. Each asset amount must be > 0
 
@@ -355,7 +377,7 @@ Mints fund tokens by depositing underlying assets.
   - Fund tokens (decreased, returned to contract)
   - Fee outputs
   - Satoshi outputs (if Bitcoin component)
-  - Asset outputs (for each asset)
+  - Token asset outputs (for each asset)
 
 **Validation** (performed by contracts):
 1. Inflow token present (verifies correct thread)
@@ -428,7 +450,7 @@ Redeems fund tokens to withdraw underlying assets.
   - Fund tokens (increased, returned)
   - Fee outputs
   - Satoshi change (if needed)
-  - Asset change (if over-collateralized)
+  - Asset change (if needed)
 
 **Validation** (performed by contracts):
 1. Outflow token present (verifies thread)
@@ -469,7 +491,7 @@ await transaction.send();
 ```
 
 **Effect**:
-- Burns `amount` fund tokens
+- Returns `amount` fund tokens
 - Releases corresponding assets
 - Deducts fee
 - User receives assets as specified by fund

@@ -1,0 +1,42 @@
+pragma cashscript ~0.13.0;
+
+contract PublicFundVault(bytes32 publicFund)
+{
+    function prove(bytes hash) {
+        // 1. build data
+        int fundIndex = this.activeInputIndex;
+        bytes fund = 0x;
+        do {
+            fund = fund + tx.inputs[fundIndex].nftCommitment;
+            fundIndex = fundIndex + 1;
+        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
+
+        // 2. hash and verify
+        require(hash256(fund) == hash);
+
+        // 3. no more proofs in the tx
+        int inputIndex = 0;
+        do {
+            if(!within(inputIndex, this.activeInputIndex, fundIndex)) {
+                require(tx.inputs[inputIndex].tokenCategory != publicFund);
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length);
+
+        // 4. forward input
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+    }
+
+    function data() {
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex - 1].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[this.activeInputIndex - 1].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[this.activeInputIndex - 1].outpointTransactionHash);
+
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+    }
+}
