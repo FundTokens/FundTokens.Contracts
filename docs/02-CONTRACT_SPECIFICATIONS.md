@@ -6,12 +6,10 @@ This document provides detailed specifications for each smart contract in the Fu
 
 ### 1. SimpleMinter
 
-**Purpose**: Owner-controlled minting of system tokens (inflow, outflow, public fund tokens)
-
-**Location**: [contracts/simple_minter.cash](../fund-tokens-contracts/contracts/simple_minter.cash)
+**Purpose**: Authorization-controlled minting of system tokens (inflow, outflow, public fund minting tokens)
 
 **Parameters**:
-- `ownerToken` (bytes32) - The owner authorization token category
+- `authorization` (bytes32) - The authorization token category
 - `token` (bytes32) - The token category to mint
 - `destination` (bytes) - The locking bytecode to send minted tokens to
 
@@ -19,13 +17,13 @@ This document provides detailed specifications for each smart contract in the Fu
 
 #### `mint()`
 
-Allows the owner to mint new tokens to a specified destination.
+Allows an authorized user to mint new tokens to a specified destination.
 
 **Validation**:
 - Input UTXO must have `token` category
 - Input UTXO must return to itself
 - NFT commitment must be preserved
-- At least one input must contain the `ownerToken` (authorization)
+- At least one input must contain the `authorization`
 - Any output with the `token` category must:
   - Send to the specified `destination`
   - Maintain the token category and commitment
@@ -39,12 +37,10 @@ Allows the owner to mint new tokens to a specified destination.
 
 ### 2. FeeMinter
 
-**Purpose**: Owner-controlled minting of fee tokens with encoded fee details
-
-**Location**: [contracts/fee_minter.cash](../fund-tokens-contracts/contracts/fee_minter.cash)
+**Purpose**: Authorization-controlled minting of fee tokens with encoded fee details
 
 **Parameters**:
-- `ownerToken` (bytes32) - The owner authorization token category
+- `authorization` (bytes32) - The authorization token category
 - `token` (bytes32) - The fee token category to mint
 - `destination` (bytes) - The locking bytecode to send fee tokens to
 
@@ -57,7 +53,7 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 **Validation**:
 - Input UTXO must have `token` category (fungible minting token)
 - Input UTXO must return to itself
-- At least one input must contain the `ownerToken` (authorization)
+- At least one input must contain the `authorization`
 - Any output with the `token` category must:
   - Send to specified `destination`
   - Have NFT commitment with fee parameters:
@@ -101,30 +97,59 @@ Allows funds to be spent only when authorization token is present in transaction
 
 ### 4. AuthHeadVault
 
-**Purpose**: Vault gating authorization token `authHead` for BCMR
-
-**Location**: [contracts/authhead_vault.cash](../fund-tokens-contracts/contracts/authhead_vault.cash)
+**Purpose**: Auth-head UTXO vault gating authorization token `authorization` for BCMR
 
 **Parameters**:
-- `authHeadToken` (bytes32) - The authorization token category
+- `authToken` (bytes32) - The authorization token category
 
 **Functions**:
 
 #### `release()`
 
-Identical to SimpleVault - authorizes spending when token present.
+Identical to SimpleVault - authorizes spending when token present and maintains no token authhead
 
-**Usage**: PublicFund broadcast, BCMR setup
+**Usage**: PublicFund broadcast, BCMR maintenance
+
+**Implementation**: See [contracts/authhead_vault.cash](../fund-tokens-contracts/contracts/authhead_vault.cash) for full source code.
+
+---
+
+### 4. PublicFundVault
+
+**Purpose**: Public fund details vault w/ authorization token `authorization` for closing
+
+**Parameters**:
+- `authToken` (bytes32) - The authorization token category
+
+**Functions**:
+
+#### `prove(bytes hash)`
+
+Authorizes spending when provided hash matches list of hashed token data
+
+**Usage**: Transaction proofs
+
+#### `data()`
+
+Looks for a previous input from this contract which should call prove or close
+
+**Usage**: Appending data for transaction proofs
+
+#### `close()`
+
+Gated burning of fund details token
+
+**Usage**: Signal closed
+
+**Implementation**: See [contracts/public_vault.cash](../fund-tokens-contracts/contracts/public_vault.cash) for full source code.
 
 ---
 
 ## Fund Initialization Contracts
 
-### 5. FundStartup
+### 6. FundStartup
 
 **Purpose**: Validates fund parameters and mints inflow/outflow threads for a new fund
-
-**Location**: [contracts/startup.cash](../fund-tokens-contracts/contracts/startup.cash)
 
 **Parameters**:
 - `fee` (bytes32) - Fee contract hash to verify payment
@@ -153,8 +178,8 @@ Initializes a fund by validating parameters and minting thread tokens.
 3. Satoshis must be valid: 0 or between 1,000-21,000,000 BTC
 4. Assets must be sorted by category in ascending order
 5. Each asset amount must be > 0
-6. Input at [this.activeInputIndex + 1] must contain inflow token with capability "send"
-7. Input at [this.activeInputIndex + 2] must contain outflow token with capability "send"
+6. Input at [this.activeInputIndex + 1] must be a inflow token with capability "minting"
+7. Input at [this.activeInputIndex + 2] must be a outflow token with capability "minting"
 8. Input at [this.activeInputIndex + 3] must be the fee contract
 9. Outputs must include:
    - [this.activeInputIndex + 5]: Inflow token minted with fund commitment
@@ -170,11 +195,9 @@ fund_category (32 bytes) | hash256(fund) (32 bytes)
 
 ---
 
-### 6. PublicFund
+### 7. PublicFund
 
 **Purpose**: Broadcasts fund details on-chain in 128-byte chunks for discovery and archival
-
-**Location**: [contracts/public.cash](../fund-tokens-contracts/contracts/public.cash)
 
 **Parameters**:
 - `authHeadDestination` (bytes) - Locking bytecode to send authHead output
@@ -192,14 +215,14 @@ Broadcasts fund parameters in chunks via transaction outputs.
 
 **Validation**:
 1. First input must have vout==0 and no token (genesis input)
-2. First output must route to authHeadDestination
-3. Previous input must be startup contract
+2. First output must route to authHeadDestination w/ no token
+3. Previous input of this contract UTXO must be startup contract
 4. Public fund UTXO returns to itself with same public fund token
 5. Fund parameters validated:
-   - Fund category non-zero
+   - Fund category non-empty
    - Fund category matches genesis transaction hash
    - Fund amount > 0
-   - Satoshis valid (0 or 1,000-21,000,000 BTC)
+   - Satoshis valid
    - If assets present: sorted by category ascending
 6. Output [activeInputIndex + 3] must be the new fund contract with proper parameters
 7. Outputs [activeInputIndex + 5 onwards] chunk the fund in 128-byte segments
@@ -210,11 +233,9 @@ Broadcasts fund parameters in chunks via transaction outputs.
 
 ## Fund Execution Contracts
 
-### 7. FundMint
+### 8. FundInflowMint
 
 **Purpose**: Creates fund-specific execution contracts for a fund thread
-
-**Location**: [contracts/mint.cash](../fund-tokens-contracts/contracts/mint.cash)
 
 **Parameters**:
 - `validator` (bytes32) - Validator contract (TransactionManager) hash
@@ -227,7 +248,7 @@ Broadcasts fund parameters in chunks via transaction outputs.
 
 **Functions**:
 
-#### `mintInflow()` / `mintOutflow()`
+#### `mint()`
 
 Mints the manager, fund, and asset contracts for a new fund thread.
 
@@ -239,17 +260,52 @@ Mints the manager, fund, and asset contracts for a new fund thread.
 5. Output must contain inflow token (nft minting)
 6. Output [activeInputIndex + 4] is the new manager contract
 
-**Implementation**: See [contracts/mint.cash](../fund-tokens-contracts/contracts/mint.cash) for full source code.
+**Implementation**: See [contracts/mint_inflow.cash](../fund-tokens-contracts/contracts/mint_inflow.cash) for full source code.
+
+---
+
+### 9. FundOutflowMint
+
+**Purpose**: Creates fund-specific execution contracts for a fund thread
+
+**Parameters**:
+- `validator` (bytes32) - Validator contract (TransactionManager) hash
+- `inflowToken` (bytes32) - Inflow token category
+- `outflowToken` (bytes32) - Outflow token category
+- `fee` (bytes32) - Fee contract hash
+- `managerContract` (bytes) - Fund manager contract bytecode
+- `fundContract` (bytes) - Fund contract bytecode
+- `assetContract` (bytes) - Asset contract bytecode
+
+**Functions**:
+
+#### `mint()`
+
+Mints the Fund contract instance for outflow (redemption) operations.
+
+This creates the fund token manager that controls token accounting and redemption capabilities.
+
+**Validation** (mintOutflow):
+1. Input at [activeInputIndex - 2] must be validator contract (sequence control)
+2. Input at [activeInputIndex - 1] must have inflow token with capability "minting" (sequence signal)
+3. Input UTXO must contain outflow token with capability "minting"
+4. Input UTXO returns to itself with outflow token
+5. Output [activeInputIndex + 4] receives outflow token (NFT minting)
+6. Output [activeInputIndex + 4] is the new Fund contract with proper parameters
+7. Fund contract address calculated by hashing:
+   - hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)
+   - Uses same parameters as Asset contract but different token output
+8. Fund contract receives outflow token to control redemption operations
+
+**Implementation**: See [contracts/mint_outflow.cash](../fund-tokens-contracts/contracts/mint_outflow.cash) for full source code.
 
 ---
 
 ## Per-Fund Execution Contracts
 
-### 8. FundManager (TransactionManager)
+### 10. TransactionManager
 
 **Purpose**: Coordinates inflow/outflow transactions and validates contract threading
-
-**Location**: [contracts/manager.cash](../fund-tokens-contracts/contracts/manager.cash)
 
 **Parameters**:
 - `fee` (bytes32) - Fee contract hash
@@ -292,11 +348,9 @@ Similar structure to `inflow()` but:
 
 ---
 
-### 9. Fund
+### 11. FundManager
 
 **Purpose**: Holds fund tokens and calculates release amounts
-
-**Location**: [contracts/fund.cash](../fund-tokens-contracts/contracts/fund.cash)
 
 **Parameters**:
 - `inflowToken` (bytes32) - Inflow token category (threading)
@@ -320,11 +374,9 @@ Releases fund tokens during inflow (minting) transaction.
 
 ---
 
-### 10. AssetManager
+### 12. AssetManager
 
 **Purpose**: Holds and releases individual fund assets
-
-**Location**: [contracts/asset.cash](../fund-tokens-contracts/contracts/asset.cash)
 
 **Parameters**:
 - `outflowToken` (bytes32) - Outflow token category (threading signal)
@@ -346,11 +398,9 @@ Releases held assets during outflow (redemption) transaction.
 
 ---
 
-### 11. FeeManager
+### 13. FeeManager
 
 **Purpose**: Validates and routes fee payments
-
-**Location**: [contracts/fee.cash](../fund-tokens-contracts/contracts/fee.cash)
 
 **Parameters**:
 - `authToken` (bytes32) - Authorization token (owner) for close operation

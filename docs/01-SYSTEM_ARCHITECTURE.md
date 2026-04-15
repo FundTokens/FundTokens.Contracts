@@ -22,41 +22,43 @@ The FundTokens system uses several token types to coordinate state and permissio
 |-------|---------|----------|------|
 | **Inflow Token** | Signals permission to mint fund tokens | Multiple (threaded) | Enables fund minting |
 | **Outflow Token** | Signals permission to redeem fund tokens | Multiple (threaded) | Enables fund redemption |
-| **Fund Token** | Represents ownership stake in a fund | Int64.MaxValue | User-held asset |
-| **Public Fund Token** | Publishes fund details on-chain | Multiple (threaded) | Broadcast mechanism |
+| **Fund Token** | Represents ownership stake in a fund | Int64.MaxValue | Contract/User-held asset |
+| **Public Fund Token** | Publishes fund details on-chain | Multiple (threaded) | Public broadcast mechanism |
 | **Create Fee Token** | Authorizes fund creation | Multiple (threaded) | Enables dynamic fee rates |
 | **Execute Fee Token** | Authorizes fund execution | Multiple (threaded) | Enables dynamic fee rates |
-| **Owner Token** | Authorizes system owner operations | Single/Multiple | Fee manager verification |
-| **Auth Head Token** | Authorizes auth head operations | Single/Multiple | BCMR manager verification |
+| **Authorization Token** | Authorizes maintenance operations | Single/Multiple | Authorizes maintenance |
 
 ### 2. Core Contracts
 
-The system comprises 11 smart contracts organized into three main flows:
+The system comprises 13 smart contracts organized into three main flows:
 
 #### System Initialization & Maintenance
 - **SimpleMinter** / **FeeMinter** - Owner-controlled token minting, create additional threading for fund startup contracts
-- **SimpleVault** / **AuthHeadVault** - Vault custody with token authorization checks, simple fee and authHead vaults
+- **SimpleVault** / **AuthHeadVault** / **PublicFundVault** - Vault custody with token authorization checks, simple fee, authHead, and public fund data vaults
 
 #### Fund Creation
-- **FundStartup** - Validates encoded commitments in inflow/outflow tokens and destinations
 - **PublicFund** - Validates fund initialization and broadcasts fund details on-chain in consumable chunks
-- **FundMint** - Holds the minting tokens and creates fund-specific contracts for a particular fund
+- **FundStartup** - Validates encoded commitments and destinations for inflow/outflow tokens and create fee is paid
+- **FundInflowMint** - Holds the inflow minting token and creates fund-specific contracts for a particular fund
+- **FundOutflowMint** - Holds the outflow minting token and creates fund-specific contracts for a particular fund
 
 #### Fund Execution (Per-Fund Contracts)
-- **FundManager** - Coordinates inflow/outflow minting and redemption; calculates release/redemption amounts
-- **Fund** - Holds fund tokens and checks for fund manager
+- **TransactionManager** - Coordinates inflow/outflow minting and redemption; calculates release/redemption amounts
+- **FundManager** - Holds fund tokens and checks for fund manager
 - **AssetManager** - Holds and releases individual fund assets
 - **FeeManager** - Validates and routes fee payments
 
 ### 3. Transaction Flows
 
-#### Fund Creation Flow
+#### Public Fund Creation Flow
 
 ```
 1. User initiates fund creation via Public Fund
 2. Startup contract validates fund parameters:
    - Fund amount > 0
-   - Satoshi amount valid (0 or 1,000-21,000,000 satoshis)
+   - Satoshi amount valid
+      - If no assets, then greater than zero
+      - If assets, then greater than or equal to zero
    - Assets sorted by category (ascending hexadecimal order) with amounts > 0
 3. Inflow & Outflow tokens minted with fund commitment
 4. Public Fund broadcasts fund details in chunks
@@ -112,7 +114,8 @@ To support high-throughput fund operations, FundTokens uses a **threading model*
 The fee system is dual-layered:
 
 #### Create Fees
-- Charged when creating a new fund
+- Charged when creating a new fund 
+- Charged when creating fund inflow/outflow threads
 - Paid during FundStartup validation
 - Routed to fee destination via FeeManager
 - Supports default fees, guaranteed fund token usability
@@ -123,7 +126,7 @@ The fee system is dual-layered:
 - Routed to fee destination via FeeManager
 - Supports default fees, guaranteed fund token usability
 
-**Fee Structure**: Each fee is an NFT with commitment encoding:
+**Fee Structure**: Each fee is a NFT with commitment encoding:
 ```
 Commitment = [category (32 bytes) | amount (8 bytes) | destination (variable bytes)]
 ```
@@ -167,8 +170,8 @@ CashToken NFT commitments store critical fund parameters:
 ### 1. Contract Isolation
 
 Each contract has a specific, limited role:
-- **FundManager** only coordinates, doesn't hold assets
-- **Fund** only holds fund tokens, limited calculation-only
+- **TransactionManager** only coordinates, doesn't hold assets
+- **FundManager** only holds fund tokens, holistic view and calculations
 - **AssetManager** only releases assets when outflow token present
 - **FeeManager** only validates fee routing
 
@@ -199,7 +202,7 @@ Once a fund is created:
 
 ```
 Fund Parameters:
-- Category: ABC... (256-bit hash)
+- Category: ABC... (32-bit hash)
 - Amount: 10 (user holds 1 = owns 1/10th)
 - Bitcoin: 1,000 satoshis per fund token
 - Asset1: CAT XYZ... quantity 2 per fund token
@@ -218,8 +221,8 @@ Later, user redeems 1 fund token:
 - Fund contract collects: 1 fund token (returned)
 - Asset managers release:
   - 1,000 satoshis
-  - 2 XYZ tokens (Dust)
-  - 5 DEF tokens (Dust)
+  - 2 XYZ tokens (Dust if no UTXO token change)
+  - 5 DEF tokens (Dust if no UTXO token change)
 - Fee processor charges execution fee
 - User receives: assets as specified
 ```
@@ -236,15 +239,15 @@ Later, user redeems 1 fund token:
 
 1. **Non-upgradeable Contracts**: Each fund gets unique contract instances with committed parameters - no upgrade risk
 
-2. **NFT Commitment Storage**: Fund parameters stored in NFT commitment rather than UTXO data - more efficient and immutable
+1. **NFT Commitment Storage**: Fund parameters stored in NFT commitment - efficient and immutable
 
-3. **Thread-Based Concurrency**: Multiple independent execution threads prevent UTXO contention and enable high throughput
+1. **Thread-Based Concurrency**: Multiple independent execution threads prevent UTXO contention and enable high throughput
 
-4. **Fee Flexibility**: Commitment-encoded fees allow per-transaction customization without contract redeployment
+1. **Fee Flexibility**: Commitment-encoded fees allow per-transaction customization without contract redeployment
 
-5. **Public Fund Mechanism**: Fund data broadcast in chunks via PublicFund - enables off-chain fund discovery and index building
+1. **Public Fund Mechanism**: Trustlessly created funds w/ data broadcast in chunks - enables on-chain fund discovery and index building
 
-6. **Asset Sorting**: Required sorted asset list prevents double-spending and simplifies validation
+1. **Asset Sorting**: Required sorted asset list prevents double-spending and simplifies validation
 
 ### Asset Sorting Detail
 
@@ -271,14 +274,13 @@ Each asset (except Bitcoin satoshis) must have these properties:
 
 Failure to sort assets correctly will cause fund creation to fail.
 
-
 ## Limits & Constraints
 
 | Constraint | Limit | Reason |
 |-----------|-------|--------|
 | Fund Chunk Size | 128 bytes | CashToken NFT commitment max |
 | Max Assets Per Fund | ~30 | Standard Relay Rules |
-| Satoshi Range | 0 or 1,000-21,000,000 BTC | Bitcoin supply cap, Dust limits |
+| Satoshi Range | 0 or 0<=x>=21,000,000 BCH | Bitcoin supply cap, Dust limits |
 | Thread Count | Unlimited | Can add threads via system transactions |
 | Transaction Thread Time | Instant with low double-spend probabilities | UTXO selection randomness |
 
