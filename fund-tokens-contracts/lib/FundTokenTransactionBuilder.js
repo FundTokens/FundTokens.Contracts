@@ -57,6 +57,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         satoshiAssetContract: null,
         assetContracts: null,
         feeContract: null,
+        feeVaultContract: null
     };
     #logger = null;
 
