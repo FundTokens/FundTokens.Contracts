@@ -7,9 +7,7 @@ import {
     cashAddressToLockingBytecode,
 } from '@bitauth/libauth';
 
-import { DustAmount } from '../lib/constants.js';
-import PublicFundTransactionBuilder from '../lib/PublicFundTransactionBuilder.js';
-import { encodeFee } from '../lib/utils.js';
+import { PublicFundTransactionBuilder, DustAmount, encodeFee } from '../lib';
 
 import feeMinterJson from '../lib/art/fee_minter.json' with { type: 'json' };
 import simpleMinterJson from '../lib/art/simple_minter.json' with { type: 'json' };
@@ -50,19 +48,13 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         mintInflowContract: null,
         mintOutflowContract: null,
         publicFundContract: null,
-
         inflowHoldingContract: null,
         outflowHoldingContract: null,
         publicFundHoldingContract: null,
-
         mintCreateFundFeeContract: null,
         createFundFeeContract: null,
-
         mintExecuteFundFeeContract: null,
         executeFundFeeContract: null,
-
-        authHeadVaultContract: null,
-        feeVaultContract: null,
     };
     #logger = console;
 
@@ -115,7 +107,19 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         const executeFundFeeDestination = cashAddressToLockingBytecode(executeFundFeeContract.tokenAddress).bytecode;
         const mintExecuteFundFeeContract = new Contract(feeMinterJson, [this.#swapped.authorization, this.#swapped.fees.execute.nft, executeFundFeeDestination], { provider: this.provider });
 
-        this.#contracts = { startupContract, mintInflowContract, mintOutflowContract, publicFundContract, inflowHoldingContract, outflowHoldingContract, publicFundHoldingContract, mintCreateFundFeeContract, createFundFeeContract, mintExecuteFundFeeContract, executeFundFeeContract };
+        this.#contracts = {
+            startupContract,
+            mintInflowContract,
+            mintOutflowContract,
+            publicFundContract,
+            inflowHoldingContract,
+            outflowHoldingContract,
+            publicFundHoldingContract,
+            mintCreateFundFeeContract,
+            createFundFeeContract,
+            mintExecuteFundFeeContract,
+            executeFundFeeContract,
+        };
     }
 
     getContracts() {

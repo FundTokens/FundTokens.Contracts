@@ -18,14 +18,14 @@ This guide provides step-by-step instructions and working code examples for inte
 ### Prerequisites
 
 ```bash
-npm install cashscript@0.13.0-next.6 libauth
+npm install @fundtokens/builders
 ```
 
 ### Environment Configuration
 
 ```javascript
 import { Network, MockNetworkProvider } from 'cashscript';
-import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
+import { PublicFundTransactionBuilder } from '@fundtokens/builders';
 
 // For development/testing
 const provider = new MockNetworkProvider({ updateUtxoSet: true });
@@ -36,121 +36,6 @@ const network = Network.MOCKNET;
 // const network = Network.MAINNET;
 ```
 
-### System Initialization
-
-Before any fund operations, the system must be initialized once with genesis tokens:
-
-```javascript
-import { generateWallet } from '@/wallet.js';
-import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
-import { DustAmount } from '@lib/constants.js';
-
-async function initializeSystem({ provider, network }) {
-    const ownerWallet = generateWallet(network);
-
-    // System configuration - token IDs from genesis transactions
-    const system = {
-        inflow: '1111111111111111111111111111111111111111111111111111111111111111',
-        outflow: '2222222222222222222222222222222222222222222222222222222222222222',
-        publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
-        authHead: '4444444444444444444444444444444444444444444444444444444444444444',
-        owner: '5555555555555555555555555555555555555555555555555555555555555555',
-        fees: {
-            create: {
-                nft: '6666666666666666666666666666666666666666666666666666666666666666',
-                value: 10000n,  // satoshis
-            },
-            execute: {
-                nft: '7777777777777777777777777777777777777777777777777777777777777777',
-                value: 100000n, // satoshis
-            }
-        },
-    };
-
-    // Add genesis UTXOs to provider
-    const genesisPartial = { vout: 0, satoshis: DustAmount };
-    const genesisUtxos = [
-        { ...genesisPartial, txid: system.inflow },
-        { ...genesisPartial, txid: system.outflow },
-        { ...genesisPartial, txid: system.publicFund },
-        { ...genesisPartial, txid: system.fees.create.nft },
-        { ...genesisPartial, txid: system.fees.execute.nft },
-        { ...genesisPartial, txid: system.owner },
-    ];
-    
-    genesisUtxos.forEach(u => 
-        provider.addUtxo(ownerWallet.tokenAddress, u)
-    );
-
-    // Create initialization transaction
-    const transaction = new SystemTransactionBuilder({ provider, system });
-    transaction
-        .addInputs(genesisUtxos, ownerWallet.signatureTemplate.unlockP2PKH())
-        .addInitializeSystem()
-        .addInput(
-            { txid: system.owner, vout: 0, satoshis: DustAmount, token: { category: system.owner, amount: 0n } },
-            ownerWallet.signatureTemplate.unlockP2PKH()
-        )
-        .addInput(
-            { txid: 'any', vout: 0, satoshis: 10000n },
-            ownerWallet.signatureTemplate.unlockP2PKH()
-        )
-        .addOutput({
-            to: ownerWallet.tokenAddress,
-            amount: DustAmount,
-            token: {
-                category: system.owner,
-                amount: 0n,
-                nft: { capability: 'none', commitment: '' }
-            }
-        });
-
-    const { txid } = await transaction.send();
-    console.log('System initialized:', txid);
-    
-    return { system, ownerWallet };
-}
-```
-
-### Creating System Threads
-
-Threads enable concurrent fund operations. Add periodically:
-
-```javascript
-import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
-import { DustAmount } from '@lib/constants.js';
-
-async function addSystemThreads({ provider, system, wallet }) {
-    const transaction = new SystemTransactionBuilder({ provider, system });
-
-    // Add new thread tokens
-    await transaction.addSystemThreads();
-    await transaction.addCreateFundFee();
-    await transaction.addExecuteFundFee();
-
-    // Pay for transaction
-    transaction
-        .addInput(
-            { txid: 'any', vout: 0, satoshis: 50000n },
-            wallet.signatureTemplate.unlockP2PKH()
-        )
-        .addInput(
-            authUtxo, // Owner token from system init
-            wallet.signatureTemplate.unlockP2PKH()
-        )
-        .addOutput({
-            to: wallet.tokenAddress,
-            amount: DustAmount,
-            token: authUtxo.token,
-        });
-
-    const { txid } = await transaction.send();
-    console.log('Added system threads:', txid);
-}
-```
-
----
-
 ## Fund Lifecycle
 
 ### Step 1: Create a Fund
@@ -158,8 +43,7 @@ async function addSystemThreads({ provider, system, wallet }) {
 Create a new fund definition and broadcast it on-chain:
 
 ```javascript
-import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
-import { DustAmount } from '@lib/constants.js';
+import { PublicFundTransactionBuilder, DustAmount } from '@fundtokens/builders';
 
 async function createFund({ provider, system, wallet, fundDefinition }) {
     /**
@@ -209,7 +93,7 @@ async function createFund({ provider, system, wallet, fundDefinition }) {
     // Broadcast fund with fee payment
     await transaction.addBroadcast({
         fund,
-        payBy: '0'.repeat(64)  // Pay with Bitcoin
+        payBy: 'Bitcoin'  // Pay with Bitcoin
     });
 
     // Add fee UTXOs if needed
@@ -240,7 +124,7 @@ async function createFund({ provider, system, wallet, fundDefinition }) {
 User deposits underlying assets to receive fund tokens:
 
 ```javascript
-import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
+import { FundTokenTransactionBuilder } from '@fundtokens/builders';
 import { DustAmount, BitcoinCategory } from '@lib/constants.js';
 
 async function userMintFundTokens({
@@ -455,25 +339,6 @@ const assetFee = encodeFee({
 });
 ```
 
-### Multiple Fund Threads
-
-For high-volume funds, create multiple threads:
-
-```javascript
-async function createMultipleThreads({ provider, system, wallet, count }) {
-    const systemBuilder = new SystemTransactionBuilder({ provider, system });
-
-    for (let i = 0; i < count; i++) {
-        await systemBuilder.addSystemThreads();
-    }
-
-    // Pay and send in one transaction
-    systemBuilder.addInput(feeUtxo, wallet.unlock());
-    // ... complete transaction
-    await systemBuilder.send();
-}
-```
-
 ### Fund with Complex Assets
 
 Create funds with many different assets:
@@ -638,9 +503,9 @@ if (fundErrors.length > 0) {
 ```javascript
 // test/fund.test.js
 import { describe, it, expect, beforeEach } from 'vitest';
-import 'cashscript/vitest';
 import { MockNetworkProvider, Network } from 'cashscript';
-import SystemTransactionBuilder from '@lib/SystemTransactionBuilder.js';
+import { SystemTransactionBuilder } from '@fundtokens/builders';
+import 'cashscript/vitest';
 
 describe('FundTokens', () => {
     let provider;
@@ -666,27 +531,7 @@ describe('FundTokens', () => {
     });
 
     it('should initialize system', async ({ expect }) => {
-        const transaction = new SystemTransactionBuilder({ provider, system });
-        
-        // Setup genesis UTXOs
-        const genesisUtxos = [
-            { vout: 0, satoshis: 1000n, txid: system.inflow },
-            // ... more UTXOs
-        ];
-        genesisUtxos.forEach(u => 
-            provider.addUtxo(wallet.tokenAddress, u)
-        );
-
-        // Build transaction
-        transaction
-            .addInputs(genesisUtxos, wallet.signatureTemplate.unlockP2PKH())
-            .addInitializeSystem()
-            // ... complete transaction
-
-        // Assertions
-        expect(transaction).not.toFailRequire();
-        const response = await transaction.send();
-        expect(response.txid).toBeDefined();
+        // TODO: show example of mocking the system threads
     });
 
     it('should mint fund tokens', async ({ expect }) => {
@@ -757,10 +602,10 @@ async function integrationTest({ provider, system }) {
 2. **Validate Fund Amounts**: Ensure divisor > 0, satoshis valid range
 3. **Use Threading**: Add threads for high-volume operations
 4. **Error Handling**: Wrap operations in try-catch, handle specific errors
-5. **Fee Management**: Monitor fee UTXOs, create when depleted
-6. **Dust Amount**: Always send at least 1,000 satoshis per UTXO
-7. **Test First**: Verify on testnet before mainnet
-8. **Monitor Threads**: Check thread availability periodically
+5. **Fee Management**: Monitor fee UTXOs
+6. **Dust Amount**: Always send at least 1,000-1,065 satoshis per UTXO
+7. **Test First**: Verify on testnet/chiopnet before mainnet
+8. **Monitor Threads**: Check for double-spends and resend tx
 
 ---
 
@@ -769,4 +614,4 @@ async function integrationTest({ provider, system }) {
 - [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design
 - [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Contract details
 - [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - API reference
-- [test/happy.test.js](../fund-tokens-contracts/tests/happy.test.js) - Working examples
+- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual transaction flows

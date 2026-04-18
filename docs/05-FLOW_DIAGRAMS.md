@@ -10,10 +10,10 @@ Genesis Tokens
   ├─ inflow (seed)
   ├─ outflow (seed)
   ├─ publicFund (seed)
-  ├─ owner (seed)
   └─ fee tokens (seeds)
+  ├─ authorization (seed)
   │
-  └──→ SystemTransactionBuilder.addInitializeSystem()
+  └──→ Initialize System
        │
        └──→ Creates system threads:
             ├─ Inflow holding contract & token

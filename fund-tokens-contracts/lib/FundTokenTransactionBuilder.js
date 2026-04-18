@@ -350,7 +350,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         this.addInputs([
             {
                 ...outflowUtxo,
-                unlocker: managerContract.unlock.outflow(getFundBin(this.#fund), bufferHex ?? densityBuffer) // TODO: support density better // '00'.repeat(4325)
+                unlocker: managerContract.unlock.outflow(getFundBin(this.#fund), bufferHex ?? densityBuffer) // TODO: support density better, need to calculate the "expensive" operations // '00'.repeat(4325)
             },
             {
                 ...fundUtxo,

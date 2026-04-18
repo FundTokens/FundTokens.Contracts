@@ -286,7 +286,7 @@ Failure to sort assets correctly will cause fund creation to fail.
 
 ## Next Steps for Integration
 
-1. Review [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) for detailed per-contract specs
-2. Review [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) for integration points
-3. Review [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) for end-to-end examples
-4. Review [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) for visual transaction flows
+- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Detailed contract specs
+- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API reference
+- [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Integration examples
+- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual tx and data flows
