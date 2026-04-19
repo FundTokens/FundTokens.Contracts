@@ -20,24 +20,24 @@ For developers integrating or auditing FundTokens:
 - **Inflow Token** - Authorizes fund token minting
 - **Outflow Token** - Authorizes fund token redemption
 - **Public Fund Token** - Broadcasts fund parameters on-chain
-- **Owner Token** - System administrator authorization
-- **Fee Tokens** - Create & execute fee authorization
+- **Authorization Token** - System authorization (new execution threads, fees, BCMR)
+- **Fee Tokens** - Authorizes FundToken actions
 
-**Smart Contracts** (11 total):
+**Smart Contracts** (13 total):
 
 | Category | Contracts | Purpose |
 |----------|-----------|---------|
-| **System** | SimpleMinter, FeeMinter, SimpleVault | Token minting & custody |
-| **Fund Init** | FundStartup, PublicFund, FundMint | Fund creation & deployment |
-| **Fund Ops** | FundManager, Fund, AssetManager, FeeManager | Fund execution |
+| **System** | SimpleMinter, FeeMinter, SimpleVault, AuthHeadVault, PublicVault | Execution thread creation & custody |
+| **Fund Init** | FundStartup, PublicFund, FundInflowMint, FundOutflowMint | Fund creation & deployment |
+| **Fund Ops** | TransactionManager, FundManager, AssetManager, FeeManager | Fund execution |
 
 ### Fund Operation Model
 
 ```
-Create Fund → Mint Tokens (deposit assets) → Redeem Tokens (withdraw assets)
-     ↓              ↓                               ↓
- 1 transaction  Multiple threads           Multiple threads
- per fund       in parallel                in parallel
+Create Fund → Mint Tokens (inflow, deposit assets) → Redeem Tokens (outflow, withdraw assets)
+     ↓                  ↓                                  ↓
+ 1 transaction      Multiple threads                  Multiple threads
+ per fund           in parallel                       in parallel
 ```
 
 ## Key Features
@@ -45,8 +45,8 @@ Create Fund → Mint Tokens (deposit assets) → Redeem Tokens (withdraw assets)
 ✅ **Trustless** - No middlemen, contracts enforce all rules  
 ✅ **Self-Custodial** - Users always control their assets  
 ✅ **Non-Upgradeable** - Parameters set at creation, immutable  
-✅ **High Throughput** - Multiple execution threads prevent UTXO congestion  
-✅ **Flexible Assets** - Mix Bitcoin + up to 2 CashTokens per fund  
+✅ **High Throughput** - Multiple execution threads prevent UTXO congestion and double-spends  
+✅ **Flexible Assets** - Mix Bitcoin + up to ~30 CashTokens per fund
 ✅ **Transparent** - On-chain fund parameters, auditable operations  
 
 ## Documentation Structure
@@ -71,32 +71,30 @@ yarn build
 
 # Run tests
 yarn test
-
-# Watch mode
-yarn test:watch
 ```
 
 ## Contract Reference
 
 | Contract | Location | Purpose |
 |----------|----------|---------|
-| SimpleMinter | `contracts/simple_minter.cash` | Owner-controlled token minting |
-| FeeMinter | `contracts/fee_minter.cash` | Fee token creation with commitments |
-| SimpleVault | `contracts/simple_vault.cash` | Authorization-gated vault |
-| AuthHeadVault | `contracts/authhead_vault.cash` | Fund creation authorization |
+| SimpleVault | `contracts/simple_vault.cash` | Gated vault with CashToken authorization |
+| SimpleMinter | `contracts/simple_minter.cash` | Token minting w/ immutable destination and CashToken auth |
+| FeeMinter | `contracts/fee_minter.cash` | Fee token creation with validated commitments and CashToken auth |
+| AuthHeadVault | `contracts/authhead_vault.cash` | "AuthHead" UTXO validation with CashToken auth |
+| PublicVault | `contracts/public_vault.cash` | Verify public fund data on chain w/ authorized burning |
 | FundStartup | `contracts/startup.cash` | Validates & initializes fund |
 | PublicFund | `contracts/public.cash` | Broadcasts fund data on-chain |
-| FundMint | `contracts/mint.cash` | Creates per-fund contracts |
-| FundManager | `contracts/manager.cash` | Coordinates inflow/outflow |
-| Fund | `contracts/fund.cash` | Holds & releases fund tokens |
-| AssetManager | `contracts/asset.cash` | Custodies fund assets |
+| FundInflowMint | `contracts/mint_inflow.cash` | Creates per-fund inflow tokens |
+| FundOutflowMint | `contracts/mint_outflow.cash` | Creates per-fund outflow tokens |
+| TransactionManager | `contracts/manager.cash` | Coordinates inflow/outflow of the fund |
+| FundManager | `contracts/fund.cash` | Holds & releases fund tokens |
+| AssetManager | `contracts/asset.cash` | Holds & releases fund assets |
 | FeeManager | `contracts/fee.cash` | Routes fee payments |
 
 ## System Architecture
 
 ### System Tokens
-- Owner PubKey
-- Auth Head PKH
+- Authorization
 - Fee Tokens
     1. Create Fee
     2. Execute Fee
@@ -106,13 +104,13 @@ yarn test:watch
 
 ### Fund Lifecycle
 
-1. **Owner, System Maint Contracts**
-    - Simple Minter - Owner can mint new tokens to the required destination
-    - Fee Minter - Owner can mint new fees to the required destination
+1. **System Maint Contracts**
+    - Simple Minter - Maintainer can mint new tokens to the required destination
+    - Fee Minter - Maintainer can mint new fees to the required destination
 
 2. **New Public Fund**
+    - Public Fund - Verify the public FundToken is properly created
     - GOTO → New Fund Thread
-    - Public Fund - Verify the FundToken is properly started
 
 3. **New Fund Thread**
     - Startup - Verify fund details, and only inflow/outflow tokens used in tx
@@ -132,6 +130,8 @@ yarn test:watch
     - Fee - Verify fee paid
 
 ## Integration Example
+
+TODO - Make sure any examples are valid...
 
 ```javascript
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
@@ -177,34 +177,17 @@ See [Integration Guide](docs/04-INTEGRATION_GUIDE.md) for complete examples.
 
 | Aspect | Limit | Reason |
 |--------|-------|--------|
-| Assets per fund | ~2 | 128-byte NFT commitment |
+| Assets per fund | ~30 | Standard relay rules |
 | Total system throughput | Unlimited | Multiple threads |
-| Fund lifetime | Unlimited | Non-upgradeable |
-| Transaction latency | ~10min avg | Thread selection randomness |
-
-## File Structure
-
-```
-fund-tokens-contracts/
-├── contracts/              # CashScript source
-│   ├── *.cash             # Contract definitions
-│   └── tests/             # Contract tests
-├── lib/                   # JavaScript integration layer
-│   ├── *TransactionBuilder.js
-│   ├── utils.js
-│   ├── constants.js
-│   └── art/               # Compiled contract artifacts
-├── tests/                 # Integration tests
-├── package.json
-└── vitest.config.js
-```
+| Fund lifetime | Forever | Non-upgradeable and fee defaults |
+| Transaction latency | instant | Thread selection randomness and no confirmation required |
 
 ## License
 
-MIT
+(c) 2026 StrungSafe
 
 ## See Also
 
 - [CashScript Documentation](https://cashscript.org)
 - [Bitcoin Cash](https://bitcoincash.org)
-- [CashTokens Spec](https://github.com/bitjson/cashtokens)
+- [CashTokens Spec](https://github.com/cashtokens/cashtokens)

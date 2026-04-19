@@ -9,7 +9,7 @@ import 'cashscript/vitest';
 import { generateWallet } from '@/wallet.js';
 
 import { DustAmount } from '@lib/constants.js';
-import SystemTransactionBuilder from '@internal/SystemTransactionBuilder.js';
+import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
 
