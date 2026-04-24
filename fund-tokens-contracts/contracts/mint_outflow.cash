@@ -63,7 +63,7 @@ contract FundOutflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflow
         
         // Extract asset contract bytecode from activation bytecode
         int assetContractStart = 0;
-        int assetContractStop = assetContractStart + assetContract.length + 1;
+        int assetContractStop = assetContractStart + assetContract.length + 2;
         bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
 
         // Extract fund contract bytecode from activation bytecode

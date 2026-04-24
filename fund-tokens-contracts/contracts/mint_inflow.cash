@@ -67,7 +67,7 @@ contract FundInflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowT
         // Push opcodes add ~2 bytes of overhead for >75 byte push
         // Push opcodes add 1 byte of overhead for <75 byte push
         int assetContractStart = 0;
-        int assetContractStop = assetContractStart + assetContract.length + 1;
+        int assetContractStop = assetContractStart + assetContract.length + 2;
         bytes assetContractParam = this.activeBytecode.slice(assetContractStart, assetContractStop);
 
         // Extract fund contract bytecode from this contract's activation bytecode
