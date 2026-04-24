@@ -110,7 +110,42 @@ export function encodeFee({ category, amount, destination }) {
     return encoded;
 }
 
-export async function getBestFee({ feeVaultContract, feeContract, payBy, fee }) {
+// return [{ category: '', amount: 0n }]
+export async function getAvailableFees({ feeContract, fee }) {
+    if(!feeContract) {
+        throw new Error('Expected a fee contract');
+    }
+
+    const {
+        nft: feeCategory,
+        value: defaultValue,
+    } = fee;
+
+    const utxos = await feeContract.getUtxos();
+
+    return utxos
+        .filter(u => !u.token || u.token.category === feeCategory)
+        .reduce((prev, curr) => {
+            if(!curr.token) {
+                prev[BitcoinCategory] = {
+                    category: BitcoinCategory,
+                    amount: prev[BitcoinCategory]?.amount < defaultValue ? prev[BitcoinCategory].amount : defaultValue,
+                };
+            } else {
+                const {
+                    category,
+                    amount,
+                } = decodeFee(curr.token.nft.commitment);
+                prev[category] = {
+                    category,
+                    amount: prev[category]?.amount < amount ? prev[category].amount : amount,
+                };
+            }
+            return prev;
+        }, {});
+}
+
+export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) {
     if(!feeContract) {
         throw new Error('Expected fee contract');
     }
@@ -173,10 +208,12 @@ export async function getBestFee({ feeVaultContract, feeContract, payBy, fee }) 
         amount: bestFee.amount,
         destination: bestFee.destination,
         utxo: bestFee.utxo,
-        outputs: [withDust({
-            ...bestFee.utxo,
-            to: feeContract.tokenAddress,
-        })],
+        outputs: [
+            withDust({
+                ...bestFee.utxo,
+                to: feeContract.tokenAddress,
+            }),
+        ],
     };
 
     if(result.isBitcoin) {
