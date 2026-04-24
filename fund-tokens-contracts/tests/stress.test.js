@@ -104,17 +104,19 @@ describe('happy path', () => {
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
+    const numberOfFundAssets = 30;
+
     const fund = {
         category: '7777777777777777777777777777777777777777777777777777777777777777',
         amount: 10n,
         satoshis: 1000n,
-        assets: Array.from({ length: 30 }, (_, index) => ({
+        assets: Array.from({ length: numberOfFundAssets }, (_, index) => ({
             category: randomToken().category,
             amount: BigInt(index + 1),
         })),
     };
 
-    it('should broadcast a new fund', async ({ expect }) => {
+    it(`should broadcast a new fund of ${numberOfFundAssets} assets`, async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
