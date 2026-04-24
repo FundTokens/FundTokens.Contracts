@@ -1,0 +1,96 @@
+{
+  "contractName": "FundManager",
+  "constructorInputs": [
+    {
+      "name": "inflowToken",
+      "type": "bytes32"
+    },
+    {
+      "name": "outflowToken",
+      "type": "bytes32"
+    },
+    {
+      "name": "fundCategory",
+      "type": "bytes"
+    },
+    {
+      "name": "fundHash",
+      "type": "bytes"
+    }
+  ],
+  "abi": [
+    {
+      "name": "mint",
+      "inputs": []
+    },
+    {
+      "name": "redeem",
+      "inputs": []
+    }
+  ],
+  "bytecode": "OP_4 OP_PICK OP_0 OP_NUMEQUAL OP_IF OP_INPUTINDEX OP_1SUB OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_1SUB OP_UTXOTOKENCOMMITMENT OP_2 OP_PICK OP_4 OP_ROLL OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_GREATERTHAN OP_VERIFY OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_0 OP_GREATERTHAN OP_IF OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_2 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_ELSE OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUALVERIFY OP_ENDIF OP_2DROP OP_DROP OP_1 OP_ELSE OP_4 OP_ROLL OP_1 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_1SUB OP_UTXOTOKENCATEGORY OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_1SUB OP_UTXOTOKENCOMMITMENT OP_2 OP_PICK OP_4 OP_ROLL OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_ROT OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_LESSTHAN OP_NIP OP_ENDIF",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n/**\r\n * FundManager (Fund): Holds and releases fund tokens\r\n * \r\n * Core accounting contract for fund tokens. Maintains the supply of fund tokens\r\n * and enforces token conservation during inflow/outflow operations.\r\n * \r\n * During mint (inflow/deposit):\r\n * - Input has fund tokens (current supply)\r\n * - Output has fewer tokens (tokens released to user)\r\n * - Release amount = (input - output)\r\n * \r\n * During redeem (outflow/withdrawal):\r\n * - Input has fund tokens (current supply)\r\n * - Output has more tokens (tokens returned from user)\r\n * - Collection amount = (output - input)\r\n * \r\n * Parameters:\r\n *   inflowToken: Inflow token category (signals minting operation)\r\n *   outflowToken: Outflow token category (signals redemption operation)\r\n *   fundCategory: Fund token category held in this contract\r\n *   fundHash: Hash of fund parameters (ensures correct fund)\r\n */\r\ncontract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCategory, bytes fundHash)\r\n{    \r\n    /**\r\n     * mint(): Release fund tokens during inflow (user deposit)\r\n     * \r\n     * Ensures:\r\n     * - Fund tokens are reduced (tokens released to user)\r\n     * - If no tokens remain, output has no token (ready for next redeem)\r\n     */\r\n    function mint() {\r\n        // Previous input must be inflow manager signaling this mint operation\r\n        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken);\r\n        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));\r\n\r\n        // This contract returns to itself (fund UTXO stays alive)\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        // Fund token amount must decrease (tokens released to user)\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount > tx.outputs[this.activeInputIndex].tokenAmount);\r\n\r\n        // Verify token output or empty\r\n        if(tx.outputs[this.activeInputIndex].tokenAmount > 0) {\r\n            // If tokens remain, they must be the same fund token category\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory);\r\n            require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        } else {\r\n            // If no tokens remain, output has no token (stay hydrated for next redeem)\r\n            require(tx.outputs[this.activeInputIndex].tokenCategory == 0x);\r\n        }\r\n    }\r\n\r\n    /**\r\n     * redeem(): Collect fund tokens during outflow (user withdrawal)\r\n     * \r\n     * Ensures:\r\n     * - Fund tokens are increased (tokens collected from user)\r\n     * - Output amount > input amount (collecting tokens)\r\n     */\r\n    function redeem() {\r\n        // Previous input must be outflow manager signaling this redeem operation\r\n        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowToken);\r\n        require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));\r\n\r\n        // This contract returns to itself\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        // Output must have the fund token category (collecting tokens)\r\n        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);\r\n        // Fund token amount must increase (collecting from user)\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount < tx.outputs[this.activeInputIndex].tokenAmount);\r\n    }\r\n}",
+  "debug": {
+    "bytecode": "5479009c63c08cce88c08ccf5279547a7e88c0c7c0cd88c0d0c0d3a069c0d300a063c0ce527988c0cec0d18867c0d10088686d755167547a519dc08cce7b88c08ccf5279547a7e88c0c7c0cd88c0d17b88c0d0c0d39f7768",
+    "sourceMap": "34:4:53:5;;;;;36:26:36:47;:::51:1;:16::66;:8::83;37:26:37:47:0;:::51:1;:16::66;:76::88:0;;:91::99;;:76:::1;:8::102;40:26:40:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;42:26:42:47:0;:16::60:1;:74::95:0;:63::108:1;:16;:8::110;45:22:45:43:0;:11::56:1;:59::60:0;:11:::1;:62:49:9:0;47:30:47:51;:20::66:1;:70::82:0;;:12::84:1;48:30:48:51:0;:20::66:1;:81::102:0;:70::117:1;:12::119;49:15:52:9:0;51:31:51:52;:20::67:1;:71::73:0;:12::75:1;49:15:52:9;34:4:53:5;;;;62::73::0;;;;64:26:64:47;:::51:1;:16::66;:70::82:0;:8::84:1;65:26:65:47:0;:::51:1;:16::66;:76::88:0;;:91::99;;:76:::1;:8::102;68:26:68:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;70:27:70:48:0;:16::63:1;:67::79:0;:8::81:1;72:26:72:47:0;:16::60:1;:74::95:0;:63::108:1;:8::110;62:4:73:5;25:0:74:1",
+    "logs": [],
+    "requires": [
+      {
+        "ip": 12,
+        "line": 36
+      },
+      {
+        "ip": 21,
+        "line": 37
+      },
+      {
+        "ip": 26,
+        "line": 40
+      },
+      {
+        "ip": 32,
+        "line": 42
+      },
+      {
+        "ip": 42,
+        "line": 47
+      },
+      {
+        "ip": 47,
+        "line": 48
+      },
+      {
+        "ip": 52,
+        "line": 51
+      },
+      {
+        "ip": 66,
+        "line": 64
+      },
+      {
+        "ip": 75,
+        "line": 65
+      },
+      {
+        "ip": 80,
+        "line": 68
+      },
+      {
+        "ip": 84,
+        "line": 70
+      },
+      {
+        "ip": 90,
+        "line": 72
+      }
+    ]
+  },
+  "compiler": {
+    "name": "cashc",
+    "version": "0.13.0-next.6",
+    "options": {
+      "enforceFunctionParameterTypes": true
+    }
+  },
+  "updatedAt": "2026-04-21T19:21:04.017Z"
+}

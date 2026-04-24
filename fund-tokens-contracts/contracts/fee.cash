@@ -1,0 +1,128 @@
+pragma cashscript ~0.13.0;
+
+/**
+ * FeeManager: Validates fee payments and routing
+ * 
+ * Every fund transaction pays fees through this contract.
+ * Validates that fees match their encoding and route to correct destination.
+ * 
+ * Fee Token commitment format (stored in NFT):
+ * [fee_category (32) | fee_amount (8) | fee_destination (variable)]
+ * 
+ * Where:
+ * - fee_category: 0x00 = Bitcoin satoshis, else = CashToken category
+ * - fee_amount: Amount due (satoshis or token amount)
+ * - fee_destination: Optional override destination (empty = use default)
+ *   Note: Variable-length intentionally - allows forward compatibility with future address formats
+ * 
+ * Authorization:
+ * - close() requires authToken to be present (protocol steward only)
+ * - pay() validates the chosen fee is paid and routed
+ * 
+ * Parameters:
+ *   authToken: Authorization token category (controls who can close)
+ *   destination: Default fee destination address (until override)
+ *   feeToken: Fee token category (with expected 'none' capability)
+ *   defaultValue: Default fee amount in satoshis (if no fee token encoding)
+ */
+contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int defaultValue)
+{
+    /**
+     * close(): Close this fee by burning all fee tokens
+     * 
+     * Allows protocol steward (authToken holder) to close the manager and cleanup.
+     * Ensures no active fee tokens remain (no dangling fees).
+     * 
+     * Validates:
+     * - Transaction includes authToken (proves authorization)
+     * - No FeeManager fee tokens exist in any output (burned)
+     * 
+     * Used at fund wind-down when all fees have been collected.
+     */
+    function close() {
+        // Check for authorization token in any input
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authToken) {
+                // Found authorization token - user is authorized to close
+                authorized = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
+
+        // Verify all fee tokens are burned (not present in any output)
+        int outputIndex = 0;
+        do {
+            // Prevent any output from receiving fee tokens (forces burn)
+            require(tx.outputs[outputIndex].tokenCategory != feeToken);
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+    }
+
+    /**
+     * pay(): Validate fee payment according to encoding
+     * 
+     * Routes fee to destination encoded in fee token NFT or default destination.
+     * Supports two fee types: Bitcoin satoshis or CashTokens.
+     * 
+     * Validates:
+     * - This FeeManager UTXO returns to itself (no state change)
+     * - Fee amount matches encoding (satoshis or token amount)
+     * - Fee routes to correct destination (from encoding or default)
+     * - Token category (if token fee) matches encoding
+     * 
+     * Transaction Structure:
+     * Input[activeInputIndex]: This FeeManager with fee token
+     * Output[activeInputIndex]: This FeeManager (self-return)
+     * Output[activeInputIndex+1]: Fee payment to destination
+     * 
+     * Fee Encoding Logic:
+     * - If fee_category == 0x00: Pay satoshis = fee_amount
+     * - If fee_category != 0x00: Pay tokens = fee_amount of fee_category
+     * - If fee_destination present: Pay to fee_destination
+     * - Else: Pay to default destination
+     */
+    function pay() {
+        // This FeeManager must return to itself (no state change)
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        // Preserve fee token category for continuation
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        // Preserve fee token NFT commitment (maintains encoding)
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        // Extract fee parameters from NFT commitment if this is fee token
+        if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {
+            // Decode fee commitment: [category | amount | destination]
+            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
+            bytes fee_amount, bytes fee_destination = fee_next1.split(8);
+
+            // Determine fee destination (override or default)
+            if(fee_destination.length > 0) {
+                // Fee override destination specified in encoding
+                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
+            } else {
+                // No override - use default destination
+                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
+            }
+            
+            // Validate fee amount and type
+            if(int(fee_category) == 0) {
+                // Category 0 = Bitcoin satoshis (not tokens)
+                // Output must have exact satoshi amount as encoded
+                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));
+            } else {
+                // Non-zero category = CashToken fee type
+                // Output must have correct token category and amount
+                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);
+                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));
+            }
+        } else {
+            // No fee token encoding - use default values
+            // Pay default satoshi amount to default destination
+            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
+            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);
+        }
+    }
+}

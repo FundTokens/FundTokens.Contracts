@@ -1,0 +1,67 @@
+pragma cashscript ~0.13.0;
+
+/**
+ * SimpleMinter: Owner-controlled token minting
+ * 
+ * Allows an authorized user to mint new tokens to a specified destination.
+ * Used for holding and creating inflow, outflow, and public fund tokens during system 
+ * initialization and future system scaling.
+ * 
+ * Parameters:
+ *   authorization: Token category that authorizes minting (checked in any input)
+ *   token: Token category being minted
+ *   destination: Locking bytecode where minted tokens are sent
+ */
+contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
+{
+    /**
+     * mint(): Mints new tokens to the destination
+     * 
+     * Ensures:
+     * - This contract returns to itself (locked pattern prevents misuse)
+     * - Owner authorization is present in transaction inputs
+     * - All minted tokens go to the specified destination
+     * - NFT commitments are preserved if present
+     */
+    function mint() {
+        // Contract must return to itself (locked pattern)
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        // Verify this is the minting token
+        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
+        
+        // Keep the minting token for future minting
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        
+        // Preserve NFT commitment (e.g., for minting capability)
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        // Check for owner authorization in ANY input
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authorization) {
+                authorized = true;  // Owner token found - authorized
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
+
+
+        // Verify all outputs minting this token go to the destination
+        int outputIndex = 0;
+        do {
+            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
+                // If output is minting our token category
+                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
+                    // Ensure it goes to the specified destination
+                    require(tx.outputs[outputIndex].lockingBytecode == destination);
+                    // Token category must match for consistency
+                    require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
+                    // Minted tokens have no NFT commitment
+                    require(tx.outputs[outputIndex].nftCommitment == 0x);
+                }
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+    }
+}

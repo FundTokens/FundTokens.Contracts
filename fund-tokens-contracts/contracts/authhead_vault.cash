@@ -1,0 +1,43 @@
+pragma cashscript ~0.13.0;
+
+/**
+ * AuthHeadVault: Authorization vault with strict positioning requirements
+ * 
+ * Extends SimpleVault with additional constraints to maintain authhead w/ no token:
+ * - Must be the first input (index 0)
+ * - First output must not contain any tokens
+ * 
+ * Used specifically for authorizing fund's BCMR update operations.
+ * 
+ * Parameters:
+ *   authToken: Token category that authorizes fund creation
+ */
+contract AuthHeadVault(bytes32 authToken)
+{
+    /**
+     * release(): Authorizes authhead operations with strict transaction structure
+     * 
+     * Ensures:
+     * - This vault is the first input (positioning control)
+     * - First output has no tokens (clean state to maintain authhead integrity)
+     * - Authorization token is present in inputs
+     */
+    function release() {
+        // This vault MUST be the first input
+        require(this.activeInputIndex == 0, "expected to be the first input");
+        
+        // First output must have no tokens (ensures clean state to maintain authhead integrity)
+        require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
+
+        // Check for authorization token in ANY input
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authToken) {
+                authorized = true;
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
+    }
+}

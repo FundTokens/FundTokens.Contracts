@@ -1,0 +1,57 @@
+pragma cashscript ~0.13.0;
+
+/**
+ * AssetManager: Holds individual fund assets
+ * 
+ * Each asset in a fund has a dedicated AssetManager contract instance.
+ * Releases assets only when outflow token is present with matching fund hash.
+ * 
+ * This contract gates asset access during redemption (outflow) transactions.
+ * Amount verification is performed by the TransactionManager contract.
+ * 
+ * Parameters:
+ *   outflowToken: Token category that authorizes redemption
+ *   fundHash: Hash of fund parameters (prevents spending wrong fund's assets)
+ *   assetCategory: The specific asset category this contract holds
+ *                  (0x00...00 = Bitcoin satoshis, else = token category)
+ */
+contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory) 
+{
+    /**
+     * release(): Releases held assets when outflow is authorized
+     * 
+     * Ensures:
+     * - Outflow token with matching fund hash is present (correct redemption)
+     * - Asset type is verified (Bitcoin satoshis or tokens)
+     * 
+     * Note: AssetManager relies on TransactionManager for amount validation.
+     * This contract only gates access; amounts are verified elsewhere.
+     */
+    function release() {
+        // Check for outflow token with matching fund hash
+        bool outflowTokenSeen = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
+                // Extract fund hash from NFT commitment [0:32] = category, [32:64] = hash
+                if(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash) {
+                    // Correct fund's outflow token found - authorized to release
+                    outflowTokenSeen = true;
+                }
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !outflowTokenSeen);
+        // Must have found the outflow token for this specific fund
+        require(outflowTokenSeen);
+        
+        // Verify asset type matches
+        bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
+        if(assetCategory == satoshiAsset) {
+            // For Bitcoin: input should have no token (satoshis only)
+            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
+        } else {
+            // For tokens: input must have the correct asset category
+            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
+        }
+    }
+}
