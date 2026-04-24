@@ -28,21 +28,26 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
      * This contract only gates access; amounts are verified elsewhere.
      */
     function release() {
-        // Check for outflow token with matching fund hash
-        bool outflowTokenSeen = false;
-        int inputIndex = 0;
-        do {
-            if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
-                // Extract fund hash from NFT commitment [0:32] = category, [32:64] = hash
-                if(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash) {
-                    // Correct fund's outflow token found - authorized to release
-                    outflowTokenSeen = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !outflowTokenSeen);
-        // Must have found the outflow token for this specific fund
-        require(outflowTokenSeen);
+        console.log('params', outflowToken, fundHash, assetCategory);
+        bytes testing = tx.inputs[this.activeInputIndex].unlockingBytecode;
+        console.log('test', testing);
+
+        bool firstAssetManager = tx.inputs[this.activeInputIndex - 3].tokenCategory == outflowToken;
+        if(firstAssetManager) {
+            require(tx.inputs[this.activeInputIndex - 3].nftCommitment.slice(32, 64) == fundHash);
+        }
+        int parametersLength = 35;
+        bool additionalAssetManager = tx.inputs[this.activeInputIndex].unlockingBytecode.slice(parametersLength, tx.inputs[this.activeInputIndex].unlockingBytecode.length - 1) == tx.inputs[this.activeInputIndex - 1].unlockingBytecode.slice(parametersLength, tx.inputs[this.activeInputIndex - 1].unlockingBytecode.length - 1);
+        if(additionalAssetManager) {
+            bytes previousAsset = tx.inputs[this.activeInputIndex - 1].unlockingBytecode.slice(3, 35);
+
+            int iPrev = int(previousAsset);
+            int iCurr = int(assetCategory);
+            console.log('testing', previousAsset, iPrev, assetCategory, iCurr);
+
+            require(int(previousAsset + 0x00) < int(assetCategory + 0x00));
+        }
+        require(firstAssetManager || additionalAssetManager);
         
         // Verify asset type matches
         bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;

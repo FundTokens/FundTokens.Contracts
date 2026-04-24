@@ -146,7 +146,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
     }
 
     /**
-     * outflow(bytes fund, bytes densityPadding): Lock fund tokens during user withdrawals
+     * outflow(bytes fund): Lock fund tokens during user withdrawals
      * 
      * Validates fund accounting:
      * - Fund tokens locked = (output amount - input amount) / fundAmount
@@ -169,13 +169,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
      * Output[activeInputIndex]: Outflow token (returned to signal processor)
      * Output[activeInputIndex+1]: Fund manager (updated fund tokens)
      * Output[activeInputIndex+2]: Asset custody outputs (change amounts)
-     * 
-     * densityPadding: Pad tx size if fund uses many assets (allows flexible transaction building)
      */
-    function outflow(bytes fund, bytes densityPadding) {
-        // Redeeming funds w/ many assets can trigger computation density limits
-        // Add padding to reduce tx density
-        require(densityPadding.length >= 0);
+    function outflow(bytes fund) {
         
         // Verify this input carries outflow signal token
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
@@ -210,7 +205,12 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         // Fee contract input must follow fund manager
         bytes nft_sats, bytes nft_next3 = nft_next2.split(8);
-        require(tx.inputs[fundInputIndex + 1].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        int feeInputIndex = fundInputIndex + 1;
+        require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
+
+        int satoshiAssetInputIndex = feeInputIndex + 1;
+        int satoshiAssetOutputIndex = satoshiAssetInputIndex + 1;
+        require(satoshiAssetOutputIndex > 0);
 
         int fundSats = int(nft_sats);
         if(fundSats > 0) {
@@ -218,31 +218,24 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
             bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + satoshiAsset + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
 
-            // Scan all inputs for satoshi assets (handles multiple threads)
-            int fundSatoshiInput = 0;
-            do {
-                if(tx.inputs[fundSatoshiInput].lockingBytecode == satoshiLockingBytecode && tx.inputs[fundSatoshiInput].tokenCategory == 0x) {
-                    // Sum up all satoshi inputs from asset custody
-                    satoshiReleaseAmount = satoshiReleaseAmount + tx.inputs[fundSatoshiInput].value;
-                }
-                fundSatoshiInput = fundSatoshiInput + 1;
-            } while(fundSatoshiInput < tx.inputs.length);
+            while (tx.inputs[satoshiAssetInputIndex].lockingBytecode == satoshiLockingBytecode && tx.inputs[satoshiAssetInputIndex].tokenCategory == 0x) {
+                satoshiReleaseAmount = satoshiReleaseAmount + tx.inputs[satoshiAssetInputIndex].value;
+                satoshiAssetInputIndex = satoshiAssetInputIndex + 1;
+            }
 
-            // Scan all outputs for satoshi change (assets returned to custody)
-            int fundSatoshiOutput = 0;
-            do {
-                if(tx.outputs[fundSatoshiOutput].lockingBytecode == satoshiLockingBytecode && tx.outputs[fundSatoshiOutput].tokenCategory == 0x) {
-                    // Subtract any satoshi change (net release calculation)
-                    satoshiReleaseAmount = satoshiReleaseAmount - tx.outputs[fundSatoshiOutput].value;
-                }
-                fundSatoshiOutput = fundSatoshiOutput + 1;
-            } while(fundSatoshiOutput < tx.outputs.length);
+            while(tx.outputs[satoshiAssetOutputIndex].lockingBytecode == satoshiLockingBytecode && tx.outputs[satoshiAssetOutputIndex].tokenCategory == 0x) {
+                satoshiReleaseAmount = satoshiReleaseAmount - tx.outputs[satoshiAssetOutputIndex].value;
+                satoshiAssetOutputIndex = satoshiAssetOutputIndex + 1;
+            }
 
             // Net satoshi release must be whole multiple of fundSats
             require((satoshiReleaseAmount % fundSats) == 0);
             // Net satoshi release must equal fund token lock (atomic consistency)
             require((satoshiReleaseAmount / fundSats) == fundLockingAmount);
         }
+
+        int assetInputIndex = satoshiAssetInputIndex;
+        int assetOutputIndex = satoshiAssetOutputIndex;
 
         // Validate all assets
         bytes nft_assetData = nft_next3;
@@ -251,26 +244,19 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             // Calculate asset custody contract address
             bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract));
 
-            // Scan all inputs for this asset type (handles multiple threads)
-            int inputIndex = 0;
             int assetReleaseAmount = 0;
-            do {
-                if(tx.inputs[inputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[inputIndex].tokenCategory == nft_assetCategory) {
-                    // Sum all asset tokens from this asset custody
-                    assetReleaseAmount = assetReleaseAmount + tx.inputs[inputIndex].tokenAmount;
-                }
-                inputIndex = inputIndex + 1;
-            } while(inputIndex < tx.inputs.length);
 
-            // Scan all outputs for this asset type (change amounts)
-            int outputIndex = 0;
-            do {
-                if(tx.outputs[outputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[outputIndex].tokenCategory == nft_assetCategory) {
-                    // Subtract asset change (net asset release)
-                    assetReleaseAmount = assetReleaseAmount - tx.outputs[outputIndex].tokenAmount;
-                }
-                outputIndex = outputIndex + 1;
-            } while(outputIndex < tx.outputs.length);
+            while (tx.inputs[assetInputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[assetInputIndex].tokenCategory == nft_assetCategory) {
+                // Sum all asset tokens from this asset custody
+                assetReleaseAmount = assetReleaseAmount + tx.inputs[assetInputIndex].tokenAmount;
+                assetInputIndex = assetInputIndex + 1;
+            }
+
+            while (tx.outputs[assetOutputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory) {
+                // Subtract asset change (net asset release)
+                assetReleaseAmount = assetReleaseAmount - tx.outputs[assetOutputIndex].tokenAmount;
+                assetOutputIndex = assetOutputIndex + 1;
+            }
 
             // Parse asset amount divisor
             bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);

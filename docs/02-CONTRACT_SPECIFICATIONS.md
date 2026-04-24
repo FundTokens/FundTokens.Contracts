@@ -338,7 +338,7 @@ Validates an inflow (minting) transaction.
 
 **Usage**: Inflow transaction initiation, fund token minting
 
-#### `outflow(bytes fund, bytes densityPadding)`
+#### `outflow(bytes fund)`
 
 Validates an outflow (redemption) transaction.
 

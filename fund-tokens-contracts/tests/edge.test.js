@@ -4,6 +4,7 @@ import {
     randomToken,
     randomUtxo,
 } from 'cashscript';
+import { it, expect, test } from 'vitest';
 import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
@@ -158,22 +159,20 @@ describe('edge case test', () => {
         },
     ];
 
-    it('should ensure funds succeed', async ({ expect }) => {
+    test.each(expectedToSucceedFunds)('should ensure funds succeed', async (fundUnderTest) => {
+        console.log('test each invoked');
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
 
         addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
 
-        for(let index = 0; index < expectedToSucceedFunds.length; ++index) {
-            const expectedToFail = expectedToSucceedFunds[index];
-            const transaction = new PublicFundTransactionBuilder({ provider, system });
-            transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
-            await transaction.addBroadcast({ fund: expectedToFail });
-            transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund: fundUnderTest });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
 
-            expect(transaction).not.toFailRequire();
-        }
+        expect(transaction).not.toFailRequire();
     });
 
     const fund = {

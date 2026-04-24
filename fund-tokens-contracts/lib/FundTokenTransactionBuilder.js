@@ -81,7 +81,10 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 nft: swapEndianness(system.fee.nft),
             },
         };
-        this.#fund = fund;
+        this.#fund = {
+            ...fund,
+            assets: fund.assets ?? [],
+        };
         this.#meta = {
             isBitcoinFund: this.#fund.satoshis > 0,
         };
@@ -230,7 +233,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
     async addOutflow({
         amount,
         payBy,
-        bufferHex,
     }) {
         this.#logger.log('transaction builder...adding redemption transaction');
 
@@ -339,14 +341,11 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         }
 
         await calcTokenAssets();
-        
-        // 180 is good up to 12
-        const densityBuffer = this.#fund.assets.length <= 8 ? '' : '00'.repeat(180 * (this.#fund.assets.length - 8));
 
         this.addInputs([
             {
                 ...outflowUtxo,
-                unlocker: managerContract.unlock.outflow(getFundBin(this.#fund), bufferHex ?? densityBuffer) // TODO: support density better, need to calculate the "expensive" operations // '00'.repeat(4325)
+                unlocker: managerContract.unlock.outflow(getFundBin(this.#fund))
             },
             {
                 ...fundUtxo,

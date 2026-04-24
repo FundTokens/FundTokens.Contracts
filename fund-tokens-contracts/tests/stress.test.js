@@ -108,7 +108,7 @@ describe('happy path', () => {
         category: '7777777777777777777777777777777777777777777777777777777777777777',
         amount: 10n,
         satoshis: 1000n,
-        assets: Array.from({ length: 20 }, (_, index) => ({
+        assets: Array.from({ length: 30 }, (_, index) => ({
             category: randomToken().category,
             amount: BigInt(index + 1),
         })),
@@ -185,7 +185,7 @@ describe('happy path', () => {
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
         const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        await transaction.addOutflow({ amount: outflowAmount, bufferHex: '00'.repeat(4500) });
+        await transaction.addOutflow({ amount: outflowAmount });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs(fund.assets.map(a => ({

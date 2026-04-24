@@ -272,7 +272,6 @@ Redeems fund tokens to withdraw underlying assets.
 {
     amount: 1n,         // Number of fund tokens to redeem
     payBy: '0x...',     // Optional: token category for fee payment
-    bufferHex: '0x...'  // Optional: script buffer for density (advanced)
 }
 ```
 
@@ -595,7 +594,6 @@ Common errors and solutions:
 3. **Token Asset Selection**: Same as satoshi - picks largest first
 4. **Transaction Size**: Depends on:
    - Number of assets in fund (adds ~45 bytes per asset for inputs/outputs)
-   - Script buffer for complex transactions (optional bufferHex)
    - Fee token encoding length
 
 **Typical sizes**:
