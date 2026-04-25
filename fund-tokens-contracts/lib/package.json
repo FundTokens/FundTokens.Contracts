@@ -1,6 +1,6 @@
 {
   "name": "@fundtokens/builders",
-  "version": "0.1.0-rc5",
+  "version": "0.1.0-rc6",
   "main": "index.js",
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
