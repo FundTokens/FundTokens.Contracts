@@ -1,3 +1,6 @@
+import { test } from 'vitest';
+import 'cashscript/vitest';
+
 import {
     MockNetworkProvider,
     Network,
@@ -17,8 +20,6 @@ import { generateWallet } from '@/wallet.js';
 
 import systemUnderTestJson from '@lib/art/fee.json' with { type: 'json' };
 
-import 'cashscript/vitest';
-
 const DustAmount = 1000n;
 
 describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () => {
@@ -31,7 +32,12 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const ownerWallet = generateWallet(network);
     const userWallet = generateWallet(network);
 
-    const authToken = randomToken();
+    const authToken = randomToken({
+        nft: {
+            capability: 'none',
+            commitment: 'FF'
+        }
+    });
     const payByToken = randomToken();
     const payByTokenAmount = 1000n;
     const contractToken = randomToken();
@@ -255,6 +261,62 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 token: authUtxo.token,
             });
         expect(transaction).not.toFailRequireWith("unauthorized user");
+    });
+
+    test.each(['FF', '04'])('allows the owner with the correct roles to close the fee thread', async role => {
+        const wallet = generateWallet({ network });
+        const utxo = randomUtxo({
+            satoshis: 10000n,
+            token: {
+                category: authToken.category,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: role
+                }
+            }
+        });
+        provider.addUtxo(wallet.tokenAddress, utxo);
+        const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
+        transaction
+            .addInput(defaultFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(encodedTokenFeeWithDestinationUtxo, systemUnderTest.unlock.close())
+            .addInput(utxo, wallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: wallet.address,
+                amount: DustAmount,
+                token: utxo.token,
+            });
+        expect(transaction).not.toFailRequireWith("unauthorized user");
+    });
+
+    test.each(['08', '02'])('ensures the authorization usuer has the correct role', async role => {
+        const wallet = generateWallet({ network });
+        const utxo = randomUtxo({
+            satoshis: 10000n,
+            token: {
+                category: authToken.category,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: role
+                }
+            }
+        });
+        provider.addUtxo(wallet.tokenAddress, utxo);
+        const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
+        transaction
+            .addInput(defaultFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(encodedTokenFeeWithDestinationUtxo, systemUnderTest.unlock.close())
+            .addInput(utxo, wallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: wallet.address,
+                amount: DustAmount,
+                token: utxo.token,
+            });
+        expect(transaction).toFailRequireWith("unauthorized user");
     });
 
     it('prevents the owner from moving a fee', async ({ expect }) => {

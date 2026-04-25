@@ -40,7 +40,9 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authorization) {
-                authorized = true;  // Owner token found - authorized
+                if((tx.inputs[inputIndex].nftCommitment & bytes(0x01)) == 0x01) {
+                    authorized = true;  // Owner token found - authorized
+                }
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length && !authorized);

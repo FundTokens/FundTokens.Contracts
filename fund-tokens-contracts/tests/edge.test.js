@@ -70,7 +70,7 @@ describe('edge case test', () => {
                     amount: 0n,
                     nft: {
                         capability: 'none',
-                        commitment: '',
+                        commitment: 'FF',
                     }
                 }
             });

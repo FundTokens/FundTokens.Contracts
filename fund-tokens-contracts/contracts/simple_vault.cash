@@ -26,7 +26,9 @@ contract SimpleVault(bytes32 authToken)
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                authorized = true;  // Found the authorization token
+                if((tx.inputs[inputIndex].nftCommitment & bytes(0x80)) == 0x80) {
+                    authorized = true;  // Found the authorization token
+                }
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length && !authorized);

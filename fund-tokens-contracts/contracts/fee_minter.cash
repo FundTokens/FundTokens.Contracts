@@ -38,13 +38,14 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
         // Preserve NFT commitment (minting capability)
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
-
         // Require owner authorization
         bool authorized = false;
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authorization) {
-                authorized = true;
+                if((tx.inputs[inputIndex].nftCommitment & bytes(0x10)) == 0x10) {
+                    authorized = true;
+                }
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length && !authorized);
@@ -61,8 +62,8 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
                     require(tx.outputs[outputIndex].tokenCategory == token);
 
                     // Fee token MUST have a commitment encoding fee details
-                    require(tx.outputs[outputIndex].nftCommitment.length > 0, "must provide a commitment");
-                    
+                    require(tx.outputs[outputIndex].nftCommitment.length >= 40, "must provide minimum fee commitment");
+
                     // Parse commitment: [fee_category | fee_amount | destination_override]
                     bytes fee_category, bytes fee_next1 = tx.outputs[outputIndex].nftCommitment.split(32);
                     // Fee category must be specified (0x00 for Bitcoin, or token category)

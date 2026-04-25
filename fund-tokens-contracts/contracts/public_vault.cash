@@ -19,7 +19,7 @@ pragma cashscript ~0.13.0;
 contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 {
     /**
-     * close(): Permanently closes a public fund by burning all fund tokens
+     * close(): Permanently closes a public fund data stream by burning all public tokens
      * 
      * Validates and aggregates all publicFund NFT commitment data, verifies the hash,
      * confirms authorization, and burns all publicFund tokens from outputs.
@@ -57,7 +57,9 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authorization) {
-                authorized = true;
+                if((tx.inputs[inputIndex].nftCommitment & bytes(0x08)) == 0x08) {
+                    authorized = true;
+                }
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length);

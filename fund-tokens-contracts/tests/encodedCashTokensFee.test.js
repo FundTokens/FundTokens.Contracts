@@ -72,7 +72,7 @@ describe('encoded CashTokens fee testing', () => {
                     amount: 0n,
                     nft: {
                         capability: 'none',
-                        commitment: '',
+                        commitment: 'FF',
                     }
                 }
             });

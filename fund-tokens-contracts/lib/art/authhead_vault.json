@@ -12,11 +12,11 @@
       "inputs": []
     }
   ],
-  "bytecode": "OP_INPUTINDEX OP_0 OP_NUMEQUALVERIFY OP_0 OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUALVERIFY OP_0 OP_0 OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXINPUTCOUNT OP_LESSTHAN OP_2 OP_PICK OP_NOT OP_BOOLAND OP_NOT OP_UNTIL OP_DROP OP_NIP",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\n/**\r\n * AuthHeadVault: Authorization vault with strict positioning requirements\r\n * \r\n * Extends SimpleVault with additional constraints to maintain authhead w/ no token:\r\n * - Must be the first input (index 0)\r\n * - First output must not contain any tokens\r\n * \r\n * Used specifically for authorizing fund's BCMR update operations.\r\n * \r\n * Parameters:\r\n *   authToken: Token category that authorizes fund creation\r\n */\r\ncontract AuthHeadVault(bytes32 authToken)\r\n{\r\n    /**\r\n     * release(): Authorizes authhead operations with strict transaction structure\r\n     * \r\n     * Ensures:\r\n     * - This vault is the first input (positioning control)\r\n     * - First output has no tokens (clean state to maintain authhead integrity)\r\n     * - Authorization token is present in inputs\r\n     */\r\n    function release() {\r\n        // This vault MUST be the first input\r\n        require(this.activeInputIndex == 0, \"expected to be the first input\");\r\n        \r\n        // First output must have no tokens (ensures clean state to maintain authhead integrity)\r\n        require(tx.outputs[0].tokenCategory == 0x, \"no token allowed on authhead\");\r\n\r\n        // Check for authorization token in ANY input\r\n        bool authorized = false;\r\n        int inputIndex = 0;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == authToken) {\r\n                authorized = true;\r\n            }\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length && !authorized);\r\n        require(authorized, \"unauthorized user\");\r\n    }\r\n}",
+  "bytecode": "OP_INPUTINDEX OP_0 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_0 OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUALVERIFY OP_0 OP_0 OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_IF OP_DUP OP_UTXOTOKENCOMMITMENT OP_2 OP_AND OP_2 OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXINPUTCOUNT OP_LESSTHAN OP_2 OP_PICK OP_NOT OP_BOOLAND OP_NOT OP_UNTIL OP_DROP OP_NIP",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n/**\r\n * AuthHeadVault: Authorization vault with strict positioning requirements\r\n * \r\n * Extends SimpleVault with additional constraints to maintain authhead w/ no token:\r\n * - Must be the first input (index 0)\r\n * - First output must not contain any tokens\r\n * \r\n * Used specifically for authorizing fund's BCMR update operations.\r\n * \r\n * Parameters:\r\n *   authToken: Token category that authorizes fund creation\r\n */\r\ncontract AuthHeadVault(bytes32 authToken)\r\n{\r\n    /**\r\n     * release(): Authorizes authhead operations with strict transaction structure\r\n     * \r\n     * Ensures:\r\n     * - This vault is the first input (positioning control)\r\n     * - First output has no tokens (clean state to maintain authhead integrity)\r\n     * - Authorization token is present in inputs\r\n     */\r\n    function release() {\r\n        // This vault MUST be the first input\r\n        require(this.activeInputIndex == 0, \"expected to be the first input\");\r\n\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        \r\n        // First output must have no tokens (ensures clean state to maintain authhead integrity)\r\n        require(tx.outputs[0].tokenCategory == 0x, \"no token allowed on authhead\");\r\n\r\n        // Check for authorization token in ANY input\r\n        bool authorized = false;\r\n        int inputIndex = 0;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == authToken) {\r\n                if((tx.inputs[inputIndex].nftCommitment & bytes(0x02)) == 0x02) {\r\n                    authorized = true;\r\n                }\r\n            }\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length && !authorized);\r\n        require(authorized, \"unauthorized user\");\r\n    }\r\n}",
   "debug": {
-    "bytecode": "c0009d00d1008800006576ce53798763517b757c68768b7776c39f5279919a91667577",
-    "sourceMap": "27:16:27:37;:41::42;:8::78:1;30:27:30:28:0;:16::43:1;:47::49:0;:8::83:1;33:26:33:31:0;34:25:34:26;35:8:40:62;36:25:36:35;:15::50:1;:54::63:0;;:15:::1;:65:38:13:0;37:29:37:33;:16::34:1;;;36:65:38:13;39:25:39:35:0;:::39:1;:12::40;40:16:40:26:0;:29::45;:16:::1;:50::60:0;;:49:::1;:16;35:8::62;;25:4:42:5;",
+    "bytecode": "c0009dc0c7c0cd8800d1008800006576ce5379876376cf5284528763517b757c6868768b7776c39f5279919a91667577",
+    "sourceMap": "27:16:27:37;:41::42;:8::78:1;29:26:29:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;32:27:32:28:0;:16::43:1;:47::49:0;:8::83:1;35:26:35:31:0;36:25:36:26;37:8:44:62;38:25:38:35;:15::50:1;:54::63:0;;:15:::1;:65:42:13:0;39:30:39:40;:20::55:1;:64::68:0;:20::69:1;:74::78:0;:19:::1;:80:41:17:0;40:33:40:37;:20::38:1;;;39:80:41:17;38:65:42:13;43:25:43:35:0;:::39:1;:12::40;44:16:44:26:0;:29::45;:16:::1;:50::60:0;;:49:::1;:16;37:8::62;;25:4:46:5;",
     "logs": [],
     "requires": [
       {
@@ -25,13 +25,17 @@
         "message": "expected to be the first input"
       },
       {
-        "ip": 7,
-        "line": 30,
+        "ip": 8,
+        "line": 29
+      },
+      {
+        "ip": 12,
+        "line": 32,
         "message": "no token allowed on authhead"
       },
       {
-        "ip": 34,
-        "line": 41,
+        "ip": 47,
+        "line": 45,
         "message": "unauthorized user"
       }
     ]
@@ -43,5 +47,5 @@
       "enforceFunctionParameterTypes": true
     }
   },
-  "updatedAt": "2026-04-24T13:18:36.838Z"
+  "updatedAt": "2026-04-25T04:17:29.281Z"
 }

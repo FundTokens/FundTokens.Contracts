@@ -71,7 +71,7 @@ describe('happy path', () => {
                     amount: 0n,
                     nft: {
                         capability: 'none',
-                        commitment: '',
+                        commitment: 'FF',
                     }
                 }
             });

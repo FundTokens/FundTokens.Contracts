@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "main": "index.js",
-  "license": "Copyright (c) 2026 FoldingCash LLC, doing business as Fun(d)Tokens. All rights reserved.",
+  "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "cashc": "0.13.0-next.6",
     "cashscript": "0.13.0-next.6"

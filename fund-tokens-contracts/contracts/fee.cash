@@ -45,8 +45,10 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                // Found authorization token - user is authorized to close
-                authorized = true;
+                if((tx.inputs[inputIndex].nftCommitment & bytes(0x04)) == 0x04) {
+                    // Found authorization token - user is authorized to close
+                    authorized = true;
+                }
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length && !authorized);

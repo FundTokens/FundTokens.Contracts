@@ -70,7 +70,7 @@ describe('testing transaction integrity', () => {
                     amount: 0n,
                     nft: {
                         capability: 'none',
-                        commitment: '',
+                        commitment: 'FF',
                     }
                 }
             });
