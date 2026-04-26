@@ -203,16 +203,17 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create });
 
-        const broadcastUtxos = await startupContract.getUtxos();
+        const startupUtxos = await startupContract.getUtxos();
         const mintInflowUtxos = await mintInflowContract.getUtxos();
         const mintOutflowUtxos = await mintOutflowContract.getUtxos();
         const publicUtxos = await publicFundContract.getUtxos();
+
         const inflowUtxos = mintInflowUtxos.filter(u => u.token?.category === this.#system.inflow);
         const outflowUtxos = mintOutflowUtxos.filter(u => u.token?.category === this.#system.outflow);
         const publicFundUtxos = publicUtxos.filter(u => u.token?.category === this.#system.publicFund)
 
 
-        const broadcastUtxo = broadcastUtxos[getRandomInt(broadcastUtxos.length)];
+        const startupUtxo = startupUtxos[getRandomInt(startupUtxos.length)];
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
         const publicFundUtxo = publicFundUtxos[getRandomInt(publicFundUtxos.length)];
@@ -223,7 +224,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         this.addInputs([
             {
-                ...broadcastUtxo,
+                ...startupUtxo,
                 unlocker: startupContract.unlock.start(getFundBin(fund)),
             }, 
             {
@@ -249,8 +250,8 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             }),
             {
                 to: startupContract.tokenAddress,
-                amount: broadcastUtxo.satoshis,
-                token: broadcastUtxo.token,
+                amount: startupUtxo.satoshis,
+                token: startupUtxo.token,
             },
             {
                 to: mintInflowContract.tokenAddress,
