@@ -21,53 +21,53 @@
     }
   ],
   "bytecode": "OP_INPUTINDEX OP_UTXOTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_2 OP_PICK OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_EQUALVERIFY OP_0 OP_0 OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_3 OP_PICK OP_EQUAL OP_IF OP_DUP OP_UTXOTOKENCOMMITMENT OP_16 OP_AND OP_16 OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXINPUTCOUNT OP_LESSTHAN OP_2 OP_PICK OP_NOT OP_BOOLAND OP_NOT OP_UNTIL OP_SWAP OP_VERIFY OP_0 OP_BEGIN OP_DUP OP_INPUTINDEX OP_NUMNOTEQUAL OP_OVER OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUAL OP_NOT OP_BOOLAND OP_IF OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUAL OP_IF OP_DUP OP_OUTPUTBYTECODE OP_5 OP_PICK OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_4 OP_PICK OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCOMMITMENT OP_SIZE OP_NIP 28 OP_GREATERTHANOREQUAL OP_VERIFY OP_DUP OP_OUTPUTTOKENCOMMITMENT 20 OP_SPLIT OP_OVER OP_0 OP_EQUAL OP_NOT OP_VERIFY OP_DUP OP_8 OP_SPLIT OP_DROP OP_DUP OP_BIN2NUM OP_0 OP_GREATERTHAN OP_VERIFY OP_2DROP OP_DROP OP_ENDIF OP_ENDIF OP_DUP OP_1ADD OP_NIP OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_2DROP OP_2DROP OP_DROP OP_1",
-  "source": "pragma cashscript ~0.13.0;\r\n\r\n/**\r\n * FeeMinter: Authorization-controlled fee token minting with encoded fee commitments\r\n * \r\n * Similar to SimpleMinter, but allows encoding fee details in NFT commitments.\r\n * Fee tokens carry commitment data: [category | amount | destination_override]\r\n * Used to create tokens that encode specific fee amounts and routing.\r\n * \r\n * Destination override is variable-length by design - allows forward compatibility\r\n * with future address formats or multisig patterns without redeploying contract.\r\n * \r\n * Parameters:\r\n *   authorization: Token category that authorizes minting\r\n *   token: Fee token category being minted\r\n *   destination: Default destination for fee payments\r\n */\r\ncontract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)\r\n{\r\n    /**\r\n     * mint(): Mints fee tokens with commitment encoding\r\n     * \r\n     * Fee commitment format: [fee_category (32) | fee_amount (8) | destination_override (0+)]\r\n     * - Category: 0x00 = Bitcoin satoshis, else = token category\r\n     * - Amount: int64 LE integer\r\n     * - Destination: Optional locking bytecode override for fee routing\r\n     */\r\n    function mint() {\r\n        // Verify this is a fee minting token\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);\r\n\r\n        // Contract returns to itself (locked pattern)\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        \r\n        // Keep the fee minting token\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        \r\n        // Preserve NFT commitment (minting capability)\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        // Require owner authorization\r\n        bool authorized = false;\r\n        int inputIndex = 0;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == authorization) {\r\n                if((tx.inputs[inputIndex].nftCommitment & bytes(0x10)) == 0x10) {\r\n                    authorized = true;\r\n                }\r\n            }\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length && !authorized);\r\n        require(authorized, \"unauthorized user\");\r\n\r\n\r\n        // Verify all outputs minting fee tokens have proper commitment\r\n        int outputIndex = 0;\r\n        do {\r\n            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {\r\n                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {\r\n                    // Fee tokens go to the destination\r\n                    require(tx.outputs[outputIndex].lockingBytecode == destination);\r\n                    require(tx.outputs[outputIndex].tokenCategory == token);\r\n\r\n                    // Fee token MUST have a commitment encoding fee details\r\n                    require(tx.outputs[outputIndex].nftCommitment.length >= 40, \"must provide minimum fee commitment\");\r\n\r\n                    // Parse commitment: [fee_category | fee_amount | destination_override]\r\n                    bytes fee_category, bytes fee_next1 = tx.outputs[outputIndex].nftCommitment.split(32);\r\n                    // Fee category must be specified (0x00 for Bitcoin, or token category)\r\n                    require(fee_category != 0x);\r\n                    \r\n                    bytes fee_amount = fee_next1.slice(0, 8);\r\n                    // Fee amount must be positive\r\n                    require(int(fee_amount) > 0);\r\n                    // Destination is optional (0x for default, or locking bytecode)\r\n                }\r\n            }\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
+  "source": "pragma cashscript ~0.13.0;\r\n\r\n/**\r\n * FeeMinter: Authorization-controlled fee token minting with encoded fee commitments\r\n * \r\n * Similar to SimpleMinter, but allows encoding fee details in NFT commitments.\r\n * Fee tokens carry commitment data: [category | amount | destination_override]\r\n * Used to create tokens that encode specific fee amounts and routing.\r\n * \r\n * Destination override is variable-length by design - allows forward compatibility\r\n * with future address formats or multisig patterns without redeploying contract.\r\n *\r\n * \r\n * Parameters:\r\n *   authorization: Token category that authorizes minting\r\n *   token: Fee token category being minted\r\n *   destination: Default destination for fee payments\r\n */\r\ncontract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)\r\n{\r\n    /**\r\n     * mint(): Mints fee tokens with commitment encoding\r\n     * \r\n     * Fee commitment format: [fee_category (32) | fee_amount (8) | destination_override (0+)]\r\n     * - Category: 0x00 = Bitcoin satoshis, else = token category\r\n     * - Amount: int64 LE integer\r\n     * - Destination: Optional locking bytecode override for fee routing\r\n     */\r\n    function mint() {\r\n        // Verify this is a fee minting token\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);\r\n\r\n        // Contract returns to itself (locked pattern)\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        \r\n        // Keep the fee minting token\r\n        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        \r\n        // Preserve NFT commitment (minting capability)\r\n        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);\r\n\r\n        // Require owner authorization\r\n        bool authorized = false;\r\n        int inputIndex = 0;\r\n        do {\r\n            if(tx.inputs[inputIndex].tokenCategory == authorization) {\r\n                if((tx.inputs[inputIndex].nftCommitment & bytes(0x10)) == 0x10) {\r\n                    authorized = true;\r\n                }\r\n            }\r\n            inputIndex = inputIndex + 1;\r\n        } while(inputIndex < tx.inputs.length && !authorized);\r\n        require(authorized, \"unauthorized user\");\r\n\r\n\r\n        // Verify all outputs minting fee tokens have proper commitment\r\n        int outputIndex = 0;\r\n        do {\r\n            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {\r\n                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {\r\n                    // Fee tokens go to the destination\r\n                    require(tx.outputs[outputIndex].lockingBytecode == destination);\r\n                    require(tx.outputs[outputIndex].tokenCategory == token);\r\n\r\n                    // Fee token MUST have a commitment encoding fee details\r\n                    require(tx.outputs[outputIndex].nftCommitment.length >= 40, \"must provide minimum fee commitment\");\r\n\r\n                    // Parse commitment: [fee_category | fee_amount | destination_override]\r\n                    bytes fee_category, bytes fee_next1 = tx.outputs[outputIndex].nftCommitment.split(32);\r\n                    // Fee category must be specified (0x00 for Bitcoin, or token category)\r\n                    require(fee_category != 0x);\r\n                    \r\n                    bytes fee_amount = fee_next1.slice(0, 8);\r\n                    // Fee amount must be positive\r\n                    require(int(fee_amount) > 0);\r\n                    // Destination is optional (0x for default, or locking bytecode)\r\n                }\r\n            }\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n    }\r\n}",
   "debug": {
     "bytecode": "c0ce01207f75527988c0c7c0cd88c0cec0d188c0cfc0d28800006576ce5379876376cf6084608763517b757c6868768b7776c39f5279919a91667c69006576c09e78d10087919a6376d101207f755479876376cd55798876d154798876d282770128a26976d201207f780087916976587f75768100a0696d756868768b7776c4a2666d6d7551",
-    "sourceMap": "30:26:30:47;:16::62:1;:72::74:0;:16::75:1;;:79::84:0;;:8::86:1;33:26:33:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;36:26:36:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;39:26:39:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;42:26:42:31:0;43:25:43:26;44:8:51:62;45:25:45:35;:15::50:1;:54::67:0;;:15:::1;:69:49:13:0;46:30:46:40;:20::55:1;:64::68:0;:20::69:1;:74::78:0;:19:::1;:80:48:17:0;47:33:47:37;:20::38:1;;;46:80:48:17;45:69:49:13;50:25:50:35:0;:::39:1;:12::40;51:16:51:26:0;:29::45;:16:::1;:50::60:0;;:49:::1;:16;44:8::62;;52:16:52:26:0;:8::49:1;56:26:56:27:0;57:8:79:49;58:15:58:26;:30::51;:15:::1;:66::77:0;:55::92:1;:96::98:0;:55:::1;;:15;:100:77:13:0;59:30:59:41;:19::56:1;:66::68:0;:19::69:1;;:73::78:0;;:19:::1;:80:76:17:0;61:39:61:50;:28::67:1;:71::82:0;;:20::84:1;62:39:62:50:0;:28::65:1;:69::74:0;;:20::76:1;65:39:65:50:0;:28::65:1;:::72;;:76::78:0;:28:::1;:20::119;68:69:68:80:0;:58::95:1;:102::104:0;:58::105:1;70:28:70:40:0;:44::46;:28:::1;;:20::48;72:39:72::0;:58::59;:39::60:1;;74:32:74:42:0;:28::43:1;:46::47:0;:28:::1;:20::49;59:80:76:17;;;58:100:77:13;78:26:78:37:0;:::41:1;:12::42;79:16:79:27:0;:30::47;57:8::49:1;;28:4:80:5;;;",
+    "sourceMap": "31:26:31:47;:16::62:1;:72::74:0;:16::75:1;;:79::84:0;;:8::86:1;34:26:34:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;37:26:37:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;40:26:40:47:0;:16::62:1;:77::98:0;:66::113:1;:8::115;43:26:43:31:0;44:25:44:26;45:8:52:62;46:25:46:35;:15::50:1;:54::67:0;;:15:::1;:69:50:13:0;47:30:47:40;:20::55:1;:64::68:0;:20::69:1;:74::78:0;:19:::1;:80:49:17:0;48:33:48:37;:20::38:1;;;47:80:49:17;46:69:50:13;51:25:51:35:0;:::39:1;:12::40;52:16:52:26:0;:29::45;:16:::1;:50::60:0;;:49:::1;:16;45:8::62;;53:16:53:26:0;:8::49:1;57:26:57:27:0;58:8:80:49;59:15:59:26;:30::51;:15:::1;:66::77:0;:55::92:1;:96::98:0;:55:::1;;:15;:100:78:13:0;60:30:60:41;:19::56:1;:66::68:0;:19::69:1;;:73::78:0;;:19:::1;:80:77:17:0;62:39:62:50;:28::67:1;:71::82:0;;:20::84:1;63:39:63:50:0;:28::65:1;:69::74:0;;:20::76:1;66:39:66:50:0;:28::65:1;:::72;;:76::78:0;:28:::1;:20::119;69:69:69:80:0;:58::95:1;:102::104:0;:58::105:1;71:28:71:40:0;:44::46;:28:::1;;:20::48;73:39:73::0;:58::59;:39::60:1;;75:32:75:42:0;:28::43:1;:46::47:0;:28:::1;:20::49;60:80:77:17;;;59:100:78:13;79:26:79:37:0;:::41:1;:12::42;80:16:80:27:0;:30::47;58:8::49:1;;29:4:81:5;;;",
     "logs": [],
     "requires": [
       {
         "ip": 10,
-        "line": 30
+        "line": 31
       },
       {
         "ip": 15,
-        "line": 33
+        "line": 34
       },
       {
         "ip": 20,
-        "line": 36
+        "line": 37
       },
       {
         "ip": 25,
-        "line": 39
+        "line": 40
       },
       {
         "ip": 61,
-        "line": 52,
+        "line": 53,
         "message": "unauthorized user"
       },
       {
         "ip": 87,
-        "line": 61
-      },
-      {
-        "ip": 92,
         "line": 62
       },
       {
+        "ip": 92,
+        "line": 63
+      },
+      {
         "ip": 99,
-        "line": 65,
+        "line": 66,
         "message": "must provide minimum fee commitment"
       },
       {
         "ip": 108,
-        "line": 70
+        "line": 71
       },
       {
         "ip": 117,
-        "line": 74
+        "line": 75
       }
     ]
   },
@@ -78,5 +78,5 @@
       "enforceFunctionParameterTypes": true
     }
   },
-  "updatedAt": "2026-04-25T04:17:29.997Z"
+  "updatedAt": "2026-04-26T17:57:37.198Z"
 }

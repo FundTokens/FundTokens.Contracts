@@ -6,6 +6,8 @@ import {
 } from 'cashscript';
 import 'cashscript/vitest';
 
+import { bigIntToBinUint256BEClamped, binToHex } from '@bitauth/libauth'
+
 import { generateWallet } from '@/wallet.js';
 
 import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';

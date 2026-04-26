@@ -16,6 +16,7 @@ import {
     getBestFee,
     getRandomInt,
     withDust,
+    categoryAscending,
 } from './utils.js';
 
 import managerJson from './art/manager.json' with { type: 'json' };
@@ -72,7 +73,9 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
             throw new Error('No system configuration provided, unable to continue');
         }
         super({ provider });
-        this.#system = system;
+        this.#system = {
+            ...system,
+        };
         this.#swapped = {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
@@ -83,7 +86,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         };
         this.#fund = {
             ...fund,
-            assets: fund.assets ?? [],
+            assets: [...fund.assets.map(a => ({ ...a })).sort(categoryAscending)] ?? [],
         };
         this.#meta = {
             isBitcoinFund: this.#fund.satoshis > 0,
@@ -190,13 +193,13 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 unlocker: managerContract.unlock.inflow(getFundBin(this.#fund)),
             },
             {
+                ...feeUtxo,
+                unlocker: feeContract.unlock.pay(),
+            },
+            {
                 ...fundUtxo,
                 unlocker: fundContract.unlock.mint(),
             },
-            {
-                ...feeUtxo,
-                unlocker: feeContract.unlock.pay(),
-            }
         ])
         .addOutputs([
             withDust({
@@ -205,8 +208,8 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                     ...inflowUtxo.token,
                 },
             }),
-            fundContractOutput,
             ...bestFee.outputs,
+            fundContractOutput,
             ...bitcoinOutputs,
             ...assetContracts.map((assetContract, i) => {
                 return withDust({
@@ -348,15 +351,15 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 unlocker: managerContract.unlock.outflow(getFundBin(this.#fund))
             },
             {
-                ...fundUtxo,
-                unlocker: fundContract.unlock.redeem()
-            },
-            {
                 ...feeUtxo,
                 unlocker: feeContract.unlock.pay()
             },
+            {
+                ...fundUtxo,
+                unlocker: fundContract.unlock.redeem()
+            },
             ...satoshiAssetInputs,
-            ...assetInputs
+            ...assetInputs,
         ])
         .addOutputs([
             withDust({
@@ -365,6 +368,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                     ...outflowUtxo.token,
                 },
             }),
+            ...bestFee.outputs,
             withDust({
                 to: fundContract.tokenAddress,
                 token: {
@@ -372,7 +376,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                     amount: updatedFundAmount,
                 },
             }),
-            ...bestFee.outputs,
             ...satoshiAssetOutputs,
             ...assetOutputs
         ]);

@@ -32,15 +32,12 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      * - If no tokens remain, output has no token (ready for next redeem)
      */
     function mint() {
-        // Previous input must be inflow manager signaling this mint operation
-        // or another fund manager
-        bool prevInflow = tx.inputs[this.activeInputIndex - 1].tokenCategory == inflowToken;
+        bool prevInflow = tx.inputs[this.activeInputIndex - 2].tokenCategory == inflowToken && tx.inputs[this.activeInputIndex - 2].nftCommitment == bytes(fundCategory + fundHash);
+
         if(prevInflow) {
-            require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));    
-            // This contract returns to itself (fund UTXO stays alive)
-            require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode); // at least one UTXO is returned
-            if(tx.outputs[this.activeInputIndex].tokenCategory != 0x) { // if tokens are returning, then it must be the fund's tokens
-                require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory);
+            require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 1].lockingBytecode); // at least one UTXO is returned
+            if(tx.outputs[this.activeInputIndex + 1].tokenCategory != 0x) { // if tokens are returning, then it must be the fund's tokens
+                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fundCategory);
             }
         }
         bool prevFundManager = tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode;
@@ -55,14 +52,17 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      * - Output amount > input amount (collecting tokens)
      */
     function redeem() {
-        bool prevOutflow = tx.inputs[this.activeInputIndex - 1].tokenCategory == outflowToken;
+        bool prevOutflow = tx.inputs[this.activeInputIndex - 2].tokenCategory == outflowToken && tx.inputs[this.activeInputIndex - 2].nftCommitment == bytes(fundCategory + fundHash);
+
         if(prevOutflow) {
-            require(tx.inputs[this.activeInputIndex - 1].nftCommitment == bytes(fundCategory + fundHash));
             // This contract returns to itself (fund UTXO stays alive)
-            require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode); // at least one is returned
-            require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory); // this output can only have the fund's tokens in it
+            require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 1].lockingBytecode); // at least one is returned
+            require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fundCategory); // this output can only have the fund's tokens in it
         }
         bool prevFundManager = tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode;
+        if(prevFundManager && tx.inputs[this.activeInputIndex - 1].tokenCategory != 0x) {
+            require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory);
+        }
         require(prevOutflow || prevFundManager);
     }
 }

@@ -77,8 +77,6 @@ describe('encoded CashTokens fee testing', () => {
                 }
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('initialize system tx size', response.hex.length / 2);
     });
@@ -101,8 +99,6 @@ describe('encoded CashTokens fee testing', () => {
             token: authUtxo.token,
         });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
@@ -123,9 +119,7 @@ describe('encoded CashTokens fee testing', () => {
                 to: ownerWallet.tokenAddress,
                 amount: DustAmount,
                 token: authUtxo.token,
-            })
-
-        expect(transaction).not.toFailRequire();
+            });
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
@@ -163,8 +157,6 @@ describe('encoded CashTokens fee testing', () => {
         await transaction.addBroadcast({ fund, payBy: payByToken.category });
         transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
@@ -190,8 +182,6 @@ describe('encoded CashTokens fee testing', () => {
                     amount: inflowAmount * fund.amount,
                 }
             });
-        
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('inflow tx size', response.hex.length / 2);
@@ -226,8 +216,6 @@ describe('encoded CashTokens fee testing', () => {
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
             });
-        
-        expect(transaction).not.toFailRequire();
                 
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);

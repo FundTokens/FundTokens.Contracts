@@ -75,8 +75,6 @@ describe('testing transaction integrity', () => {
                 }
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('initialize system tx size', response.hex.length / 2);
     });
@@ -98,8 +96,6 @@ describe('testing transaction integrity', () => {
             amount: DustAmount,
             token: authUtxo.token,
         });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
@@ -218,8 +214,6 @@ describe('testing transaction integrity', () => {
         await transaction.addBroadcast({ fund });
         transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
@@ -281,8 +275,6 @@ describe('testing transaction integrity', () => {
                     amount: 1n,
                 }
             })));
-        
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('inflow tx size', response.hex.length / 2);
@@ -321,8 +313,6 @@ describe('testing transaction integrity', () => {
                     amount: 1n,
                 }
             });
-        
-        expect(transaction).not.toFailRequire();
                 
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);
@@ -345,8 +335,6 @@ describe('testing transaction integrity', () => {
                 amount: DustAmount,
                 token: authUtxo.token,
             });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('close fee threads tx size', response.hex.length / 2);

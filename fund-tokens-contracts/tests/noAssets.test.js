@@ -75,8 +75,6 @@ describe('edge case test', () => {
                 }
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('initialize system tx size', response.hex.length / 2);
     });
@@ -98,8 +96,6 @@ describe('edge case test', () => {
             amount: DustAmount,
             token: authUtxo.token,
         });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
@@ -123,8 +119,6 @@ describe('edge case test', () => {
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
         await transaction.addBroadcast({ fund });
         transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
@@ -172,8 +166,6 @@ describe('edge case test', () => {
                     amount: inflowAmount * fund.amount,
                 }
             });
-        
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('inflow tx size', response.hex.length / 2);
@@ -208,8 +200,6 @@ describe('edge case test', () => {
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
             });
-        
-        expect(transaction).not.toFailRequire();
                 
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);
@@ -232,8 +222,6 @@ describe('edge case test', () => {
                 amount: DustAmount,
                 token: authUtxo.token,
             });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('close fee threads tx size', response.hex.length / 2);

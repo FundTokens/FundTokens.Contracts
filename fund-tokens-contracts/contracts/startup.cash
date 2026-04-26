@@ -55,6 +55,11 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 
             // Assets must be in ascending order by category
             if(lastAssetCategory != 0x) {
+                if(int(lastAssetCategory + 0x00) >= int(nft_assetCategory + 0x00)) {
+                    int iLast = int(lastAssetCategory + 0x00);
+                    int iNft = int(nft_assetCategory + 0x00);
+                    console.log('checking asset ordering', lastAssetCategory, nft_assetCategory, iLast, iNft);
+                }
                 require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
             }
 

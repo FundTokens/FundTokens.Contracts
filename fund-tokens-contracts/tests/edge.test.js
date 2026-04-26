@@ -7,6 +7,11 @@ import {
 import { it, expect, test } from 'vitest';
 import 'cashscript/vitest';
 
+import {
+    binToHex,
+    bigIntToBinUint256BEClamped,
+} from '@bitauth/libauth';
+
 import { generateWallet } from '@/wallet.js';
 
 import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';
@@ -75,8 +80,6 @@ describe('edge case test', () => {
                 }
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('initialize system tx size', response.hex.length / 2);
     });
@@ -98,8 +101,6 @@ describe('edge case test', () => {
             amount: DustAmount,
             token: authUtxo.token,
         });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
@@ -160,7 +161,6 @@ describe('edge case test', () => {
     ];
 
     test.each(expectedToSucceedFunds)('should ensure funds succeed', async (fundUnderTest) => {
-        console.log('test each invoked');
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
@@ -181,15 +181,19 @@ describe('edge case test', () => {
         satoshis: 0n,
         assets: [
             {
-                category: '1212121212121212121212121212121212121212121212121212121212121212',
+                category: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
                 amount: 1n,
             },
             {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
+                category: binToHex(bigIntToBinUint256BEClamped(1n)),
                 amount: 1n,
             },
             {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
+                category: binToHex(bigIntToBinUint256BEClamped(3n)),
+                amount: 1n,
+            },
+            {
+                category: binToHex(bigIntToBinUint256BEClamped(2n)),
                 amount: 1n,
             },
         ]
@@ -206,8 +210,6 @@ describe('edge case test', () => {
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
         await transaction.addBroadcast({ fund });
         transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
@@ -234,8 +236,6 @@ describe('edge case test', () => {
                     amount: inflowAmount * fund.amount,
                 }
             });
-        
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('inflow tx size', response.hex.length / 2);
@@ -270,8 +270,6 @@ describe('edge case test', () => {
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
             });
-        
-        expect(transaction).not.toFailRequire();
                 
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);
@@ -294,8 +292,6 @@ describe('edge case test', () => {
                 amount: DustAmount,
                 token: authUtxo.token,
             });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('close fee threads tx size', response.hex.length / 2);

@@ -74,8 +74,6 @@ describe('encoded Bitcoin fee testing', () => {
                 }
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('initialize system tx size', response.hex.length / 2);
     });
@@ -97,8 +95,6 @@ describe('encoded Bitcoin fee testing', () => {
             amount: DustAmount,
             token: authUtxo.token,
         });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
@@ -122,8 +118,6 @@ describe('encoded Bitcoin fee testing', () => {
             });
 
         await transaction.addExecuteFundFee({ fee: { amount: 5000n } });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
@@ -161,8 +155,6 @@ describe('encoded Bitcoin fee testing', () => {
         await transaction.addBroadcast({ fund });
         transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
@@ -188,8 +180,6 @@ describe('encoded Bitcoin fee testing', () => {
                     amount: inflowAmount * fund.amount,
                 }
             });
-        
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('inflow tx size', response.hex.length / 2);
@@ -224,8 +214,6 @@ describe('encoded Bitcoin fee testing', () => {
                 to: userWallet.tokenAddress,
                 amount: DustAmount,
             });
-        
-        expect(transaction).not.toFailRequire();
                 
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);

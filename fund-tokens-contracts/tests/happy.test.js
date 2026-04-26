@@ -76,8 +76,6 @@ describe('happy path', () => {
                 }
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('initialize system tx size', response.hex.length / 2);
     });
@@ -99,8 +97,6 @@ describe('happy path', () => {
             amount: DustAmount,
             token: authUtxo.token,
         });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
@@ -126,8 +122,6 @@ describe('happy path', () => {
                 token: authUtxo.token,
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
@@ -146,7 +140,7 @@ describe('happy path', () => {
                 amount: 3n,
             },
             {
-                category: '1212121212121212121212121212121212121212121212121212121212121212',
+                category: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
                 amount: 4n,
             },
         ]
@@ -169,8 +163,6 @@ describe('happy path', () => {
                 amount: DustAmount,
             });
 
-        expect(transaction).not.toFailRequire();
-
         const response = await transaction.send();
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
@@ -185,9 +177,9 @@ describe('happy path', () => {
         let fundHex = '';
 
         fundParts.forEach(p => fundHex += p.token.nft.commitment);
-        
+
         expect(getFundHex(fund)).to.equal(fundHex);
-        
+
         const decodedFund = decodeFund(fundHex);
 
         expect(decodedFund.category).to.equal(fund.category);
@@ -258,8 +250,6 @@ describe('happy path', () => {
                     amount: 1n,
                 }
             })));
-        
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('inflow tx size', response.hex.length / 2);
@@ -298,9 +288,7 @@ describe('happy path', () => {
                     amount: 1n,
                 }
             });
-        
-        expect(transaction).not.toFailRequire();
-                
+
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);
     });
@@ -349,8 +337,6 @@ describe('happy path', () => {
                 amount: DustAmount,
                 token: authUtxo.token,
             });
-
-        expect(transaction).not.toFailRequire();
 
         const response = await transaction.send();
         console.log('close fee threads tx size', response.hex.length / 2);

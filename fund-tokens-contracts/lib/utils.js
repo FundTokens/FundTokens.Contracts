@@ -28,7 +28,7 @@ export const withDust = output => {
     }
 };
 
-const categoryAscending = (a, b) => {
+export const categoryAscending = (a, b) => {
     return a.category.localeCompare(b.category);
 };
 
@@ -39,12 +39,16 @@ const categoryAscending = (a, b) => {
 // three = 168bytes
 // four = 208bytes
 export function getFundHex(fund) {
+    const fundClone = {
+        ...fund,
+        assets: [...fund.assets.map(a => ({ ...a }))],
+    };
     const {
         category,
         amount,
         satoshis,
         assets,
-    } = fund;
+    } = fundClone;
     const hex = [];
     hex.push(swapEndianness(category)); // 32 bytes
     hex.push(binToHex(bigIntToBinUint64LEClamped(amount))); // 8 bytes

@@ -28,18 +28,28 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
      * This contract only gates access; amounts are verified elsewhere.
      */
     function release() {
-        bool firstAssetManager = tx.inputs[this.activeInputIndex - 3].tokenCategory == outflowToken;
-        if(firstAssetManager) {
-            require(tx.inputs[this.activeInputIndex - 3].nftCommitment.slice(32, 64) == fundHash);
+        bool prevOutflow = false;
+        int inputIndex = this.activeInputIndex - 3; // at least this far but could be further
+
+        while(inputIndex >= 0 && !prevOutflow) {
+            if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
+                require(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash);
+                prevOutflow = true;
+            }
+            inputIndex = inputIndex - 1;
         }
-        int parametersLength = 35;
+
+        int parametersLength = 36;
         bool additionalAssetManager = tx.inputs[this.activeInputIndex].unlockingBytecode.slice(parametersLength, tx.inputs[this.activeInputIndex].unlockingBytecode.length - 1) == tx.inputs[this.activeInputIndex - 1].unlockingBytecode.slice(parametersLength, tx.inputs[this.activeInputIndex - 1].unlockingBytecode.length - 1);
         if(additionalAssetManager) {
-            bytes previousAsset = tx.inputs[this.activeInputIndex - 1].unlockingBytecode.slice(3, 35);
+            bytes previousAsset = tx.inputs[this.activeInputIndex - 1].unlockingBytecode.slice(4, 36);
 
-            require(int(previousAsset + 0x00) < int(assetCategory + 0x00));
+            int iPrevious = int(previousAsset + 0x00);
+            int iCurrent = int(assetCategory + 0x00);
+
+            require(iPrevious < iCurrent || iPrevious == iCurrent);
         }
-        require(firstAssetManager || additionalAssetManager);
+        require(prevOutflow || additionalAssetManager);
         
         // Verify asset type matches
         bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
