@@ -7,9 +7,7 @@ A JavaScript library for interacting with FundTokens smart contracts on the Bitc
 - **Fund Creation**: Create new public funds with custom asset compositions
 - **Token Minting**: Deposit assets to mint fund tokens
 - **Token Redemption**: Withdraw assets by redeeming fund tokens
-- **Multi-Contract Coordination**: Handles complex transaction flows across 13 smart contracts
-- **Threaded Operations**: Supports high throughput through parallel execution threads
-- **TypeScript Support**: Full TypeScript typing for better development experience
+- **Multi-Contract Coordination**: Handles complex transaction flows across many smart contracts
 
 ## Installation
 

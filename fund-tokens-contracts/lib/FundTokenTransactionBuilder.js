@@ -104,18 +104,18 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         const fundHash = hashFund(this.#fund);
 
         const assetContracts = [];
-        
+
         let satoshiAssetContract = undefined;
-        if(this.#fund.satoshis > 0) {
+        if (this.#fund.satoshis > 0) {
             satoshiAssetContract = new Contract(assetJson, [this.#swapped.outflow, fundHash, BitcoinCategory], { provider: this.provider });
         }
 
         assets.forEach(a => {
             const fundAssetCategory = swapEndianness(a.category);
-            
+
             // 32 32 32
             const assetContract = new Contract(assetJson, [this.#swapped.outflow, fundHash, fundAssetCategory], { provider: this.provider });
-            
+
             assetContracts.push(assetContract);
         });
 
@@ -143,7 +143,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
-    // TODO: Scaling fund UTXO selection
     // As new threads are added to the fund token contract, we should select for inflow tx the UTXO with the most tokens
     // Although this means we still target one thread, should have a range maybe and then randomly select
     // Maybe should just randomly select enough to fulfills the needs for the tx
@@ -154,7 +153,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         amount,
         payBy,
     }) {
-        this.#logger.log('transaction builder...adding minting transaction');
+        this.#logger.log('transaction builder...adding minting transaction', amount, payBy);
 
         const { managerContract, fundContract, assetContracts, feeContract, feeVaultContract } = this.#contracts;
 
@@ -168,21 +167,32 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         }
 
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
+        // TODO: add support for more than one fund UTXO
         const fundUtxo = fundUtxos[getRandomInt(fundUtxos.length)];
         const feeUtxo = bestFee.utxo;
 
         const inflowAmount = this.#fund.amount * amount;
         const fundChangeAmount = fundUtxo.token.amount - inflowAmount;
 
-        const fundContractOutput = fundChangeAmount > 0 ? withDust({
-            to: fundContract.tokenAddress,
-            token: {
-                category: this.#fund.category,
-                amount: fundChangeAmount,
-            },
-        }) : withDust({
-            to: fundContract.tokenAddress,
-        });
+        const fundInputs = [{
+            ...fundUtxo,
+            unlocker: fundContract.unlock.mint(),
+        }];
+        const fundOutputs = [];
+
+        if (fundChangeAmount > 0) {
+            fundOutputs.push(withDust({
+                to: fundContract.tokenAddress,
+                token: {
+                    category: this.#fund.category,
+                    amount: fundChangeAmount,
+                },
+            }));
+        } else {
+            fundOutputs.push(withDust({
+                to: fundContract.tokenAddress,
+            }));
+        }
 
         const bitcoinOutputs = [];
         this.#meta.isBitcoinFund && bitcoinOutputs.push({ to: this.#contracts.satoshiAssetContract.tokenAddress, amount: this.#fund.satoshis * amount });
@@ -196,36 +206,32 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 ...feeUtxo,
                 unlocker: feeContract.unlock.pay(),
             },
-            {
-                ...fundUtxo,
-                unlocker: fundContract.unlock.mint(),
-            },
+            ...fundInputs,
         ])
-        .addOutputs([
-            withDust({
-                to: managerContract.tokenAddress,
-                token: {
-                    ...inflowUtxo.token,
-                },
-            }),
-            ...bestFee.outputs,
-            fundContractOutput,
-            ...bitcoinOutputs,
-            ...assetContracts.map((assetContract, i) => {
-                return withDust({
-                    to: assetContract.tokenAddress,
+            .addOutputs([
+                withDust({
+                    to: managerContract.tokenAddress,
                     token: {
-                        category: this.#fund.assets[i].category,
-                        amount: this.#fund.assets[i].amount * amount,
-                    }
-                });
-            }),
-        ]);
+                        ...inflowUtxo.token,
+                    },
+                }),
+                ...bestFee.outputs,
+                ...fundOutputs,
+                ...bitcoinOutputs,
+                ...assetContracts.map((assetContract, i) => {
+                    return withDust({
+                        to: assetContract.tokenAddress,
+                        token: {
+                            category: this.#fund.assets[i].category,
+                            amount: this.#fund.assets[i].amount * amount,
+                        }
+                    });
+                }),
+            ]);
         this.#logger.log('finished adding mint transaction i/o');
         return this;
     }
 
-    // TODO: Scaling fund UTXO selection
     // As new threads are added to the fund token contract, we should select for outflow tx the UTXO with the least tokens
     // Although this means we still target one thread, should have a range maybe and then randomly select
     // Maybe should just randomly select one that fulfills the needs
@@ -246,18 +252,19 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         if (!outflowUtxos.length) {
             throw new Error(`Missing required outflow ${this.#system.outflow} UTXO.`);
         }
-        const outflowUtxo = outflowUtxos[0];
+        const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
 
-
-        //
+        // TODO: Add support for many fund UTXOs
         const fundUtxos = await fundContract.getUtxos();
 
         if (!fundUtxos.length) {
             throw new Error(`Missing required fund ${this.#fund.category} UTXO. Send dust UTXO to contract and redeem again.`)
         }
 
+
         const existingFundUtxo = fundUtxos.filter(u => u.token?.category === this.#fund.category).sort(sortDecreasingTokenAmount);
         const fundUtxo = existingFundUtxo.length ? existingFundUtxo[getRandomInt(existingFundUtxo.length)] : fundUtxos[getRandomInt(fundUtxos.length)];
+
 
 
         //
@@ -267,6 +274,22 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         const bestFee = await getBestFee({ feeVaultContract, feeContract, payBy, fee: this.#system.fee });
         const feeUtxo = bestFee.utxo;
 
+
+
+        const fundInputs = [{
+            ...fundUtxo,
+            unlocker: fundContract.unlock.redeem()
+        }];
+        const fundOutputs = [withDust({
+            to: fundContract.tokenAddress,
+            token: {
+                category: this.#fund.category,
+                amount: updatedFundAmount,
+            },
+        })];
+
+
+
         const satoshiAssetInputs = [];
         const satoshiAssetOutputs = [];
         const satoshiAssetChangeAmounts = [];
@@ -274,7 +297,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         const calcSatoshiAsset = async () => {
             if (this.#meta.isBitcoinFund) {
                 const satoshiAssetUtxos = (await satoshiAssetContract.getUtxos()).filter(u => !u.token);
-                if(!satoshiAssetUtxos) {
+                if (!satoshiAssetUtxos) {
                     throw new Error('Missing required satoshi asset UTXO');
                 }
                 let satoshiAmountAdded = 0n;
@@ -328,7 +351,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                     }
                 }
             }
-            
+
             for (let i = 0; i < assetChangeAmounts.length; ++i) {
                 if (!assetChangeAmounts[i]) {
                     continue;
@@ -354,31 +377,22 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 ...feeUtxo,
                 unlocker: feeContract.unlock.pay()
             },
-            {
-                ...fundUtxo,
-                unlocker: fundContract.unlock.redeem()
-            },
+            ...fundInputs,
             ...satoshiAssetInputs,
             ...assetInputs,
         ])
-        .addOutputs([
-            withDust({
-                to: managerContract.tokenAddress,
-                token: {
-                    ...outflowUtxo.token,
-                },
-            }),
-            ...bestFee.outputs,
-            withDust({
-                to: fundContract.tokenAddress,
-                token: {
-                    category: this.#fund.category,
-                    amount: updatedFundAmount,
-                },
-            }),
-            ...satoshiAssetOutputs,
-            ...assetOutputs
-        ]);
+            .addOutputs([
+                withDust({
+                    to: managerContract.tokenAddress,
+                    token: {
+                        ...outflowUtxo.token,
+                    },
+                }),
+                ...bestFee.outputs,
+                ...fundOutputs,
+                ...satoshiAssetOutputs,
+                ...assetOutputs
+            ]);
 
         this.#logger.log('finished adding redemption transaction i/o');
         return this;
