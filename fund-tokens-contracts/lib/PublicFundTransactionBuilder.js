@@ -186,17 +186,17 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             publicFundVaultContract,
         } = this.#contracts;
 
-        if(this.inputs.length === 0) {
+        if (this.inputs.length === 0) {
             throw new Error('User genesis input is expected to be added prior to calling this function');
         }
 
-        if(this.outputs.length > 0) {
+        if (this.outputs.length > 0) {
             throw new Error('No outputs should be added to the transaction');
         }
 
         const genesisUtxo = this.inputs[0];
 
-        if(genesisUtxo.vout !== 0 || genesisUtxo.token) {
+        if (genesisUtxo.vout !== 0 || genesisUtxo.token) {
             throw new Error('First input must be a genesis input (vout is 0) with no tokens');
         }
 
@@ -226,11 +226,11 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             {
                 ...startupUtxo,
                 unlocker: startupContract.unlock.start(getFundBin(fund)),
-            }, 
+            },
             {
                 ...inflowUtxo,
                 unlocker: mintInflowContract.unlock.mint(),
-            }, 
+            },
             {
                 ...outflowUtxo,
                 unlocker: mintOutflowContract.unlock.mint(),
@@ -244,77 +244,77 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                 unlocker: publicFundContract.unlock.broadcast(getFundBin(fund))
             }
         ])
-        .addOutputs([
-            withDust({
-                to: authHeadVaultContract.tokenAddress,
-            }),
-            {
-                to: startupContract.tokenAddress,
-                amount: startupUtxo.satoshis,
-                token: startupUtxo.token,
-            },
-            {
-                to: mintInflowContract.tokenAddress,
-                amount: inflowUtxo.satoshis,
-                token: inflowUtxo.token,
-            },
-            {
-                to: mintOutflowContract.tokenAddress,
-                amount: outflowUtxo.satoshis,
-                token: outflowUtxo.token,
-            }, 
-            ...bestFee.outputs,
-            withDust({
-                to: managerContract.tokenAddress,
-                token: {
-                    ...inflowUtxo.token,
-                    nft: {
-                        capability: 'none',
-                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
+            .addOutputs([
+                withDust({
+                    to: authHeadVaultContract.tokenAddress,
+                }),
+                {
+                    to: startupContract.tokenAddress,
+                    amount: startupUtxo.satoshis,
+                    token: startupUtxo.token,
+                },
+                {
+                    to: mintInflowContract.tokenAddress,
+                    amount: inflowUtxo.satoshis,
+                    token: inflowUtxo.token,
+                },
+                {
+                    to: mintOutflowContract.tokenAddress,
+                    amount: outflowUtxo.satoshis,
+                    token: outflowUtxo.token,
+                },
+                ...bestFee.outputs,
+                withDust({
+                    to: managerContract.tokenAddress,
+                    token: {
+                        ...inflowUtxo.token,
+                        nft: {
+                            capability: 'none',
+                            commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
+                        }
                     }
-                }
-            }),
-            withDust({
-                to: managerContract.tokenAddress,
-                token: {
-                    ...outflowUtxo.token,
-                    nft: {
-                        capability: 'none',
-                        commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
+                }),
+                withDust({
+                    to: managerContract.tokenAddress,
+                    token: {
+                        ...outflowUtxo.token,
+                        nft: {
+                            capability: 'none',
+                            commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
+                        }
                     }
-                }
-            }),
-            withDust({
-                to: fundContract.tokenAddress,
-                token: {
-                    category: genesisUtxo.txid,
-                    amount: fundTokenAmount,
-                }
-            }),
-            withDust({
-                to: publicFundContract.tokenAddress,
-                token: {
-                    category: this.#system.publicFund,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
+                }),
+                withDust({
+                    to: fundContract.tokenAddress,
+                    token: {
+                        category: genesisUtxo.txid,
+                        amount: fundTokenAmount,
                     }
-                }
-            }),
-        ]);
+                }),
+                withDust({
+                    to: publicFundContract.tokenAddress,
+                    token: {
+                        category: this.#system.publicFund,
+                        amount: 0n,
+                        nft: {
+                            capability: 'minting',
+                            commitment: '',
+                        }
+                    }
+                }),
+            ]);
 
 
         const maxSize = 128 * 2;
 
         const fundHex = getFundHex(fund);
         const fundHexParts = [];
-        
+
         let curr = 0;
         let next = maxSize;
 
 
-        while(curr < fundHex.length) {
+        while (curr < fundHex.length) {
             fundHexParts.push(fundHex.slice(curr, next));
             curr = next;
             next += maxSize
@@ -322,7 +322,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         fundHexParts.forEach(part => {
             this.addOutput(withDust({
-                to:  publicFundVaultContract.tokenAddress,
+                to: publicFundVaultContract.tokenAddress,
                 token: {
                     category: this.#system.publicFund,
                     amount: 0n,
