@@ -143,12 +143,24 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
-    // As new threads are added to the fund token contract, we should select for inflow tx the UTXO with the most tokens
-    // Although this means we still target one thread, should have a range maybe and then randomly select
-    // Maybe should just randomly select enough to fulfills the needs for the tx
-
-    // This method should be called while the transaction has same transaction input and output lengths
-    // The consuming app is responsible for adding an output for Bitcoin change, fund token minted, and token change
+    /**
+     * addInflow(amount, payBy): Builds a fund token minting transaction
+     * 
+     * Randomly selects:
+     * - One inflow thread (for thread distribution)
+     * - Multiple fund UTXOs to cover the minting amount (reduces collision)
+     * - Best fee option (Bitcoin or token-based)
+     * 
+     * Constructs transaction with:
+     * - Inflow manager input + output (threaded signal)
+     * - Fund UTXO inputs collected randomly + outputs (one per input)
+     * - Fee validation and routing
+     * - Asset custody outputs (prepared for user deposit)
+     * 
+     * The consuming app is responsible for:
+     * - Adding user inputs (assets to deposit)
+     * - Adding user outputs (fund tokens minted, Bitcoin change, token change)
+     */
     async addInflow({
         amount,
         payBy,
@@ -167,32 +179,57 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         }
 
         const inflowUtxo = inflowUtxos[getRandomInt(inflowUtxos.length)];
-        // TODO: add support for more than one fund UTXO
-        const fundUtxo = fundUtxos[getRandomInt(fundUtxos.length)];
         const feeUtxo = bestFee.utxo;
 
         const inflowAmount = this.#fund.amount * amount;
-        const fundChangeAmount = fundUtxo.token.amount - inflowAmount;
 
-        const fundInputs = [{
-            ...fundUtxo,
-            unlocker: fundContract.unlock.mint(),
-        }];
-        const fundOutputs = [];
+        // Randomly select fund UTXOs to cover the inflow amount
+        // Shuffle to reduce collision chances when multiple transactions are building
+        const shuffledFundUtxos = [...fundUtxos].sort(() => Math.random() - 0.5);
+        let totalFundAmount = 0n;
+        const selectedFundUtxos = [];
 
-        if (fundChangeAmount > 0) {
-            fundOutputs.push(withDust({
-                to: fundContract.tokenAddress,
-                token: {
-                    category: this.#fund.category,
-                    amount: fundChangeAmount,
-                },
-            }));
-        } else {
-            fundOutputs.push(withDust({
-                to: fundContract.tokenAddress,
-            }));
+        for (const utxo of shuffledFundUtxos) {
+            selectedFundUtxos.push(utxo);
+            totalFundAmount += utxo.token.amount;
+
+            if (totalFundAmount >= inflowAmount) {
+                break;
+            }
         }
+
+        if (totalFundAmount < inflowAmount) {
+            throw new Error(`Insufficient fund tokens: need ${inflowAmount}, have ${totalFundAmount}`);
+        }
+
+        const fundChangeAmount = totalFundAmount - inflowAmount;
+
+
+        // Create one input per selected UTXO
+        const fundInputs = selectedFundUtxos.map(utxo => ({
+            ...utxo,
+            unlocker: fundContract.unlock.mint(),
+        }));
+
+        // Create one output per input (maintain input/output balance)
+        // First output contains any change, others are dust returns
+        const fundOutputs = selectedFundUtxos.map((utxo, index) => {
+            if (index === 0 && fundChangeAmount > 0) {
+                // Last output: return change to contract
+                return withDust({
+                    to: fundContract.tokenAddress,
+                    token: {
+                        category: this.#fund.category,
+                        amount: fundChangeAmount,
+                    },
+                });
+            } else {
+                // Other outputs: return as dust
+                return withDust({
+                    to: fundContract.tokenAddress,
+                });
+            }
+        });
 
         const bitcoinOutputs = [];
         this.#meta.isBitcoinFund && bitcoinOutputs.push({ to: this.#contracts.satoshiAssetContract.tokenAddress, amount: this.#fund.satoshis * amount });
@@ -232,13 +269,27 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         return this;
     }
 
-    // As new threads are added to the fund token contract, we should select for outflow tx the UTXO with the least tokens
-    // Although this means we still target one thread, should have a range maybe and then randomly select
-    // Maybe should just randomly select one that fulfills the needs
-
-    // This method should be called while the transaction has same transaction input and output lengths
-    // The consuming user is responsible for adding inputs for the fund token
-    // The consuming app is responsible for adding an outputs for Bitcoin change and token change
+    /**
+     * addOutflow(amount, payBy): Builds a fund token redemption transaction
+     * 
+     * Randomly selects:
+     * - One outflow thread (for thread distribution)
+     * - A fund UTXO to collect redeemed tokens into
+     * - Best fee option (Bitcoin or token-based)
+     * - Asset UTXOs from each asset contract (largest first)
+     * - Satoshi UTXOs if fund includes Bitcoin (largest first)
+     * 
+     * Constructs transaction with:
+     * - Outflow manager input + output (threaded signal)
+     * - Fund UTXO input + output (collects redeemed tokens)
+     * - Fee validation and routing
+     * - Asset release inputs + outputs (with change handling)
+     * - Satoshi release inputs + outputs (with change handling)
+     * 
+     * The consuming app is responsible for:
+     * - Adding user inputs (fund tokens to redeem)
+     * - Adding user outputs (underlying assets received, change)
+     */
     async addOutflow({
         amount,
         payBy,
@@ -254,18 +305,14 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         }
         const outflowUtxo = outflowUtxos[getRandomInt(outflowUtxos.length)];
 
-        // TODO: Add support for many fund UTXOs
         const fundUtxos = await fundContract.getUtxos();
 
         if (!fundUtxos.length) {
             throw new Error(`Missing required fund ${this.#fund.category} UTXO. Send dust UTXO to contract and redeem again.`)
         }
 
-
-        const existingFundUtxo = fundUtxos.filter(u => u.token?.category === this.#fund.category).sort(sortDecreasingTokenAmount);
+        const existingFundUtxo = fundUtxos.filter(u => u.token?.category === this.#fund.category);
         const fundUtxo = existingFundUtxo.length ? existingFundUtxo[getRandomInt(existingFundUtxo.length)] : fundUtxos[getRandomInt(fundUtxos.length)];
-
-
 
         //
         const outflowAmount = this.#fund.amount * amount;
@@ -273,7 +320,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
 
         const bestFee = await getBestFee({ feeVaultContract, feeContract, payBy, fee: this.#system.fee });
         const feeUtxo = bestFee.utxo;
-
 
 
         const fundInputs = [{
@@ -287,8 +333,6 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
                 amount: updatedFundAmount,
             },
         })];
-
-
 
         const satoshiAssetInputs = [];
         const satoshiAssetOutputs = [];
