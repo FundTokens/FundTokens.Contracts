@@ -280,7 +280,7 @@ Failure to sort assets correctly will cause fund creation to fail.
 |-----------|-------|--------|
 | Fund Chunk Size | 128 bytes | CashToken NFT commitment max |
 | Max Assets Per Fund | ~30 | Standard Relay Rules |
-| Satoshi Range | 0 or 0<=x>=21,000,000 BCH | Bitcoin supply cap, Dust limits |
+| Satoshi Range | 0 to 21,000,000 BTC (satoshis) | Bitcoin supply cap, Dust limits |
 | Thread Count | Unlimited | Can add threads via system transactions |
 | Transaction Thread Time | Instant with low double-spend probabilities | UTXO selection randomness |
 

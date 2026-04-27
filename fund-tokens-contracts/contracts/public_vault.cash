@@ -22,19 +22,19 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
      * close(): Permanently closes a public fund data stream by burning all public tokens
      * 
      * Validates and aggregates all publicFund NFT commitment data, verifies the hash,
-     * confirms authorization, and burns all publicFund tokens from outputs.
+     * confirms authorization (bit 0x08), and burns all publicFund tokens from outputs.
      * 
      * Notes:
      * - Fund data can be recovered from transaction history even after burning
      * - Intended to signal for rare closure events only
-     * - Requires authorization token to be present in inputs
+     * - Requires authorization token with bit 0x08 (fund closure permission)
      * 
      * Parameters:
      *   hash: Expected hash256 of concatenated fund commitment data
      * 
      * Constraints:
      * - All publicFund inputs must be processed sequentially
-     * - Authorization token must be present somewhere in the transaction
+     * - Authorization token (bit 0x08) must be present somewhere in the transaction
      * - No publicFund tokens allowed in any output (complete burn)
      */
     function close(bytes hash) {

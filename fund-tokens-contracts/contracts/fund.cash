@@ -28,8 +28,9 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      * mint(): Release fund tokens during inflow (user deposit)
      * 
      * Ensures:
-     * - Fund tokens are reduced (tokens released to user)
-     * - If no tokens remain, output has no token (ready for next redeem)
+     * - Linked to a FundManager or inflow token at expected input
+     * - At least one output is returned (ready for redeem)
+     * - If tokens are returned, then the token is the fund's
      */
     function mint() {
         bool prevInflow = tx.inputs[this.activeInputIndex - 2].tokenCategory == inflowToken && tx.inputs[this.activeInputIndex - 2].nftCommitment == bytes(fundCategory + fundHash);
@@ -48,8 +49,9 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      * redeem(): Collect fund tokens during outflow (user withdrawal)
      * 
      * Ensures:
-     * - Fund tokens are increased (tokens collected from user)
-     * - Output amount > input amount (collecting tokens)
+     * - Link to a FundManager or outflow token at expected input
+     * - At least one output is returned
+     * - Tokens returned are the fund's tokens
      */
     function redeem() {
         bool prevOutflow = tx.inputs[this.activeInputIndex - 2].tokenCategory == outflowToken && tx.inputs[this.activeInputIndex - 2].nftCommitment == bytes(fundCategory + fundHash);

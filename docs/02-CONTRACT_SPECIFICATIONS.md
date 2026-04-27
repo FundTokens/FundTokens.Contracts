@@ -119,27 +119,46 @@ Identical to SimpleVault - authorizes spending when token present and maintains 
 **Purpose**: Public fund details vault w/ authorization token for closing
 
 **Parameters**:
-- `authToken` (bytes32) - The authorization token category
+- `publicFund` (bytes32) - The public fund token category
+- `authorization` (bytes32) - The authorization token category
 
 **Functions**:
 
+#### `close(bytes hash)`
+
+Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x08), and burning all tokens.
+
+Validates:
+- All publicFund inputs are collected sequentially
+- Concatenated commitment data hashes to expected value
+- Authorization token with bit 0x08 (fund closure permission) is present
+- No publicFund tokens remain in any output (enforced burn)
+
+**Usage**: Signal fund closure, allow rebalancing of commitment chains
+
 #### `prove(bytes hash)`
 
-Authorizes spending when provided hash matches list of hashed token data
+Proves fund composition on-chain by validating that all consecutive publicFund UTXOs are forwarded without modification and aggregated commitment data matches expected hash. Establishes an immutable proof chain.
 
-**Usage**: Transaction proofs
+Validates:
+- Each publicFund input returns to matching output (no tampering)
+- Input/output locking bytecode and token categories match
+- NFT commitments are identical
+- Concatenated commitment data hashes to expected value
+- No other publicFund proofs exist in same transaction
+
+**Usage**: Transaction proofs, prove fund state at specific block height
 
 #### `data()`
 
-Looks for a previous input from this contract which should call prove or close
+Validates commitment data continuity in the proof chain by ensuring this UTXO was created from the previous input and links proof UTXOs together.
 
-**Usage**: Appending data for transaction proofs
+Validates:
+- This input has publicFund token
+- Previous input has identical locking bytecode
+- Previous input has identical token category
 
-#### `close()`
-
-Gated burning of fund details token
-
-**Usage**: Signal closed
+**Usage**: Appending data for transaction proof chains
 
 **Implementation**: See [contracts/public_vault.cash](../fund-tokens-contracts/contracts/public_vault.cash) for full source code.
 
@@ -175,8 +194,11 @@ Initializes a fund by validating parameters and minting thread tokens.
 **Validation**:
 1. Input UTXO must return to itself
 2. Fund amount must be > 0
-3. Satoshis must be valid: 0 or between 1,000-21,000,000 BTC
-4. Assets must be sorted by category in ascending order
+3. Satoshis must be within Bitcoin supply range (0 to 2,100,000,000,000,000 satoshis)
+   - **Note**: PublicFund contract enforces stricter limits based on asset composition:
+     - If fund has assets: satoshis can be 0 to 21M BTC
+     - If fund has NO assets: satoshis must be 1 to 21M BTC (cannot be 0)
+4. Assets must be sorted by category in ascending hexadecimal order
 5. Each asset amount must be > 0
 6. Input at [this.activeInputIndex + 1] must be a inflow token with capability "minting"
 7. Input at [this.activeInputIndex + 2] must be a outflow token with capability "minting"
@@ -203,6 +225,7 @@ fund_category (32 bytes) | hash256(fund) (32 bytes)
 
 **Parameters**:
 - `authHeadDestination` (bytes) - Locking bytecode to send authHead output
+- `publicFundDestination` (bytes) - Locking bytecode to send fund data chunks
 - `token` (bytes32) - Public fund token category
 - `startupContract` (bytes32) - Startup contract hash for validation
 - `fundContract` (bytes) - Fund contract bytecode
@@ -224,7 +247,9 @@ Broadcasts fund parameters in chunks via transaction outputs.
    - Fund category non-empty
    - Fund category matches genesis transaction hash
    - Fund amount > 0
-   - Satoshis valid
+   - Satoshis validation (tiered by asset presence):
+     - If fund has assets: satoshis can be 0 to 21M BTC
+     - If fund has NO assets: satoshis must be 1 to 21M BTC (cannot be 0)
    - If assets present: sorted by category ascending
 6. Output [activeInputIndex + 3] must be the new fund contract with proper parameters
 7. Outputs [activeInputIndex + 5 onwards] chunk the fund in 128-byte segments

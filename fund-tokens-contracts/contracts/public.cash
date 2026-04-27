@@ -40,9 +40,11 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
      * 
      * Creates outputs:
      * - Output[0]: AuthHeadVault output for fund access control
-     * - Output[activeInputIndex]: PublicFund return
-     * - Output[activeInputIndex + 3]: Transaction manager with fund commitment
-     * - Output[activeInputIndex + 5+]: Fund chunks (128 bytes max each in NFT commitments)
+     * - Output[activeInputIndex-4]: Startup contract
+     * - Output[activeInputIndex+3]: FundContract with verified genesis token
+     * - Output[activeInputIndex+4]: PublicFund returned
+     * - Output[activeInputIndex+5]: Fund chunks (128 bytes max each in NFT commitments)
+     * - Output[activeInputIndex+5+D]: Fund chunks (128 bytes max each in NFT commitments)
      */
     function broadcast(bytes fund) {
         // Verify genesis input (first input) is the confirmed fund creation

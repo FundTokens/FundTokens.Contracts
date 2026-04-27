@@ -18,7 +18,6 @@ pragma cashscript ~0.13.0;
  * Threading Model:
  * - Multiple independent inflow/outflow threads possible (different asset chains)
  * - Each thread validates its asset amounts independently
- * - Fund token accounting aggregates across all threads
  * 
  * Parameters:
  *   fee: Fee contract hash (validates fees paid)
@@ -41,14 +40,17 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
      * 
      * Transaction Structure:
      * Input[activeInputIndex]: Inflow token (signal: deposit occurred)
-     * Input[activeInputIndex+1]: Fund manager (contains fund tokens)
-     * Input[activeInputIndex+2]: Fee contract (proves fees paid)
-     * Input[activeInputIndex+3]: Optional satoshi asset inputs
-     * Input[activeInputIndex+3+N]: Optional asset inputs
+     * Input[activeInputIndex+1]: Fee contract (proves fees paid)
+     * Input[activeInputIndex+2]: Fund manager (contains fund tokens)
+     * Input[activeInputIndex+2+F]: Fund manager (contains fund tokens)
      * 
      * Output[activeInputIndex]: Inflow token (returned to signal processor)
-     * Output[activeInputIndex+1]: Fund manager (updated fund tokens)
-     * Output[activeInputIndex+2+]: Asset custody outputs (satoshi/tokens released)
+     * Output[activeInputIndex+1]: Fee contract (returned to fee processor)
+     * Output[activeInputIndex+2]: Paid fee (paid to maintainer)
+     * Output[activeInputIndex+3]: Fund manager (updated fund tokens)
+     * Output[activeInputIndex+3+F]: Fund manager (updated fund tokens)
+     * Output[activeInputIndex+4+F]: Asset manager (locking asset)
+     * Output[activeInputIndex+4+F+A]: Asset manager (locking asset)
      * 
      * Validates:
      * - Fund tokens released consistently across operation
@@ -173,13 +175,19 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
      * 
      * Transaction Structure:
      * Input[activeInputIndex]: Outflow token (signal: withdrawal occurred)
-     * Input[activeInputIndex+1]: Fund manager (will receive fund tokens)
-     * Input[activeInputIndex+2]: Fee contract (proves fees paid)
-     * Input[activeInputIndex+3]: Asset inputs from all threads
+     * Input[activeInputIndex+1]: Fee contract (proves fees paid)
+     * Input[activeInputIndex+2]: Fund manager (will receive fund tokens)
+     * Input[activeInputIndex+2+F]: Fund manager (will receive fund tokens)
+     * Input[activeInputIndex+3+F]: Asset inputs from all threads (sorted)
+     * Input[activeInputIndex+3+F+A]: Asset inputs from all threads (sorted)
      * 
      * Output[activeInputIndex]: Outflow token (returned to signal processor)
-     * Output[activeInputIndex+1]: Fund manager (updated fund tokens)
-     * Output[activeInputIndex+2]: Asset custody outputs (change amounts)
+     * Output[activeInputIndex+1]: Fee contract (returned to fee processor)
+     * Output[activeInputIndex+2]: Paid fee (paid to maintainer)
+     * Output[activeInputIndex+3]: Fund manager (updated fund tokens)
+     * Output[activeInputIndex+3+F]: Fund manager (updated fund tokens)
+     * Output[activeInputIndex+4+F]: Asset custody outputs (change amounts)
+     * Output[activeInputIndex+4+F+A]: Asset custody outputs (change amounts)
      */
     function outflow(bytes fund) {
         // Fund parameter hash must match (prevents fund substitution)
@@ -193,7 +201,6 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // Signal token NFT commitment must match fund parameters
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
-
 
         int feeInputIndex = this.activeInputIndex + 1;
         int feeOutputIndex = this.activeInputIndex + 2;

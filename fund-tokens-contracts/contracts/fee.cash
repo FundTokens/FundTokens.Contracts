@@ -34,13 +34,14 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
      * Ensures no active fee tokens remain (no dangling fees).
      * 
      * Validates:
-     * - Transaction includes authToken (proves authorization)
+     * - Transaction includes authToken with bit 0x04 (fee close permission)
      * - No FeeManager fee tokens exist in any output (burned)
      * 
      * Used at fund wind-down when all fees have been collected.
      */
     function close() {
         // Check for authorization token in any input
+        // Bit 0x04 in commitment indicates fee manager closure authorization
         bool authorized = false;
         int inputIndex = 0;
         do {

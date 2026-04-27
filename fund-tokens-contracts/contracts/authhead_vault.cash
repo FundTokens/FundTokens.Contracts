@@ -20,7 +20,7 @@ contract AuthHeadVault(bytes32 authToken)
      * Ensures:
      * - This vault is the first input (positioning control)
      * - First output has no tokens (clean state to maintain authhead integrity)
-     * - Authorization token is present in inputs
+     * - Authorization token is present with bit 0x02 (authhead permission)
      */
     function release() {
         // This vault MUST be the first input
@@ -32,6 +32,7 @@ contract AuthHeadVault(bytes32 authToken)
         require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
 
         // Check for authorization token in ANY input
+        // Bit 0x02 in commitment indicates authhead (BCMR maintenance) authorization
         bool authorized = false;
         int inputIndex = 0;
         do {

@@ -4,7 +4,9 @@ pragma cashscript ~0.13.0;
  * AssetManager: Holds individual fund assets
  * 
  * Each asset in a fund has a dedicated AssetManager contract instance.
- * Releases assets only when outflow token is present with matching fund hash.
+ * Releases assets
+ *     1. if the preceeding contract is a AssetManager of a category that is lower (sorted) or the same asset
+ *     2. If the outflow token is present with matching fund hash
  * 
  * This contract gates asset access during redemption (outflow) transactions.
  * Amount verification is performed by the TransactionManager contract.
@@ -23,6 +25,7 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
      * Ensures:
      * - Outflow token with matching fund hash is present (correct redemption)
      * - Asset type is verified (Bitcoin satoshis or tokens)
+     * - Linked to a AssetManager or outflow token at "expected" input
      * 
      * Note: AssetManager relies on TransactionManager for amount validation.
      * This contract only gates access; amounts are verified elsewhere.
@@ -31,6 +34,7 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
         bool prevOutflow = false;
         int inputIndex = this.activeInputIndex - 3; // at least this far but could be further
 
+        // find the outflow, searching to the start
         while(inputIndex >= 0 && !prevOutflow) {
             if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
                 require(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash);

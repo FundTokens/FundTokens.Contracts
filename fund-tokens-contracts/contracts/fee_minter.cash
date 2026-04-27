@@ -9,6 +9,12 @@ pragma cashscript ~0.13.0;
  * 
  * Destination override is variable-length by design - allows forward compatibility
  * with future address formats or multisig patterns without redeploying contract.
+ *
+ * Fee minting is a tool to ensure the FundToken system has robust fee options.
+ * Downstream "default" values ensure fees are capped to a Bitcoin amount:
+ *     This ensures user protection from excessive or malicious fee extraction
+ *     Users are guaranteed access to their funds
+ *     Maintainer is incentivized to provide well-formed and competitive fee options
  * 
  * Parameters:
  *   authorization: Token category that authorizes minting
@@ -51,7 +57,6 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
         } while(inputIndex < tx.inputs.length && !authorized);
         require(authorized, "unauthorized user");
 
-
         // Verify all outputs minting fee tokens have proper commitment
         int outputIndex = 0;
         do {
@@ -62,7 +67,7 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
                     require(tx.outputs[outputIndex].tokenCategory == token);
 
                     // Fee token MUST have a commitment encoding fee details
-                    require(tx.outputs[outputIndex].nftCommitment.length >= 40, "must provide minimum fee commitment");
+                    require(tx.outputs[outputIndex].nftCommitment.length >= 40, "must provide at least a category and amount");
 
                     // Parse commitment: [fee_category | fee_amount | destination_override]
                     bytes fee_category, bytes fee_next1 = tx.outputs[outputIndex].nftCommitment.split(32);

@@ -42,7 +42,8 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         // Fund amount must be > 0 (determines token divisor)
         require(int(nft_fundAmount) > 0);
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
-        // Satoshis must be 0 or within Bitcoin supply range
+        // Satoshis must be within Bitcoin supply range (0 to 21 million BTC)
+        // Note: PublicFund contract enforces stricter limits based on asset composition
         require(within(int(nft_satoshis), 0, 2100000000000000));
 
         // Validate asset sorting and amounts
@@ -55,11 +56,6 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 
             // Assets must be in ascending order by category
             if(lastAssetCategory != 0x) {
-                if(int(lastAssetCategory + 0x00) >= int(nft_assetCategory + 0x00)) {
-                    int iLast = int(lastAssetCategory + 0x00);
-                    int iNft = int(nft_assetCategory + 0x00);
-                    console.log('checking asset ordering', lastAssetCategory, nft_assetCategory, iLast, iNft);
-                }
                 require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
             }
 

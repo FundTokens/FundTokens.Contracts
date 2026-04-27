@@ -19,7 +19,7 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
      * 
      * Ensures:
      * - This contract returns to itself (locked pattern prevents misuse)
-     * - Owner authorization is present in transaction inputs
+     * - Owner authorization is present in transaction inputs (bit 0x01)
      * - All minted tokens go to the specified destination
      * - NFT commitments are preserved if present
      */
@@ -36,6 +36,7 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         // Check for owner authorization in ANY input
+        // Bit 0x01 in commitment indicates minting authorization
         bool authorized = false;
         int inputIndex = 0;
         do {
