@@ -46,7 +46,7 @@ Create Public Fund → Mint Tokens (deposit assets) → Redeem Tokens (withdraw 
 ✅ **Self-Custodial** - Users always control their assets  
 ✅ **Non-Upgradeable** - Parameters set at creation, immutable  
 ✅ **High Throughput** - Multiple execution threads prevent UTXO congestion and double-spends  
-✅ **Flexible Assets** - Mix Bitcoin + up to ~30 CashTokens per fund
+✅ **Flexible Assets** - Mix Bitcoin + up to ~30 CashTokens per fund  
 ✅ **Transparent** - On-chain fund parameters, auditable operations  
 
 ## Documentation Structure
