@@ -28,7 +28,7 @@ pragma cashscript ~0.13.0;
 contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int defaultValue)
 {
     /**
-     * close(): Close this fee by burning all fee tokens
+     * close(): Close this fee by ensuring all fee tokens are burned
      * 
      * Allows protocol steward (authToken holder) to close the manager and cleanup.
      * Ensures no active fee tokens remain (no dangling fees).
@@ -37,7 +37,7 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
      * - Transaction includes authToken with bit 0x04 (fee close permission)
      * - No FeeManager fee tokens exist in any output (burned)
      * 
-     * Used at fund wind-down when all fees have been collected.
+     * Used to close a current fee offering.
      */
     function close() {
         // Check for authorization token in any input
@@ -59,7 +59,9 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
         int outputIndex = 0;
         do {
             // Prevent any output from receiving fee tokens (forces burn)
+            // Prevent from sending to this contract
             require(tx.outputs[outputIndex].tokenCategory != feeToken);
+            require(tx.outputs[outputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
     }

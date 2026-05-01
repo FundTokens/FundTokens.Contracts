@@ -237,7 +237,7 @@ Mints fund tokens by depositing underlying assets.
 ```javascript
 const builder = new FundTokenTransactionBuilder({
     provider,
-    system: { inflow, outflow, owner, fee },
+    system: { inflow, outflow, authorization, fee },
     fund: { category, amount: 10n, satoshis: 1000n, assets: [...] }
 });
 
@@ -315,7 +315,7 @@ Redeems fund tokens to withdraw underlying assets.
 ```javascript
 const builder = new FundTokenTransactionBuilder({
     provider,
-    system: { inflow, outflow, owner, fee },
+    system: { inflow, outflow, authorization, fee },
     fund
 });
 

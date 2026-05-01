@@ -70,6 +70,7 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 
         // Verify fee contract input
         require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == tx.outputs[this.activeInputIndex + 3].lockingBytecode); // sends back to self, it's paid
 
         // Mint inflow token with fund commitment (fund_category | fund_hash)
         require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowToken);

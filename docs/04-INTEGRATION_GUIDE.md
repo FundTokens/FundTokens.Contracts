@@ -366,12 +366,10 @@ describe('FundTokens', () => {
         system = {
             inflow: '1111111111111111111111111111111111111111111111111111111111111111',
             outflow: '222...',
-            publicFund: '333...',
-            authHead: '444...',
-            owner: '555...',
+            authorization: '333...',
             fees: {
-                create: { nft: '666...', value: 10000n },
-                execute: { nft: '777...', value: 100000n }
+                create: { nft: '444...', value: 10000n },
+                execute: { nft: '555...', value: 100000n }
             }
         };
 
@@ -381,10 +379,10 @@ describe('FundTokens', () => {
     it('should mint fund tokens', async ({ expect }) => {
         // Setup fund
         const fund = {
-            category: '777...',
+            category: '666...',
             amount: 10n,
             satoshis: 1000n,
-            assets: [{ category: '888...', amount: 2n }]
+            assets: [{ category: '777...', amount: 2n }]
         };
 
         // Create transaction
@@ -396,7 +394,7 @@ describe('FundTokens', () => {
 
         await builder.addInflow({
             amount: 1n,
-            payBy: '0'.repeat(64)
+            // payBy - defaults to bitcoin
         });
 
         expect(builder).not.toFailRequire();

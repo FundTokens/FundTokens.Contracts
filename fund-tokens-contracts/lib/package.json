@@ -1,13 +1,15 @@
 {
   "name": "@fundtokens/builders",
-  "version": "0.1.0-rc6",
+  "version": "0.1.0-rc7",
   "main": "index.js",
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8",
     "cashc": "0.13.0-next.6",
     "cashscript": "0.13.0-next.6"
   },
   "devDependencies": {},
   "author": "Fun(d)Tokens",
-  "description": "Transaction builders to create and interact with FundTokens."
+  "description": "Transaction builders to create and interact with FundTokens.",
+  "keywords": ["BitcoinCash", "Bitcoin Cash", "CashTokens", "DeFi", "FundTokens"]
 }

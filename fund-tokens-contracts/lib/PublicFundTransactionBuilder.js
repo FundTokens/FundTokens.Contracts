@@ -171,6 +171,13 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
+    getAuthHeadOutput() {
+        const { authHeadVaultContract } = this.#contracts;
+        return withDust({
+            to: authHeadVaultContract.tokenAddress,
+        });
+    }
+
     async addBroadcast({
         fund,
         payBy,
@@ -190,8 +197,14 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             throw new Error('User genesis input is expected to be added prior to calling this function');
         }
 
-        if (this.outputs.length > 0) {
-            throw new Error('No outputs should be added to the transaction');
+        if (this.outputs.length === 0) { // add authhead output
+            this.addOutput(this.getAuthHeadOutput());
+        } else {
+            // verify authhead output
+            const authhead = this.outputs[0];
+            if(authhead.to != authHeadVaultContract.tokenAddress || authhead.token) {
+                throw new Error('Authhead output is incorrect, expecting to send to authhead vault with no tokens');
+            }
         }
 
         const genesisUtxo = this.inputs[0];
@@ -199,7 +212,6 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         if (genesisUtxo.vout !== 0 || genesisUtxo.token) {
             throw new Error('First input must be a genesis input (vout is 0) with no tokens');
         }
-
 
         const bestFee = await getBestFee({ feeVaultContract, feeContract: createFundFeeContract, payBy, fee: this.#system.fees.create });
 
@@ -245,9 +257,6 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             }
         ])
             .addOutputs([
-                withDust({
-                    to: authHeadVaultContract.tokenAddress,
-                }),
                 {
                     to: startupContract.tokenAddress,
                     amount: startupUtxo.satoshis,

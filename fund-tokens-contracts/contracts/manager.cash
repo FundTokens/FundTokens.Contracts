@@ -71,9 +71,12 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
 
         int feeInputIndex = this.activeInputIndex + 1;
-        int feeOutputIndex = this.activeInputIndex + 2; // go to the end
+        int feeOutputIndex = this.activeInputIndex + 1; // go to the end
         // Fee contract input must follow fund manager (validates fees paid)
         require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        require(tx.inputs[feeInputIndex].lockingBytecode == tx.outputs[feeOutputIndex].lockingBytecode); // sends back to self, it's paid
+
+        feeOutputIndex = feeOutputIndex + 1; // paid fee
 
         // Parse fund parameters
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
@@ -95,14 +98,24 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // Calculate released fund tokens
         // Release = (input tokens - output tokens) / fundAmount
         // Division ensures whole token units (no fractional tokens)
-        while(tx.inputs[fundInputIndex].lockingBytecode == fundManager) {
-            fundReleasedAmount = fundReleasedAmount + tx.inputs[fundInputIndex].tokenAmount;
-            fundInputIndex = fundInputIndex + 1;
+        bool break = false;
+        while(tx.inputs.length > fundInputIndex && !break) {
+            if(tx.inputs[fundInputIndex].lockingBytecode == fundManager) {
+                fundReleasedAmount = fundReleasedAmount + tx.inputs[fundInputIndex].tokenAmount;
+                fundInputIndex = fundInputIndex + 1;
+            } else {
+                break = true;
+            }
         }
 
-        while(tx.outputs[fundOutputIndex].lockingBytecode == fundManager) {
-            fundReleasedAmount = fundReleasedAmount - tx.outputs[fundOutputIndex].tokenAmount;
-            fundOutputIndex = fundOutputIndex + 1;
+        break = false;
+        while(tx.outputs.length > fundOutputIndex && !break) {
+            if(tx.outputs[fundOutputIndex].lockingBytecode == fundManager) {
+                fundReleasedAmount = fundReleasedAmount - tx.outputs[fundOutputIndex].tokenAmount;
+                fundOutputIndex = fundOutputIndex + 1;
+            } else {
+                break = true;
+            }
         }
 
         // Ensure release is whole multiple of fund amount
@@ -215,7 +228,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         int fundOutputIndex = feeOutputIndex + 1;
 
         // Verify fund manager contract address
-        while(tx.inputs.length > fundInputIndex && tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract))) {
+        while(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract))) {
             if(tx.inputs[fundInputIndex].tokenCategory != 0x) {
                 require(tx.inputs[fundInputIndex].tokenCategory == fundCategory);
                 fundInputAmount = fundInputAmount + tx.inputs[fundInputIndex].tokenAmount;
@@ -223,7 +236,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             fundInputIndex = fundInputIndex + 1;
         }
 
-        while(tx.outputs.length > fundOutputIndex && tx.outputs[fundOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract))) {
+        while(tx.outputs[fundOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract))) {
             require(tx.outputs[fundOutputIndex].tokenCategory == fundCategory);
             fundOutputAmount = fundOutputAmount + tx.outputs[fundOutputIndex].tokenAmount;
             fundOutputIndex = fundOutputIndex + 1;
@@ -284,16 +297,26 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
             int assetReleaseAmount = 0;
 
-            while (tx.inputs[assetInputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[assetInputIndex].tokenCategory == nft_assetCategory) {
-                // Sum all asset tokens from this asset custody
-                assetReleaseAmount = assetReleaseAmount + tx.inputs[assetInputIndex].tokenAmount;
-                assetInputIndex = assetInputIndex + 1;
+            bool break = false;
+            while (tx.inputs.length > assetInputIndex && !break) {
+                if(tx.inputs[assetInputIndex].lockingBytecode == assetLockingBytecode && tx.inputs[assetInputIndex].tokenCategory == nft_assetCategory) {
+                    // Sum all asset tokens from this asset custody
+                    assetReleaseAmount = assetReleaseAmount + tx.inputs[assetInputIndex].tokenAmount;
+                    assetInputIndex = assetInputIndex + 1;
+                } else {
+                    break = true;
+                }
             }
 
-            while (tx.outputs[assetOutputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory) {
-                // Subtract asset change (net asset release)
-                assetReleaseAmount = assetReleaseAmount - tx.outputs[assetOutputIndex].tokenAmount;
-                assetOutputIndex = assetOutputIndex + 1;
+            break = false;
+            while (tx.outputs.length > assetOutputIndex && !break) {
+                if(tx.outputs[assetOutputIndex].lockingBytecode == assetLockingBytecode && tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory) {
+                    // Subtract asset change (net asset release)
+                    assetReleaseAmount = assetReleaseAmount - tx.outputs[assetOutputIndex].tokenAmount;
+                    assetOutputIndex = assetOutputIndex + 1;
+                } else {
+                    break = true;
+                }
             }
 
             // Parse asset amount divisor
