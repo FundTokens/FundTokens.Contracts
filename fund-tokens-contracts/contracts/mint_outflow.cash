@@ -48,8 +48,6 @@ contract FundOutflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflow
 
         // Inflow token input must be immediately before (handles sequencing)
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == (inflowToken + 0x02));
-        // Inflow input must also be same FundMint instance
-        // require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
 
         // This FundMint holds outflow token with minting capability
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken + 0x02);

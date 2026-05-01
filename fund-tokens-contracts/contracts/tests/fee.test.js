@@ -324,7 +324,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         provider.addUtxo(ownerWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
-            .addInput(feeUtxo, ownerWallet.signatureTemplate)
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close())
             .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([
@@ -337,6 +337,28 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     to: ownerWallet.address,
                     amount: DustAmount,
                     token:authUtxo.token,
+                },
+            ]);
+        expect(transaction).toFailRequire();
+    });
+
+    it('strict structure difference when closing fee to avoid contract substitution', async () => {
+        const feeUtxo = randomUtxo();
+        provider.addUtxo(ownerWallet.address, feeUtxo);
+        const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
+        transaction
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token: authUtxo.token,
                 },
             ]);
         expect(transaction).toFailRequire();

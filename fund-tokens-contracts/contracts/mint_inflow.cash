@@ -57,8 +57,6 @@ contract FundInflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowT
 
         // Outflow token input must be present with minting capability
         require(tx.inputs[this.activeInputIndex + 1].tokenCategory == (outflowToken + 0x02));
-        // Both tokens must come from same FundMint instance
-        // require(tx.inputs[this.activeInputIndex + 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
 
         // Extract fund parameters from output NFT commitment
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
