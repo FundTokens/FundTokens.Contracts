@@ -29,17 +29,17 @@ describe('happy path', () => {
     const ownerWallet = generateWallet(network);
 
     const system = {
-        inflow: '1111111111111111111111111111111111111111111111111111111111111111',
-        outflow: '2222222222222222222222222222222222222222222222222222222222222222',
-        publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
-        authorization: '4444444444444444444444444444444444444444444444444444444444444444',
+        inflow: randomToken().category,
+        outflow: randomToken().category,
+        publicFund: randomToken().category,
+        authorization: randomToken().category,
         fees: {
             create: {
-                nft: '5555555555555555555555555555555555555555555555555555555555555555',
+                nft: randomToken().category,
                 value: 10000n,
             },
             execute: {
-                nft: '6666666666666666666666666666666666666666666666666666666666666666',
+                nft: randomToken().category,
                 value: 100000n,
             }
         },
