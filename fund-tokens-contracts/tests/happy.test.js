@@ -8,7 +8,7 @@ import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
 
-import { decodeFund, getFundHex, hashFund } from '@lib/utils';
+import { decodeFund, getFundHex, hashFund, categoryAscending } from '@lib/utils';
 import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
@@ -127,23 +127,23 @@ describe('happy path', () => {
     });
 
     const fund = {
-        category: '7777777777777777777777777777777777777777777777777777777777777777',
+        category: randomToken().category,
         amount: 10n,
         satoshis: 1000n,
         assets: [
             {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
+                category: randomToken().category,
                 amount: 2n,
             },
             {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
+                category: randomToken().category,
                 amount: 3n,
             },
             {
-                category: 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+                category: randomToken().category,
                 amount: 4n,
             },
-        ]
+        ].sort(categoryAscending)
     };
 
     it('should broadcast a new fund', async ({ expect }) => {

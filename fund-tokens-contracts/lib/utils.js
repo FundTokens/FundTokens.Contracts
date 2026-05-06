@@ -71,7 +71,7 @@ export function decodeFund(hex) {
     hex = typeof hex === 'number' ? hex.toString(16) : hex;
 
     const fund = {
-        category: hex.slice(0, 64),
+        category: swapEndianness(hex.slice(0, 64)),
         amount: binToBigIntUint64LE(hexToBin(hex.slice(64, 80))),
         satoshis: binToBigIntUint64LE(hexToBin(hex.slice(80, 96))),
         assets: [],
@@ -81,7 +81,7 @@ export function decodeFund(hex) {
 
     while(assetsHex.length > 0) {
         fund.assets.push({
-            category: assetsHex.slice(0, 64),
+            category: swapEndianness(assetsHex.slice(0, 64)),
             amount: binToBigIntUint64LE(hexToBin(assetsHex.slice(64, 80))),
         });
         assetsHex = assetsHex.slice(80);
