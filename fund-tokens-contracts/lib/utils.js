@@ -9,7 +9,7 @@ import {
     lockingBytecodeToCashAddress,
     getDustThreshold,
 } from '@bitauth/libauth';
-import { BitcoinCategory } from './constants';
+import { BitcoinCategory } from './constants.js';
 
 export const withDust = output => {
     const o = {

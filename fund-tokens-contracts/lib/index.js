@@ -1,7 +1,7 @@
-import PublicFundTransactionBuilder from './PublicFundTransactionBuilder';
-import FundTokenTransactionBuilder from './FundTokenTransactionBuilder';
-import { BitcoinCategory } from './constants';
-import { getFundHex, getFundBin, decodeFund, getBestFee, hashFund, decodeFee, encodeFee } from './utils';
+import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
+import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
+import { BitcoinCategory } from './constants.js';
+import { getFundHex, getFundBin, decodeFund, getBestFee, hashFund, decodeFee, encodeFee, getAvailableFees } from './utils.js';
 
 export {
     PublicFundTransactionBuilder,
@@ -14,4 +14,5 @@ export {
     hashFund,
     decodeFee,
     encodeFee,
+    getAvailableFees,
 };
