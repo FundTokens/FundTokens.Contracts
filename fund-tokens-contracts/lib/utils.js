@@ -8,8 +8,10 @@ import {
     binToBigIntUint64LE,
     lockingBytecodeToCashAddress,
     getDustThreshold,
+    assertSuccess,
 } from '@bitauth/libauth';
 import { BitcoinCategory } from './constants.js';
+import { getNetworkPrefix } from 'cashscript/dist/utils.js';
 
 export const withDust = output => {
     const o = {
@@ -92,13 +94,19 @@ export function decodeFund(hex) {
 
 export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
-export function decodeFee(hex) {
+export function decodeFee({ prefix, network, hex }) {
     const category = swapEndianness(hex.slice(0, 64));
     const amount = binToBigIntUint64LE(hexToBin(hex.slice(64, 80)));
     if(hex.length > 80) {
         const lockingBytecode = hex.slice(80);
-        const destination = lockingBytecodeToCashAddress({ bytecode: hexToBin(lockingBytecode), tokenSupport: true });
-        return { category, amount, destination: typeof destination === 'string' ? destination : destination.address };
+        const { address } = assertSuccess(
+            lockingBytecodeToCashAddress({
+                prefix: prefix || getNetworkPrefix(network),
+                bytecode: hexToBin(lockingBytecode),
+                tokenSupport: true,
+            })
+        );
+        return { category, amount, destination: address };
     }
     return { category, amount };
 }
@@ -107,7 +115,7 @@ export function encodeFee({ category, amount, destination }) {
     if(!amount) {
         throw new Error('Unable to encode fee, amount is required');
     }
-    let encoded = swapEndianness(category ?? '0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(amount));
+    let encoded = swapEndianness(category ?? BitcoinCategory) + binToHex(bigIntToBinUint64LEClamped(amount));
     if(destination) {
         encoded += binToHex(cashAddressToLockingBytecode(destination).bytecode);
     }
@@ -139,7 +147,7 @@ export async function getAvailableFees({ feeContract, fee }) {
                 const {
                     category,
                     amount,
-                } = decodeFee(curr.token.nft.commitment);
+                } = decodeFee({ hex: curr.token.nft.commitment });
                 prev[category] = {
                     category,
                     amount: prev[category]?.amount < amount ? prev[category].amount : amount,
@@ -150,10 +158,14 @@ export async function getAvailableFees({ feeContract, fee }) {
 }
 
 export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) {
-    if(!feeContract) {
-        throw new Error('Expected fee contract');
+    if(!feeContract || !feeVaultContract) {
+        throw new Error('Expected fee contract and fee vault contracts');
     }
-    
+    if(feeContract.provider.network !== feeVaultContract.provider.network) {
+        throw new Error('Expected the contracts to be using the same network');
+    }
+
+    const network = feeContract.provider.network;
     const defaultDestination = feeVaultContract.tokenAddress;
 
     const {
@@ -178,7 +190,7 @@ export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) 
                 };
             }
 
-            const encodedFee = decodeFee(u.token.nft.commitment);
+            const encodedFee = decodeFee({ network, hex: u.token.nft.commitment });
             
             return {
                 isBitcoin: encodedFee.category === BitcoinCategory,

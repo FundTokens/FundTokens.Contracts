@@ -25,7 +25,20 @@ import assetJson from './art/asset.json' with { type: 'json' };
 import feeJson from './art/fee.json' with { type: 'json' };
 import simpleVaultJson from './art/simple_vault.json' with { type: 'json' };
 
-const sortDecreasingTokenAmount = (a, b) => b.token?.amount - a.token?.amount;
+const sortDecreasingTokenAmount = (a, b) => {
+    const aAmount = a.token?.amount ?? 0n;
+    const bAmount = b.token?.amount ?? 0n;
+
+    if(aAmount === bAmount) {
+        return 0;
+    }
+
+    if(aAmount > bAmount) {
+        return -1;
+    }
+
+    return 1;
+};
 
 export default class FundTokenTransactionBuilder extends TransactionBuilder {
     #system = {

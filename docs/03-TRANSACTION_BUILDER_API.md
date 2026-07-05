@@ -415,9 +415,9 @@ Encodes fee specification to NFT commitment hex.
 category (64 hex) | amount (16 hex) | destination_locking_bytecode (0+ hex)
 ```
 
-#### `decodeFee(hex): object`
+#### `decodeFee({ prefix, network, hex }): object`
 
-Decodes fee from NFT commitment hex.
+Decodes fee from NFT commitment hex and encodes the destination using the provided prefix or network.
 
 **Return**:
 ```javascript

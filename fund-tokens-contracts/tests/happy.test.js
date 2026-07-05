@@ -225,6 +225,39 @@ describe('happy path', () => {
     it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 110000n });
+        const inflowAmount = 2n;
+        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
+
+        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+
+        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        await transaction.addInflow({ amount: inflowAmount });
+        transaction
+            .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fund.category,
+                    amount: inflowAmount * fund.amount,
+                }
+            })
+            .addOutputs(fund.assets.map(a => ({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: a.category,
+                    amount: 1n,
+                }
+            })));
+
+        const response = await transaction.send();
+        console.log('inflow tx size', response.hex.length / 2);
+    });
+
+    it('should complete a second inflow tx', async ({ expect }) => {
+        const userWallet = generateWallet({ network });
+        const feeUtxo = randomUtxo({ satoshis: 110000n });
         const inflowAmount = 3n;
         const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
 
@@ -258,7 +291,7 @@ describe('happy path', () => {
     it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 1000000n });
-        const outflowAmount = 2n;
+        const outflowAmount = 1n;
         const fundTokenUtxo = randomUtxo({
             token: randomToken({
                 category: fund.category,
