@@ -142,5 +142,6 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+        require(true); // must end w/ require
     }
 }

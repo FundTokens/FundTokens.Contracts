@@ -64,6 +64,7 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
             require(tx.outputs[outputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+        require(true); // must end w/ require
     }
 
     /**

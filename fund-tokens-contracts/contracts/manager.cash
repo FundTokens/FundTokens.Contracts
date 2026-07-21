@@ -168,6 +168,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
                 assetOutputIndex = assetOutputIndex + 1;
             } while(nft_assetData.length > 0);
         }
+        require(true); // must end w/ require
     }
 
     /**
@@ -322,13 +323,14 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
             // Parse asset amount divisor
             bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
+            nft_assetData = nft_remaining;
             int assetAmount = int(nft_assetAmount);
             
             // Net asset release must be whole multiple of assetAmount
             require((assetReleaseAmount % assetAmount) == 0);
             // Net asset release must equal fund token lock (maintains atomicity)
             require((assetReleaseAmount / assetAmount) == fundLockingAmount);
-            nft_assetData = nft_remaining;
         }
+        require(true); // must end w/ require
     }
 }

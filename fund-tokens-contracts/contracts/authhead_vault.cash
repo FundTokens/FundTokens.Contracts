@@ -15,15 +15,18 @@ pragma cashscript ~0.13.0;
 contract AuthHeadVault(bytes32 authToken)
 {
     /**
-     * release(): Authorizes authhead operations with strict transaction structure
+     * update(): Authorizes authhead update with strict transaction structure
      * 
+     * Supports:
+     * - No BCMR update restrictions
+     *
      * Ensures:
      * - This vault is the first input (positioning control)
      * - First output has no tokens (clean state to maintain authhead integrity)
-     * - Authorization token is present with bit 0x02 (authhead permission)
+     * - Authorization token is present with bit 0x02 (authhead update permission)
      */
-    function release() {
-        // This vault MUST be the first input
+    function update() {
+        // This vault MUST be the first input, ensures only one update but prevents combining identities
         require(this.activeInputIndex == 0, "expected to be the first input");
 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
@@ -38,6 +41,39 @@ contract AuthHeadVault(bytes32 authToken)
         do {
             if(tx.inputs[inputIndex].tokenCategory == authToken) {
                 if((tx.inputs[inputIndex].nftCommitment & bytes(0x02)) == 0x02) {
+                    authorized = true;
+                }
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
+    }
+
+    /**
+     * burn(): Authorizes authhead identity burning with strict transaction structure
+     *
+     * Supports:
+     * - Multiple identity burning in a single tx
+     *
+     * Ensures:
+     * - The outputs' authhead is an OP_RETURN
+     * - The outputs' authhead has no value or tokens
+     * - Authorization token is present with bit 0x20 (authhead identity burning permission)
+     */
+    function burn() {
+        // First output must be an OP_RETURN
+        require(tx.outputs[0].lockingBytecode.slice(0, 1) == 0x6a, "first output must be an OP_RETURN");
+        // First output must have no tokens or value (ensures clean state to maintain authhead integrity)
+        require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
+        require(tx.outputs[0].value == 0);
+
+        // Check for authorization token in ANY input
+        // Bit 0x20 in commitment indicates authhead (BCMR maintenance) identity burning
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authToken) {
+                if((tx.inputs[inputIndex].nftCommitment & bytes(0x20)) == 0x20) {
                     authorized = true;
                 }
             }

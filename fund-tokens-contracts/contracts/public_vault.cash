@@ -71,6 +71,7 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             require(tx.outputs[outputIndex].tokenCategory != publicFund);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+        require(true); // must end w/ require
     }
 
     /**
@@ -124,6 +125,7 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length);
+        require(true); // must end w/ require
     }
 
     /**

@@ -82,5 +82,6 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+        require(true); // must end w/ require
     }
 }

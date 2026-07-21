@@ -92,5 +92,6 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+        require(true); // must end w/ require
     }
 }
