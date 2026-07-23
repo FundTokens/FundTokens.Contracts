@@ -51,10 +51,11 @@ contract FundOutflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflow
 
         // This FundMint holds outflow token with minting capability
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken + 0x02);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
 
         // This FundMint returns to itself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         // Extract fund parameters from output NFT commitment
         bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);

@@ -24,17 +24,6 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
      * - NFT commitments are preserved if present
      */
     function mint() {
-        // Contract must return to itself (locked pattern)
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        // Verify this is the minting token
-        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
-        
-        // Keep the minting token for future minting
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        
-        // Preserve NFT commitment (e.g., for minting capability)
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
-
         // Check for owner authorization in ANY input
         // Bit 0x01 in commitment indicates minting authorization
         bool authorized = false;
@@ -49,7 +38,6 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
         } while(inputIndex < tx.inputs.length && !authorized);
         require(authorized, "unauthorized user");
 
-
         // Verify all outputs minting this token go to the destination
         int outputIndex = 0;
         do {
@@ -60,12 +48,20 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
                     require(tx.outputs[outputIndex].lockingBytecode == destination);
                     // Token category must match for consistency
                     require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
-                    // Minted tokens have no NFT commitment
-                    require(tx.outputs[outputIndex].nftCommitment == 0x);
+                    // Minted tokens may have nft commitment data
+                    // TODO: Implement in contract or not?
                 }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
-        require(true); // must end w/ require
+
+        // Contract must return to itself (locked pattern)
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        // Verify this is the minting token
+        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
+        // Keep the minting token for future minting
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        // Preserve NFT commitment (e.g., for minting capability)
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
 }

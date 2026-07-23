@@ -221,7 +221,6 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[feeInputIndex].lockingBytecode == tx.outputs[feeOutputIndex].lockingBytecode); // sends back to self, it's paid
         feeOutputIndex = feeOutputIndex + 1; // skip over paid fee
 
-
         int fundInputAmount = 0;
         int fundOutputAmount = 0;
 

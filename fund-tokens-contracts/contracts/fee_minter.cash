@@ -41,7 +41,7 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
         // Keep the fee minting token
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         
-        // Preserve NFT commitment (minting capability)
+        // Preserve NFT commitment
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         // Require owner authorization
