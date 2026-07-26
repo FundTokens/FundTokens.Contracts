@@ -35,7 +35,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         amount: 0n,
         nft: {
             capability: 'none',
-            commitment: '02', // authhead update role
+            commitment: '01000201', // authhead update role
         }
     });
 
@@ -44,7 +44,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         amount: 0n,
         nft: {
             capability: 'none',
-            commitment: '20', // authhead burn role
+            commitment: '01002002', // authhead burn role
         }
     });
 
@@ -54,8 +54,6 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const bitcoinUtxo = randomUtxo({ satoshis: 10000n });
 
     const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(updateAuthToken.category)], { provider });
-
-    console.log('testing authhead', burnAuthToken, burnAuthUtxo);
 
     provider.addUtxo(systemUnderTest.tokenAddress, utxoUnderTest);
     provider.addUtxo(ownerWallet.tokenAddress, updateAuthUtxo);
@@ -83,7 +81,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['FF', '02', '0F'])('should allow an authorized role to release', (role) => {
+    test.each(['00FF', '0002', '000F'])('should allow an authorized role to release', (role) => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -92,7 +90,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });
@@ -131,7 +129,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).toFailRequireWith("unauthorized user");
     });
 
-    test.each(['01', '04'])('should ensure user has an authorized role', (role) => {
+    test.each(['0001', '0004'])('should ensure user has an authorized role', (role) => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -140,7 +138,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });

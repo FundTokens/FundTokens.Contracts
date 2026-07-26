@@ -9,6 +9,9 @@ import {
     hexToBin,
     cashAddressToLockingBytecode,
     utf8ToBin,
+    vmNumberToBigInt,
+    bigIntToVmNumber,
+    binToHex,
 } from '@bitauth/libauth';
 
 import { PublicFundTransactionBuilder, encodeFee } from '../lib';
@@ -131,9 +134,17 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
         return this.#contracts;
     }
 
-    async #addContractIO({ contract, nft }) {
-        const tokenUtxos = await contract.getUtxos();
-        const tokenUtxo = tokenUtxos.filter(u => u.token.category === nft)[0];
+    async #addContractIO({ contract, nft }, serials) {
+        const utxos = await contract.getUtxos();
+        const tokenUtxos = utxos.filter(u => u.token.category === nft);
+        if(!tokenUtxos.length) {
+            throw new Error('No compabitle tokens found on the contract');
+        }
+        const tokenUtxo = tokenUtxos[0];
+        const tokenSerial = vmNumberToBigInt(hexToBin(tokenUtxo.token.nft.commitment.slice(2)));
+        serials[nft] = tokenSerial;
+        const nextSerial = tokenSerial + 1n;
+        const nextSerialCommitment = binToHex(bigIntToVmNumber(nextSerial));
         this
             .addInput(tokenUtxo, contract.unlock.mint())
             .addOutput(withDust({
@@ -143,14 +154,14 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '00' + nextSerialCommitment,
                     },
                 },
             }));
         return this;
     }
 
-    #addDestinationOutput({ to, nft }) {
+    #addDestinationOutput({ to, nft }, serials) {
         this.addOutput(
             withDust({
                 to,
@@ -159,7 +170,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '01' + binToHex(bigIntToVmNumber(serials[nft])),
                     }
                 }
             })
@@ -172,16 +183,18 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
             { contract: this.#contracts.inflowHoldingContract, to: this.#contracts.mintInflowContract.tokenAddress, nft: this.#system.inflow },
             { contract: this.#contracts.outflowHoldingContract, to: this.#contracts.mintOutflowContract.tokenAddress, nft: this.#system.outflow },
             { contract: this.#contracts.publicFundHoldingContract, to: this.#contracts.publicFundContract.tokenAddress, nft: this.#system.publicFund },
-        ]
+        ];
+
+        const serials = {};
 
         for (let i = 0; i < contracts.length; i++) {
             const contract = contracts[i];
-            await this.#addContractIO({ ...contract });
+            await this.#addContractIO({ ...contract }, serials);
         }
 
         for (let i = 0; i < contracts.length; i++) {
             const contract = contracts[i];
-            this.#addDestinationOutput(contract);
+            this.#addDestinationOutput(contract, serials);
         }
 
         this.addOutput(withDust({
@@ -215,7 +228,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                             ...feeTokenUtxo.token,
                             nft: {
                                 capability: 'none',
-                                commitment: encodeFee(fee),
+                                commitment: '01' + encodeFee(fee),
                             }
                         }
                     }),
@@ -298,7 +311,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
-                            commitment: '',
+                            commitment: '0001',
                         }
                     }
                 }),
@@ -309,7 +322,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
-                            commitment: '',
+                            commitment: '0001',
                         }
                     }
                 }),
@@ -320,7 +333,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
-                            commitment: '',
+                            commitment: '0001',
                         }
                     }
                 }),
@@ -331,7 +344,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
-                            commitment: '',
+                            commitment: '0001',
                         }
                     }
                 }),
@@ -342,7 +355,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                         amount: 0n,
                         nft: {
                             capability: 'minting',
-                            commitment: '',
+                            commitment: '0001',
                         }
                     }
                 }),

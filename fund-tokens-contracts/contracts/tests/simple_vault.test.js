@@ -32,7 +32,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const authToken = randomToken({
         nft: {
             capability: 'none',
-            commitment: 'FF',
+            commitment: '0100FF',
         }
     });
 
@@ -67,7 +67,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['F0', '80'])('should allow authorized roles to release', role => {
+    test.each(['00F0', '0080'])('should allow authorized roles to release', role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -76,7 +76,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });
@@ -100,7 +100,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['40', '7F'])('should ensure authorized roles', role => {
+    test.each(['0040', '007F'])('should ensure authorized roles', role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -109,7 +109,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });

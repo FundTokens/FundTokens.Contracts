@@ -22,26 +22,23 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
      * close(): Permanently closes a public fund data stream by burning all public tokens
      * 
      * Validates and aggregates all publicFund NFT commitment data, verifies the hash,
-     * confirms authorization (bit 0x08), and burns all publicFund tokens from outputs.
+     * confirms authorization (bit 0x0008), and burns all publicFund tokens from outputs.
      * 
      * Notes:
      * - Fund data can be recovered from transaction history even after burning
      * - Intended to signal for rare closure events only
-     * - Requires authorization token with bit 0x08 (fund closure permission)
+     * - Requires authorization token with bit 0x0008 (fund closure permission)
      * 
      * Parameters:
      *   hash: Expected hash256 of concatenated fund commitment data
      * 
      * Constraints:
      * - All publicFund inputs must be processed sequentially
-     * - Authorization token (bit 0x08) must be present somewhere in the transaction
+     * - Authorization token (bit 0x0008) must be present somewhere in the transaction
      * - No publicFund tokens allowed in any output (complete burn)
      */
     function close(bytes hash) {
-        // sanity check
-        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
-
-        // 1. build data
+        // build data
         int fundIndex = this.activeInputIndex;
         bytes fund = 0x;
         do {
@@ -49,15 +46,15 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             fundIndex = fundIndex + 1;
         } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
 
-        // 2. hash and verify
+        // hash and verify
         require(hash256(fund) == hash);
 
-        // 3. check for authorization
+        // check for authorization
         bool authorized = false;
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authorization) {
-                if((tx.inputs[inputIndex].nftCommitment & bytes(0x08)) == 0x08) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0008)) == 0x0008) {
                     authorized = true;
                 }
             }
@@ -65,13 +62,15 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         } while(inputIndex < tx.inputs.length);
         require(authorized);
 
-        // 4. burn the tokens
+        // burn the tokens
         int outputIndex = 0;
         do {
             require(tx.outputs[outputIndex].tokenCategory != publicFund);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
-        require(true); // must end w/ require
+
+        // sanity check
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
     }
 
     /**
@@ -96,13 +95,7 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
      * - No other publicFund proofs allowed in same transaction
      */
     function prove(bytes hash) {
-        // 4. forward input
-        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
-
-        // 1. build data
+        // build data
         int fundIndex = this.activeInputIndex;
         bytes fund = 0x;
         do {
@@ -114,10 +107,10 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             fundIndex = fundIndex + 1;
         } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
 
-        // 2. hash and verify
+        // hash and verify
         require(hash256(fund) == hash);
 
-        // 3. no more proofs in the tx
+        // no more proofs in the tx
         int inputIndex = 0;
         do {
             if(!within(inputIndex, this.activeInputIndex, fundIndex)) {
@@ -125,7 +118,12 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             }
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length);
-        require(true); // must end w/ require
+
+        // return input to contract
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
 
     /**

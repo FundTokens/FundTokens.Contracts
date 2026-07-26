@@ -19,18 +19,18 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
      * 
      * Ensures:
      * - This contract returns to itself (locked pattern prevents misuse)
-     * - Owner authorization is present in transaction inputs (bit 0x01)
+     * - Owner authorization is present in transaction inputs (bit 0x0001)
      * - All minted tokens go to the specified destination
      * - NFT commitments are preserved if present
      */
     function mint() {
         // Check for owner authorization in ANY input
-        // Bit 0x01 in commitment indicates minting authorization
+        // Bit 0x0001 in commitment indicates minting authorization
         bool authorized = false;
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authorization) {
-                if((tx.inputs[inputIndex].nftCommitment & bytes(0x01)) == 0x01) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0001)) == 0x0001) {
                     authorized = true;  // Owner token found - authorized
                 }
             }
@@ -40,16 +40,20 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
 
         // Verify all outputs minting this token go to the destination
         int outputIndex = 0;
+        int mintedTokens = 0;
         do {
             if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
                 // If output is minting our token category
                 if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
                     // Ensure it goes to the specified destination
                     require(tx.outputs[outputIndex].lockingBytecode == destination);
-                    // Token category must match for consistency
+                    // Token category must match for consistency, including capability
                     require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
-                    // Minted tokens may have nft commitment data
-                    // TODO: Implement in contract or not?
+                    require(tx.outputs[outputIndex].nftCommitment.split(1)[0] == 0x01);
+                    // Minted token must increment serial number in order of output
+                    require(int(tx.outputs[outputIndex].nftCommitment.split(1)[1]) == (int(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[1]) + mintedTokens));
+                    // require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+                    mintedTokens = mintedTokens + 1;
                 }
             }
             outputIndex = outputIndex + 1;
@@ -61,7 +65,9 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
         require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
         // Keep the minting token for future minting
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        // Preserve NFT commitment (e.g., for minting capability)
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        // Preserve minting NFT commitment with correct typing
+        require(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[0] == 0x00);
+        require(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[0] == tx.outputs[this.activeInputIndex].nftCommitment.split(1)[0]);
+        require((int(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[1]) + mintedTokens) == int(tx.outputs[this.activeInputIndex].nftCommitment.split(1)[1]));
     }
 }

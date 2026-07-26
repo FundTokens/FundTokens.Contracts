@@ -81,13 +81,13 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 
 **Functions**:
 
-#### `release()`
+#### `release(int authIndex)`
 
-Allows input to be spent only when authorization token is present in transaction inputs.
+Allows input to be spent only when authorization token is present in the authIndex
 
 **Validation**:
-- At least one input must contain the `authToken` category
-- No other checks - contract is purely authorization-gated
+- Auth input must contain the `authToken` category
+- NFT token must contain the permission flag
 
 **Usage**: Fee collection destination
 
@@ -126,12 +126,12 @@ Identical to SimpleVault - authorizes spending when token present and maintains 
 
 #### `close(bytes hash)`
 
-Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x08), and burning all tokens.
+Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x0008), and burning all tokens.
 
 Validates:
 - All publicFund inputs are collected sequentially
 - Concatenated commitment data hashes to expected value
-- Authorization token with bit 0x08 (fund closure permission) is present
+- Authorization token with bit 0x0008 (fund closure permission) is present
 - No publicFund tokens remain in any output (enforced burn)
 
 **Usage**: Signal fund closure, allow rebalancing of commitment chains

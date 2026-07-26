@@ -95,10 +95,10 @@ export function decodeFund(hex) {
 export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
 export function decodeFee({ prefix, network, hex }) {
-    const category = swapEndianness(hex.slice(0, 64));
-    const amount = binToBigIntUint64LE(hexToBin(hex.slice(64, 80)));
-    if(hex.length > 80) {
-        const lockingBytecode = hex.slice(80);
+    const category = swapEndianness(hex.slice(2, 66));
+    const amount = binToBigIntUint64LE(hexToBin(hex.slice(66, 82)));
+    if(hex.length > 82) {
+        const lockingBytecode = hex.slice(82);
         const { address } = assertSuccess(
             lockingBytecodeToCashAddress({
                 prefix: prefix || getNetworkPrefix(network),

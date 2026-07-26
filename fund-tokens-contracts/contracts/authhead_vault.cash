@@ -23,24 +23,23 @@ contract AuthHeadVault(bytes32 authToken)
      * Ensures:
      * - This vault is the first input (positioning control)
      * - First output has no tokens (clean state to maintain authhead integrity)
-     * - Authorization token is present with bit 0x02 (authhead update permission)
+     * - Authorization token is present with bit 0x0002 (authhead update permission)
      */
     function update() {
         // This vault MUST be the first input, ensures only one update but prevents combining identities
         require(this.activeInputIndex == 0, "expected to be the first input");
-
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        
         // First output must have no tokens (ensures clean state to maintain authhead integrity)
-        require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
+        require(tx.outputs[this.activeInputIndex].tokenCategory == 0x, "no token allowed on authhead");
+
 
         // Check for authorization token in ANY input
-        // Bit 0x02 in commitment indicates authhead (BCMR maintenance) authorization
+        // Bit 0x0002 in commitment indicates authhead (BCMR maintenance) authorization
         bool authorized = false;
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                if((tx.inputs[inputIndex].nftCommitment & bytes(0x02)) == 0x02) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0002)) == 0x0002) {
                     authorized = true;
                 }
             }
@@ -58,7 +57,7 @@ contract AuthHeadVault(bytes32 authToken)
      * Ensures:
      * - The outputs' authhead is an OP_RETURN
      * - The outputs' authhead has no value or tokens
-     * - Authorization token is present with bit 0x20 (authhead identity burning permission)
+     * - Authorization token is present with bit 0x0020 (authhead identity burning permission)
      */
     function burn() {
         // First output must be an OP_RETURN
@@ -73,7 +72,7 @@ contract AuthHeadVault(bytes32 authToken)
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                if((tx.inputs[inputIndex].nftCommitment & bytes(0x20)) == 0x20) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0020)) == 0x0020) {
                     authorized = true;
                 }
             }
