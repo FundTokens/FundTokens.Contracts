@@ -286,7 +286,10 @@ Failure to sort assets correctly will cause fund creation to fail.
 
 ## Next Steps for Integration
 
-- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Detailed contract specs
-- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API reference
+- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Contract details
+- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API
 - [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Integration examples
-- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual tx and data flows
+- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flow diagrams
+- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md) - System token specification
+- [07-FEE_TOKEN.md](07-FEE_TOKEN.md) - Fee token specification
+- [08-AUTHORIZATION_TOKEN.md](08-AUTHORIZATION_TOKEN.md) - Authorization token specification

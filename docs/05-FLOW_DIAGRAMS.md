@@ -468,7 +468,10 @@ No intermediary can:
 
 ## See Also
 
-- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design
-- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Contract code
-- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - API reference
+- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design overview
+- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Contract details
+- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API
 - [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Integration examples
+- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md) - System token specification
+- [07-FEE_TOKEN.md](07-FEE_TOKEN.md) - Fee token specification
+- [08-AUTHORIZATION_TOKEN.md](08-AUTHORIZATION_TOKEN.md) - Authorization token specification

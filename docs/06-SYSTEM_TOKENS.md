@@ -40,3 +40,5 @@ A serial number (VM Number encoded) that can be used to easily reference specifi
 - [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API
 - [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Integration examples
 - [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flow diagrams
+- [07-FEE_TOKEN.md](07-FEE_TOKEN.md) - Fee token specification
+- [08-AUTHORIZATION_TOKEN.md](08-AUTHORIZATION_TOKEN.md) - Authorization token specification

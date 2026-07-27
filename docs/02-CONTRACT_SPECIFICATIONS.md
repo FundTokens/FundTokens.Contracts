@@ -81,9 +81,9 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 
 **Functions**:
 
-#### `release(int authIndex)`
+#### `release()`
 
-Allows input to be spent only when authorization token is present in the authIndex
+Allows vault release to be spent when the authToken is included in the tx
 
 **Validation**:
 - Auth input must contain the `authToken` category
@@ -534,7 +534,10 @@ User → User (receives redeemed assets)
 
 ## See Also
 
-- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - High-level overview
-- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Integration API
-- [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Usage examples
-- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flows
+- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design overview
+- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API
+- [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Integration examples
+- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flow diagrams
+- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md) - System token specification
+- [07-FEE_TOKEN.md](07-FEE_TOKEN.md) - Fee token specification
+- [08-AUTHORIZATION_TOKEN.md](08-AUTHORIZATION_TOKEN.md) - Authorization token specification
