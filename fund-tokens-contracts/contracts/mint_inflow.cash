@@ -61,7 +61,8 @@ contract FundInflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowT
         require(tx.inputs[this.activeInputIndex + 1].tokenCategory == (outflowToken + 0x02));
 
         // Extract fund parameters from output NFT commitment
-        bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
+        int inflowOutput = this.activeInputIndex + 4;
+        bytes fundCategory, bytes fundHash = tx.outputs[inflowOutput].nftCommitment.split(32);
 
         // Extract asset contract bytecode from this contract's activation bytecode
         // Push opcodes add ~2 bytes of overhead for >75 byte push
@@ -79,8 +80,8 @@ contract FundInflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowT
         // Compute Asset contract address by hashing:
         // [asset_bytecode | fund_bytecode | fundHash | fundCategory | outflows | inflows | fees | manager_bytecode]
         // This calculation must match the per-fund Asset instance created elsewhere
-        require(tx.outputs[this.activeInputIndex + 4].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
+        require(tx.outputs[inflowOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
         // Asset receives inflow token to control inflow operations
-        require(tx.outputs[this.activeInputIndex + 4].tokenCategory == inflowToken);
+        require(tx.outputs[inflowOutput].tokenCategory == inflowToken);
     }
 }

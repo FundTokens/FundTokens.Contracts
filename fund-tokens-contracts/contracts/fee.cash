@@ -94,8 +94,8 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         // Preserve fee token category for continuation
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        // Preserve fee token NFT commitment (maintains encoding)
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        int feeOutput = this.activeInputIndex + 1;
 
         // Extract fee parameters from NFT commitment if this is fee token
         if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {
@@ -108,28 +108,28 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
             // Determine fee destination (override or default)
             if(fee_destination.length > 0) {
                 // Fee override destination specified in encoding
-                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
+                require(tx.outputs[feeOutput].lockingBytecode == fee_destination);
             } else {
                 // No override - use default destination
-                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
+                require(tx.outputs[feeOutput].lockingBytecode == destination);
             }
             
             // Validate fee amount and type
             if(int(fee_category) == 0) {
                 // Category 0 = Bitcoin satoshis (not tokens)
                 // Output must have exact satoshi amount as encoded
-                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));
+                require(tx.outputs[feeOutput].value == int(fee_amount));
             } else {
                 // Non-zero category = CashToken fee type
                 // Output must have correct token category and amount
-                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);
-                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));
+                require(tx.outputs[feeOutput].tokenCategory == fee_category);
+                require(tx.outputs[feeOutput].tokenAmount == int(fee_amount));
             }
         } else {
             // No fee token encoding - use default values
             // Pay default satoshi amount to default destination
-            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
-            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);
+            require(tx.outputs[feeOutput].lockingBytecode == destination);
+            require(tx.outputs[feeOutput].value == defaultValue);
         }
     }
 }

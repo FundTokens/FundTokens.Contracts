@@ -62,12 +62,6 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(hash256(fund) == fundHash);
         // Verify this input carries inflow signal token
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
-        // Spend signal token back to self
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        // Signal token category preserved (maintains state)
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        // Signal token NFT commitment must match fund parameters
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
 
         int feeInputIndex = this.activeInputIndex + 1;
@@ -168,7 +162,10 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
                 assetOutputIndex = assetOutputIndex + 1;
             } while(nft_assetData.length > 0);
         }
-        require(true); // must end w/ require
+
+         // Spend signal token back to self
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
     }
 
     /**
@@ -207,12 +204,6 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(hash256(fund) == fundHash);
         // Verify this input carries outflow signal token
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
-        // Spend signal token back to self
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        // Signal token category preserved (maintains state)
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        // Signal token NFT commitment must match fund parameters
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
 
         int feeInputIndex = this.activeInputIndex + 1;
@@ -224,12 +215,12 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         int fundInputAmount = 0;
         int fundOutputAmount = 0;
 
-        // Fund manager contract is next input
-        int fundInputIndex = feeInputIndex + 1;
-        int fundOutputIndex = feeOutputIndex + 1;
+        bytes managerContract = new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract));
 
+        // Fund manager contract is next input
         // Verify fund manager contract address
-        while(tx.inputs[fundInputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract))) {
+        int fundInputIndex = feeInputIndex + 1;
+        while(tx.inputs[fundInputIndex].lockingBytecode == managerContract) {
             if(tx.inputs[fundInputIndex].tokenCategory != 0x) {
                 require(tx.inputs[fundInputIndex].tokenCategory == fundCategory);
                 fundInputAmount = fundInputAmount + tx.inputs[fundInputIndex].tokenAmount;
@@ -237,7 +228,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             fundInputIndex = fundInputIndex + 1;
         }
 
-        while(tx.outputs[fundOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract))) {
+        int fundOutputIndex = feeOutputIndex + 1;
+        while(tx.outputs[fundOutputIndex].lockingBytecode == managerContract) {
             require(tx.outputs[fundOutputIndex].tokenCategory == fundCategory);
             fundOutputAmount = fundOutputAmount + tx.outputs[fundOutputIndex].tokenAmount;
             fundOutputIndex = fundOutputIndex + 1;
@@ -330,6 +322,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             // Net asset release must equal fund token lock (maintains atomicity)
             require((assetReleaseAmount / assetAmount) == fundLockingAmount);
         }
-        require(true); // must end w/ require
+
+        // Spend UTXO token back to self preserving token and commitment
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
     }
 }

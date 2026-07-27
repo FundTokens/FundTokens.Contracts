@@ -31,11 +31,6 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
      * - Outflow token NFT with fund commitment
      */
     function start(bytes fund) {
-        // This startup UTXO returns to itself
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
-
         // Parse fund parameters from commitment bytes
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
@@ -63,22 +58,25 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             lastAssetCategory = nft_assetCategory;
         }
 
-        // Verify inflow token input (with minting capability)
+        // Verify inflow and outflow token input (with minting capability)
         require(tx.inputs[this.activeInputIndex + 1].tokenCategory == bytes(inflowToken + 0x02));
-        // Verify outflow token input (with minting capability)
         require(tx.inputs[this.activeInputIndex + 2].tokenCategory == bytes(outflowToken + 0x02));
 
         // Verify fee contract input
-        require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(fee));
-        require(tx.inputs[this.activeInputIndex + 3].lockingBytecode == tx.outputs[this.activeInputIndex + 3].lockingBytecode); // sends back to self, it's paid
+        int feeContractInput = this.activeInputIndex + 3;
+        require(tx.inputs[feeContractInput].lockingBytecode == new LockingBytecodeP2SH32(fee));
+        require(tx.inputs[feeContractInput].lockingBytecode == tx.outputs[feeContractInput].lockingBytecode); // sends back to self, it's paid
 
-        // Mint inflow token with fund commitment (fund_category | fund_hash)
-        require(tx.outputs[this.activeInputIndex + 5].tokenCategory == inflowToken);
-        require(tx.outputs[this.activeInputIndex + 5].nftCommitment == bytes(nft_fundCategory + hash256(fund)));
+        // Mint inflow and outflow tokens with fund commitment (fund_category | fund_hash)
+        int mintedInflowOutput = this.activeInputIndex + 5;
+        int mintedOutflowOutput = this.activeInputIndex + 6;
+        require(tx.outputs[mintedInflowOutput].tokenCategory == inflowToken);
+        require(tx.outputs[mintedOutflowOutput].tokenCategory == outflowToken);
+        bytes hash = hash256(fund);
+        bytes commitment = bytes(nft_fundCategory + hash);
+        require(tx.outputs[mintedInflowOutput].nftCommitment == commitment);
+        require(tx.outputs[mintedOutflowOutput].nftCommitment == commitment);
         
-        // Mint outflow token with fund commitment
-        require(tx.outputs[this.activeInputIndex + 6].tokenCategory == outflowToken);
-        require(tx.outputs[this.activeInputIndex + 6].nftCommitment == bytes(nft_fundCategory + hash256(fund)));
 
         // Ensure no other outputs mint inflow/outflow tokens
         int outputIndex = 0;
@@ -86,12 +84,15 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7)) {
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
                     // No other outputs can mint inflow or outflow tokens
-                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != inflowToken);
-                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != outflowToken);
+                    bytes outputCategory = tx.outputs[outputIndex].tokenCategory.slice(0, 32);
+                    require(outputCategory != inflowToken);
+                    require(outputCategory != outflowToken);
                 }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
-        require(true); // must end w/ require
+
+        // This startup UTXO returns to itself, no tokens needed
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
     }
 }

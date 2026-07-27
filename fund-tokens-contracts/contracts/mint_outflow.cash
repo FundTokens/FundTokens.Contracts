@@ -58,7 +58,8 @@ contract FundOutflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflow
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
 
         // Extract fund parameters from output NFT commitment
-        bytes fundCategory, bytes fundHash = tx.outputs[this.activeInputIndex + 4].nftCommitment.split(32);
+        int outflowOutput = this.activeInputIndex + 4;
+        bytes fundCategory, bytes fundHash = tx.outputs[outflowOutput].nftCommitment.split(32);
         
         // Extract asset contract bytecode from activation bytecode
         int assetContractStart = 0;
@@ -72,8 +73,8 @@ contract FundOutflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflow
 
         // Compute Fund contract address using same hash as Asset contract
         // This will differ only in the output token category
-        require(tx.outputs[this.activeInputIndex + 4].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
+        require(tx.outputs[outflowOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
         // Fund receives outflow token to control outflow (redemption) operations
-        require(tx.outputs[this.activeInputIndex + 4].tokenCategory == outflowToken);
+        require(tx.outputs[outflowOutput].tokenCategory == outflowToken);
     }
 }
