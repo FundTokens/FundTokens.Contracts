@@ -83,11 +83,11 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 
 #### `release()`
 
-Allows input to be spent only when authorization token is present in transaction inputs.
+Allows vault release to be spent when the authToken is included in the tx
 
 **Validation**:
-- At least one input must contain the `authToken` category
-- No other checks - contract is purely authorization-gated
+- Auth input must contain the `authToken` category
+- NFT token must contain the permission flag
 
 **Usage**: Fee collection destination
 
@@ -126,12 +126,12 @@ Identical to SimpleVault - authorizes spending when token present and maintains 
 
 #### `close(bytes hash)`
 
-Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x08), and burning all tokens.
+Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x0008), and burning all tokens.
 
 Validates:
 - All publicFund inputs are collected sequentially
 - Concatenated commitment data hashes to expected value
-- Authorization token with bit 0x08 (fund closure permission) is present
+- Authorization token with bit 0x0008 (fund closure permission) is present
 - No publicFund tokens remain in any output (enforced burn)
 
 **Usage**: Signal fund closure, allow rebalancing of commitment chains
@@ -534,7 +534,10 @@ User → User (receives redeemed assets)
 
 ## See Also
 
-- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - High-level overview
-- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Integration API
-- [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Usage examples
-- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flows
+- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design overview
+- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API
+- [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Integration examples
+- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flow diagrams
+- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md) - System token specification
+- [07-FEE_TOKEN.md](07-FEE_TOKEN.md) - Fee token specification
+- [08-AUTHORIZATION_TOKEN.md](08-AUTHORIZATION_TOKEN.md) - Authorization token specification

@@ -7,10 +7,11 @@ pragma cashscript ~0.13.0;
  * Validates that fees match their encoding and route to correct destination.
  * 
  * Fee Token commitment format (stored in NFT):
- * [fee_category (32) | fee_amount (8) | fee_destination (variable)]
+ * [fee_type (1) | fee_category (32) | fee_amount (8) | fee_destination (variable)]
  * 
  * Where:
- * - fee_category: 0x00 = Bitcoin satoshis, else = CashToken category
+ * - fee_type: BCMR encoded token type = 0x01
+ * - fee_category: 0x00..00 = Bitcoin satoshis, else = CashToken category
  * - fee_amount: Amount due (satoshis or token amount)
  * - fee_destination: Optional override destination (empty = use default)
  *   Note: Variable-length intentionally - allows forward compatibility with future address formats
@@ -30,31 +31,15 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
     /**
      * close(): Close this fee by ensuring all fee tokens are burned
      * 
-     * Allows protocol steward (authToken holder) to close the manager and cleanup.
-     * Ensures no active fee tokens remain (no dangling fees).
+     * Allows protocol steward (authToken holder) to close the fees and cleanup.
      * 
      * Validates:
-     * - Transaction includes authToken with bit 0x04 (fee close permission)
+     * - Transaction includes authToken with bit 0x0004 (fee close permission)
      * - No FeeManager fee tokens exist in any output (burned)
      * 
      * Used to close a current fee offering.
      */
     function close() {
-        // Check for authorization token in any input
-        // Bit 0x04 in commitment indicates fee manager closure authorization
-        bool authorized = false;
-        int inputIndex = 0;
-        do {
-            if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                if((tx.inputs[inputIndex].nftCommitment & bytes(0x04)) == 0x04) {
-                    // Found authorization token - user is authorized to close
-                    authorized = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !authorized);
-        require(authorized, "unauthorized user");
-
         // Verify all fee tokens are burned (not present in any output)
         int outputIndex = 0;
         do {
@@ -64,6 +49,21 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
             require(tx.outputs[outputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+
+        // Check for authorization token in any input
+        // Bit 0x0004 in commitment indicates fee manager closure authorization
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            if(tx.inputs[inputIndex].tokenCategory == authToken) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0004)) == 0x0004) {
+                    // Found authorization token - user is authorized to close
+                    authorized = true;
+                }
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
     }
 
     /**
@@ -94,40 +94,42 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         // Preserve fee token category for continuation
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        // Preserve fee token NFT commitment (maintains encoding)
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+
+        int feeOutput = this.activeInputIndex + 1;
 
         // Extract fee parameters from NFT commitment if this is fee token
         if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {
-            // Decode fee commitment: [category | amount | destination]
-            bytes fee_category, bytes fee_next1 = tx.inputs[this.activeInputIndex].nftCommitment.split(32);
+            // Decode fee commitment: [type | category | amount | destination]
+            bytes fee_type, bytes fee_next0 = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
+            require(fee_type == 0x01); // Type must be 0x01 or a fee thread
+            bytes fee_category, bytes fee_next1 = fee_next0.split(32);
             bytes fee_amount, bytes fee_destination = fee_next1.split(8);
 
             // Determine fee destination (override or default)
             if(fee_destination.length > 0) {
                 // Fee override destination specified in encoding
-                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == fee_destination);
+                require(tx.outputs[feeOutput].lockingBytecode == fee_destination);
             } else {
                 // No override - use default destination
-                require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
+                require(tx.outputs[feeOutput].lockingBytecode == destination);
             }
             
             // Validate fee amount and type
             if(int(fee_category) == 0) {
                 // Category 0 = Bitcoin satoshis (not tokens)
                 // Output must have exact satoshi amount as encoded
-                require(tx.outputs[this.activeInputIndex + 1].value == int(fee_amount));
+                require(tx.outputs[feeOutput].value == int(fee_amount));
             } else {
                 // Non-zero category = CashToken fee type
                 // Output must have correct token category and amount
-                require(tx.outputs[this.activeInputIndex + 1].tokenCategory == fee_category);
-                require(tx.outputs[this.activeInputIndex + 1].tokenAmount == int(fee_amount));
+                require(tx.outputs[feeOutput].tokenCategory == fee_category);
+                require(tx.outputs[feeOutput].tokenAmount == int(fee_amount));
             }
         } else {
             // No fee token encoding - use default values
             // Pay default satoshi amount to default destination
-            require(tx.outputs[this.activeInputIndex + 1].lockingBytecode == destination);
-            require(tx.outputs[this.activeInputIndex + 1].value == defaultValue);
+            require(tx.outputs[feeOutput].lockingBytecode == destination);
+            require(tx.outputs[feeOutput].value == defaultValue);
         }
     }
 }

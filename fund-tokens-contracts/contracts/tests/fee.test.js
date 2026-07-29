@@ -35,7 +35,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const authToken = randomToken({
         nft: {
             capability: 'none',
-            commitment: 'FF'
+            commitment: '0100FF01'
         }
     });
     const payByToken = randomToken();
@@ -47,7 +47,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             amount: 0n,
             nft: {
                 capability: 'none',
-                commitment: swapEndianness(payByToken.category) + binToHex(bigIntToBinUint64LEClamped(payByTokenAmount)),
+                commitment: '01' + swapEndianness(payByToken.category) + binToHex(bigIntToBinUint64LEClamped(payByTokenAmount)),
             }
         }
     });
@@ -57,7 +57,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             amount: 0n,
             nft: {
                 capability: 'none',
-                commitment: swapEndianness('0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(4000n)),
+                commitment: '01' + swapEndianness('0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(4000n)),
             }
         }
     });
@@ -68,7 +68,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             amount: 0n,
             nft: {
                 capability: 'none',
-                commitment: swapEndianness(payByToken.category) + binToHex(bigIntToBinUint64LEClamped(payByTokenAmount)) + binToHex(cashAddressToLockingBytecode(encodedDestination).bytecode),
+                commitment: '01' + swapEndianness(payByToken.category) + binToHex(bigIntToBinUint64LEClamped(payByTokenAmount)) + binToHex(cashAddressToLockingBytecode(encodedDestination).bytecode),
             }
         }
     });
@@ -263,7 +263,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequireWith("unauthorized user");
     });
 
-    test.each(['FF', '04'])('allows the owner with the correct roles to close the fee thread', async role => {
+    test.each(['00FF', '0004'])('allows the owner with the correct roles to close the fee thread', async role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -272,7 +272,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });
@@ -291,7 +291,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequireWith("unauthorized user");
     });
 
-    test.each(['08', '02'])('ensures the authorization usuer has the correct role', async role => {
+    test.each(['0008', '0002'])('ensures the authorization usuer has the correct role', async role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -300,7 +300,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });

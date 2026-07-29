@@ -18,7 +18,7 @@ contract SimpleVault(bytes32 authToken)
      * release(): Allows spending only when authToken is present
      * 
      * Ensures that ANY transaction spending this UTXO must include
-     * the authToken in one of its inputs. Checks for bit 0x80 (vault release permission)
+     * the authToken in one of its inputs. Checks for bit 0x0080 (vault release permission)
      * in the NFT commitment to verify proper authorization capability.
      */
     function release() {
@@ -27,8 +27,8 @@ contract SimpleVault(bytes32 authToken)
         int inputIndex = 0;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authToken) {
-                // Bit 0x80 in commitment indicates vault release authorization
-                if((tx.inputs[inputIndex].nftCommitment & bytes(0x80)) == 0x80) {
+                // Bit 0x0080 in commitment indicates vault release authorization
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0080)) == 0x0080) {
                     authorized = true;  // Found the authorization token
                 }
             }
@@ -37,5 +37,15 @@ contract SimpleVault(bytes32 authToken)
         
         // Transaction must have authorization to proceed
         require(authorized, "unauthorized user");
+    }
+
+    /**
+     *  verify(): An efficient method to verify release by relying on the first UTXO to authorize release
+     *
+     *  Ensures that the previous input was spent from this contract to efficiently verify the UTXOs being released are authorized
+     */
+    function verify() {
+        // verify previous input
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
     }
 }

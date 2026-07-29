@@ -1,6 +1,5 @@
 import { test } from 'vitest';
 import 'cashscript/vitest';
-
 import {
     MockNetworkProvider,
     Network,
@@ -12,15 +11,13 @@ import {
 import {
     swapEndianness,
     cashAddressToLockingBytecode,
+    bigIntToVmNumber,
+    binToHex,
 } from '@bitauth/libauth';
-
 import { generateWallet } from '@/wallet.js';
-
 import systemUnderTestJson from '@lib/art/simple_minter.json' with { type: 'json' };
 
-
 const DustAmount = 1000n;
-
 describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () => {
     const network = Network.MOCKNET;
 
@@ -35,14 +32,14 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const authToken = randomToken({
         nft: {
             capability: 'none',
-            commitment: 'FF',
+            commitment: '0100FF01',
         }
     });
     const tokenUnderTest = randomToken({
         amount: 0n,
         nft: {
             capability: 'minting',
-            commitment: '',
+            commitment: '0001',
         }
     });
 
@@ -56,45 +53,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
     provider.addUtxo(systemUnderTest.tokenAddress, utxoUnderTest);
 
-    it('should mint to destination', ({ expect }) => {
-        const transaction = new TransactionBuilder({ provider });
-        transaction
-            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
-            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
-            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
-            .addOutput({
-                to: systemUnderTest.tokenAddress,
-                amount: DustAmount,
-                token: {
-                    category: tokenUnderTest.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    }
-                }
-            })
-            .addOutput({
-                to: destinationWallet.address,
-                amount: DustAmount,
-                token: {
-                    category: tokenUnderTest.category,
-                    amount: 0n,
-                    nft: {
-                        capability: 'minting',
-                        commitment: '',
-                    }
-                }
-            })
-            .addOutput({
-                to: ownerWallet.address,
-                amount: DustAmount,
-                token: authUtxo.token,
-            });
-        expect(transaction).not.toFailRequire();
-    });
-
-    test.each(['01', 'FF'])('should allow authorized roles to mint to destination', role => {
+    test.each(['0001', '00FF'])('should allow authorized roles to mint to destination', role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -103,7 +62,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });
@@ -120,7 +79,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0002',
                     }
                 }
             })
@@ -132,7 +91,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0101',
                     }
                 }
             })
@@ -144,7 +103,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['02', 'F0'])('ensure authorization role', role => {
+    test.each(['0002', '00F0'])('ensure authorization role', role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -153,7 +112,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });
@@ -170,7 +129,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0002',
                     }
                 }
             })
@@ -182,7 +141,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0101',
                     }
                 }
             })
@@ -208,7 +167,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0002',
                     }
                 }
             })
@@ -220,7 +179,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0101',
                     }
                 }
             })
@@ -245,7 +204,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0002',
                     }
                 }
             })
@@ -257,7 +216,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: 0n,
                     nft: {
                         capability: 'minting',
-                        commitment: '',
+                        commitment: '0101',
                     }
                 }
             })
@@ -266,5 +225,99 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: DustAmount,
             });
         expect(transaction).toFailRequire();
+    });
+
+    it('should mint to destination', async ({ expect }) => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: systemUnderTest.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: tokenUnderTest.category,
+                    amount: 0n,
+                    nft: {
+                        capability: 'minting',
+                        commitment: '0002',
+                    }
+                }
+            })
+            .addOutput({
+                to: destinationWallet.address,
+                amount: DustAmount,
+                token: {
+                    category: tokenUnderTest.category,
+                    amount: 0n,
+                    nft: {
+                        capability: 'minting',
+                        commitment: '0101',
+                    }
+                }
+            })
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: authUtxo.token,
+            })
+            .addBchChangeOutputIfNeeded({ to: ownerWallet.address, feeRate: 2 });
+        await transaction.send();
+    });
+
+    it('should increment serial number', async ({ expect }) => {
+        const utxosUnderTest = await systemUnderTest.getUtxos();
+        const utxoUnderTest = utxosUnderTest[0];
+        const ownerUtxos = await provider.getUtxos(ownerWallet.tokenAddress);
+        const authUtxo = ownerUtxos.filter(u => u.token?.category === authToken.category)[0];
+        const bitcoinUtxo = ownerUtxos.filter(u => !u.token)[0];
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: systemUnderTest.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: tokenUnderTest.category,
+                    amount: 0n,
+                    nft: {
+                        capability: 'minting',
+                        commitment: '0004',
+                    }
+                }
+            })
+            .addOutputs(
+                [
+                    {
+                        to: destinationWallet.address,
+                        amount: DustAmount,
+                        token: {
+                            category: tokenUnderTest.category,
+                            amount: 0n,
+                            nft: {
+                                capability: 'minting',
+                                commitment: '0102',
+                            }
+                        }
+                    },
+                    {
+                        to: destinationWallet.address,
+                        amount: DustAmount,
+                        token: {
+                            category: tokenUnderTest.category,
+                            amount: 0n,
+                            nft: {
+                                capability: 'minting',
+                                commitment: '0103',
+                            }
+                        }
+                    }
+                ])
+            .addTokenChangeOutputIfNeeded({ to: ownerWallet.tokenAddress, category: authUtxo.token.category })
+            .addBchChangeOutputIfNeeded({ to: ownerWallet.address, feeRate: 2 });
+        await transaction.send();
     });
 });

@@ -58,9 +58,6 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         // Verify FundStartup input (4 inputs before this PublicFund)
         require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));
 
-        // PublicFund returns to itself (self) with token tracking
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex + 4].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex + 4].tokenCategory);
         // Verify we're holding the "public" token (minted with continued capability 0x02)
         require(tx.inputs[this.activeInputIndex].tokenCategory == bytes(token + 0x02));
 
@@ -105,12 +102,12 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
 
         // Create transaction manager contract address from fund parameters
         // This ensures each fund has a unique manager instance
-        // Formula: hash256(0x20 + hash256(fund) + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)
-        require(tx.outputs[this.activeInputIndex + 3].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + hash256(fund) + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
+        int transactionManagerOutput = this.activeInputIndex + 3;
+        require(tx.outputs[transactionManagerOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + hash256(fund) + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
         // Transaction manager gets fund identifier token (genesis hash)
-        require(tx.outputs[this.activeInputIndex + 3].tokenCategory == tx.inputs[0].outpointTransactionHash);
+        require(tx.outputs[transactionManagerOutput].tokenCategory == tx.inputs[0].outpointTransactionHash);
         // Token amount is max uint64 (indicates continued minting capability)
-        require(tx.outputs[this.activeInputIndex + 3].tokenAmount == 9223372036854775807); // max uint64
+        require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // max uint64
 
         // Chunk fund into 128-byte pieces and store in output NFT commitments
         // Each chunk goes into an output as NFT commitment data
@@ -135,12 +132,18 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
             if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) {
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
                     // Prevent minting fund category tokens outside our control
-                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != tx.inputs[0].outpointTransactionHash);
+                    bytes category = tx.outputs[outputIndex].tokenCategory.slice(0, 32);
+                    require(category != tx.inputs[0].outpointTransactionHash);
                     // Prevent minting public/governance tokens outside our control
-                    require(tx.outputs[outputIndex].tokenCategory.slice(0, 32) != token);
+                    require(category != token);
                 }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+
+        // PublicFund returns to itself (self) with token tracking
+        int thisOutput = this.activeInputIndex + 4;
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[thisOutput].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[thisOutput].tokenCategory);
     }
 }

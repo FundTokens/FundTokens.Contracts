@@ -36,14 +36,14 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const authToken = randomToken({
         nft: {
             capability: 'none',
-            commitment: 'FF',
+            commitment: '0100FF',
         }
     });
     const tokenUnderTest = randomToken({
         amount: 0n,
         nft: {
             capability: 'minting',
-            commitment: '',
+            commitment: '0001',
         }
     });
     const utxoUnderTest = randomUtxo({ satoshis: DustAmount, token: tokenUnderTest });
@@ -68,14 +68,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 {
                     to: systemUnderTest.tokenAddress,
                     amount: DustAmount,
-                    token: {
-                        category: tokenUnderTest.category,
-                        amount: 0n,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
-                    }
+                    token: tokenUnderTest
                 },
                 {
                     to: destinationWallet.tokenAddress,
@@ -85,7 +78,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         amount: 0n,
                         nft: {
                             capability: 'none',
-                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                            commitment: '01' + newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
                         }
                     }
                 },
@@ -98,7 +91,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['FF', 'F0', '10'])('should mint to destination', role => {
+    test.each(['00FF', '00F0', '0010'])('should mint to destination', role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -107,7 +100,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '01' + role
                 }
             }
         });
@@ -120,14 +113,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 {
                     to: systemUnderTest.tokenAddress,
                     amount: DustAmount,
-                    token: {
-                        category: tokenUnderTest.category,
-                        amount: 0n,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
-                    }
+                    token: tokenUnderTest
                 },
                 {
                     to: destinationWallet.tokenAddress,
@@ -137,7 +123,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         amount: 0n,
                         nft: {
                             capability: 'none',
-                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                            commitment: '01' + newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
                         }
                     }
                 },
@@ -160,14 +146,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 {
                     to: systemUnderTest.tokenAddress,
                     amount: DustAmount,
-                    token: {
-                        category: tokenUnderTest.category,
-                        amount: 0n,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
-                    }
+                    token: tokenUnderTest
                 },
                 {
                     to: destinationWallet.tokenAddress,
@@ -177,7 +156,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         amount: 0n,
                         nft: {
                             capability: 'none',
-                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)) + binToHex(cashAddressToLockingBytecode(ownerWallet.address).bytecode),
+                            commitment: '01' + newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)) + binToHex(cashAddressToLockingBytecode(ownerWallet.address).bytecode),
                         }
                     }
                 },
@@ -200,14 +179,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 {
                     to: systemUnderTest.tokenAddress,
                     amount: DustAmount,
-                    token: {
-                        category: tokenUnderTest.category,
-                        amount: 0n,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
-                    }
+                    token: tokenUnderTest
                 },
                 {
                     to: anonWallet.tokenAddress,
@@ -217,7 +189,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         amount: 0n,
                         nft: {
                             capability: 'none',
-                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                            commitment: '01' + newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
                         }
                     }
                 },
@@ -239,14 +211,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 {
                     to: systemUnderTest.tokenAddress,
                     amount: DustAmount,
-                    token: {
-                        category: tokenUnderTest.category,
-                        amount: 0n,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
-                    }
+                    token: tokenUnderTest
                 },
                 {
                     to: destinationWallet.tokenAddress,
@@ -256,7 +221,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         amount: 0n,
                         nft: {
                             capability: 'none',
-                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                            commitment: '01' + newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
                         }
                     }
                 },
@@ -268,7 +233,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).toFailRequire();
     });
 
-    test.each(['01', '0F'])('should ensure the correct role', role => {
+    test.each(['0001', '000F'])('should ensure the correct role', role => {
         const wallet = generateWallet({ network });
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -277,7 +242,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: role
+                    commitment: '00' + role
                 }
             }
         });
@@ -290,14 +255,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 {
                     to: systemUnderTest.tokenAddress,
                     amount: DustAmount,
-                    token: {
-                        category: tokenUnderTest.category,
-                        amount: 0n,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
-                    }
+                    token: tokenUnderTest
                 },
                 {
                     to: destinationWallet.tokenAddress,
@@ -307,7 +265,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         amount: 0n,
                         nft: {
                             capability: 'none',
-                            commitment: newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
+                            commitment: '01' + newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)),
                         }
                     }
                 },

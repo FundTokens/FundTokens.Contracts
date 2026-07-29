@@ -71,7 +71,7 @@ describe('happy path', () => {
                     amount: 0n,
                     nft: {
                         capability: 'none',
-                        commitment: 'FF',
+                        commitment: '01FFFF01',
                     }
                 }
             });
@@ -219,7 +219,9 @@ describe('happy path', () => {
                     },
                 }))
             ]);
-        expect(transaction).not.toFailRequire();
+        const response = await transaction.send();
+        console.log('prove a public fund on-chain - tx size', response.hex.length / 2);
+        // expect(transaction).not.toFailRequire();
     });
 
     it('should complete an inflow tx', async ({ expect }) => {
