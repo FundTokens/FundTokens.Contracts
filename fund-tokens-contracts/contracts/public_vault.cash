@@ -4,30 +4,30 @@ pragma cashscript ~0.13.0;
  * PublicFundVault: Fund transparency and proof contract
  * 
  * Extends the authorization pattern established by SimpleVault to manage public fund state.
- * Enables transparent on-chain proof of fund composition and controlled fund closure.
+ * Enables transparent on-chain proof of fund composition and controlled fund delisting.
  * 
  * Key Features:
  * - On-chain asset composition proofs via hash verification
- * - Controlled fund closure signal with authorization checks
+ * - Controlled fund delisting signal with authorization checks
  * - Commitment data chaining for proof continuity
  * - Prevents unauthorized token state changes
  * 
  * Parameters:
  *   publicFund: Token category of the public fund NFT
- *   authorization: Token category that authorizes fund closure
+ *   authorization: Token category that authorizes fund delisting
  */
 contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 {
     /**
-     * close(): Permanently closes a public fund data stream by burning all public tokens
+     * close(bytes hash): Permanently delists a public fund data stream by burning all public tokens related to this public fund
      * 
      * Validates and aggregates all publicFund NFT commitment data, verifies the hash,
      * confirms authorization (bit 0x0008), and burns all publicFund tokens from outputs.
      * 
      * Notes:
      * - Fund data can be recovered from transaction history even after burning
-     * - Intended to signal for rare closure events only
-     * - Requires authorization token with bit 0x0008 (fund closure permission)
+     * - Intended to signal for rare delisting events only
+     * - Requires authorization token with bit 0x0008 (fund delisting permission)
      * 
      * Parameters:
      *   hash: Expected hash256 of concatenated fund commitment data
@@ -74,7 +74,7 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
     }
 
     /**
-     * prove(): Proves fund composition on-chain via hash verification
+     * prove(bytes hash): Proves fund composition on-chain via hash verification
      * 
      * Validates that all publicFund inputs are properly forwarded to matching outputs,
      * aggregates their commitment data, and verifies the hash matches expected state.

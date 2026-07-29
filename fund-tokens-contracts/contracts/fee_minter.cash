@@ -3,12 +3,12 @@ pragma cashscript ~0.13.0;
 /**
  * FeeMinter: Authorization-controlled fee token minting with encoded fee commitments
  * 
- * Similar to SimpleMinter, but allows encoding fee details in NFT commitments.
- * Fee tokens carry commitment data: [category | amount | destination_override]
+ * A authorization gated minted and fee encoding restrictions in NFT commitments.
+ * Fee tokens carry commitment data: [type | category | amount | destination_override]
  * Used to create tokens that encode specific fee amounts and routing.
  * 
  * Destination override is variable-length by design - allows forward compatibility
- * with future address formats or multisig patterns without redeploying contract.
+ * with future locking bytecode formats without redeploying contract.
  *
  * Fee minting is a tool to ensure the FundToken system has robust fee options.
  * Downstream "default" values ensure fees are capped to a Bitcoin amount:
@@ -26,7 +26,7 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
     /**
      * mint(): Mints fee tokens with commitment encoding
      * 
-     * Fee commitment format: [fee_category (32) | fee_amount (8) | destination_override (0+)]
+     * Fee commitment format: [fee_type (1) | fee_category (32) | fee_amount (8) | destination_override (0+)]
      * - Category: 0x00 = Bitcoin satoshis, else = token category
      * - Amount: int64 LE integer
      * - Destination: Optional locking bytecode override for fee routing
@@ -75,13 +75,11 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
         } while(outputIndex < tx.outputs.length);
 
 
-        // Contract returns to itself (locked pattern)
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        // Keep the fee minting token
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         // Verify this is a fee minting token
-        require(tx.inputs[this.activeInputIndex].tokenCategory.slice(0, 32) == token);
-        // Preserve NFT commitment
+        require(tx.inputs[this.activeInputIndex].tokenCategory == (token + 0x02));
+        // Preserve UTXO
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
 }

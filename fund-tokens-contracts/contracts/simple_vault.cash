@@ -38,4 +38,14 @@ contract SimpleVault(bytes32 authToken)
         // Transaction must have authorization to proceed
         require(authorized, "unauthorized user");
     }
+
+    /**
+     *  verify(): An efficient method to verify release by relying on the first UTXO to authorize release
+     *
+     *  Ensures that the previous input was spent from this contract to efficiently verify the UTXOs being released are authorized
+     */
+    function verify() {
+        // verify previous input
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+    }
 }

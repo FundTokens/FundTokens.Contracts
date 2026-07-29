@@ -1,11 +1,18 @@
 pragma cashscript ~0.13.0;
 
 /**
- * AuthHeadVault: Authorization vault with strict positioning requirements
+ * AuthHeadVault: Modified authorization vault with strict authhead requirements
  * 
- * Extends SimpleVault with additional constraints to maintain authhead w/ no token:
+ * A authorization vault with additional output constraints to maintain authhead identity:
  * - Must be the first input (index 0)
  * - First output must not contain any tokens
+ * - Must be authorized with permission bit 0x0002
+ *
+ * Authhead identity burning to support full lifecycle of BCMR identities
+ * - No input positioning restriction, burn X identities in a single transaction
+ * - First output must be a no value, no token OP_RETURN
+ * - No restrictions on data embedded in OP_RETURN
+ * - Must be authorized with permission bit 0x0020
  * 
  * Used specifically for authorizing fund's BCMR update operations.
  * 
@@ -31,7 +38,6 @@ contract AuthHeadVault(bytes32 authToken)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         // First output must have no tokens (ensures clean state to maintain authhead integrity)
         require(tx.outputs[this.activeInputIndex].tokenCategory == 0x, "no token allowed on authhead");
-
 
         // Check for authorization token in ANY input
         // Bit 0x0002 in commitment indicates authhead (BCMR maintenance) authorization
@@ -67,7 +73,7 @@ contract AuthHeadVault(bytes32 authToken)
         require(tx.outputs[0].value == 0);
 
         // Check for authorization token in ANY input
-        // Bit 0x20 in commitment indicates authhead (BCMR maintenance) identity burning
+        // Bit 0x0020 in commitment indicates authhead (BCMR maintenance) identity burning
         bool authorized = false;
         int inputIndex = 0;
         do {

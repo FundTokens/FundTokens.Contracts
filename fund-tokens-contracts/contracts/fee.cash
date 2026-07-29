@@ -7,10 +7,11 @@ pragma cashscript ~0.13.0;
  * Validates that fees match their encoding and route to correct destination.
  * 
  * Fee Token commitment format (stored in NFT):
- * [fee_category (32) | fee_amount (8) | fee_destination (variable)]
+ * [fee_type (1) | fee_category (32) | fee_amount (8) | fee_destination (variable)]
  * 
  * Where:
- * - fee_category: 0x00 = Bitcoin satoshis, else = CashToken category
+ * - fee_type: BCMR encoded token type = 0x01
+ * - fee_category: 0x00..00 = Bitcoin satoshis, else = CashToken category
  * - fee_amount: Amount due (satoshis or token amount)
  * - fee_destination: Optional override destination (empty = use default)
  *   Note: Variable-length intentionally - allows forward compatibility with future address formats
@@ -30,11 +31,10 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
     /**
      * close(): Close this fee by ensuring all fee tokens are burned
      * 
-     * Allows protocol steward (authToken holder) to close the manager and cleanup.
-     * Ensures no active fee tokens remain (no dangling fees).
+     * Allows protocol steward (authToken holder) to close the fees and cleanup.
      * 
      * Validates:
-     * - Transaction includes authToken with bit 0x04 (fee close permission)
+     * - Transaction includes authToken with bit 0x0004 (fee close permission)
      * - No FeeManager fee tokens exist in any output (burned)
      * 
      * Used to close a current fee offering.
@@ -99,9 +99,9 @@ contract FeeManager(bytes32 authToken, bytes destination, bytes32 feeToken, int 
 
         // Extract fee parameters from NFT commitment if this is fee token
         if(tx.inputs[this.activeInputIndex].tokenCategory == feeToken) {
-            // Decode fee commitment: [category | amount | destination]
+            // Decode fee commitment: [type | category | amount | destination]
             bytes fee_type, bytes fee_next0 = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
-            require(fee_type == 0x01);
+            require(fee_type == 0x01); // Type must be 0x01 or a fee thread
             bytes fee_category, bytes fee_next1 = fee_next0.split(32);
             bytes fee_amount, bytes fee_destination = fee_next1.split(8);
 

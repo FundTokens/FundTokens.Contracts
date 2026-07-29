@@ -37,12 +37,14 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     const utxoUnderTest = randomUtxo({ satoshis: 10000n, token: randomToken() });
+    const additionalUtxosUnderTest = [randomUtxo({ satoshis: 1000n }), randomUtxo({ satoshis: 1000n })];
     const authUtxo = randomUtxo({ satoshis: DustAmount, token: authToken });
     const bitcoinUtxo = randomUtxo({ satoshis: 10000n });
 
     const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category)], { provider });
 
     provider.addUtxo(systemUnderTest.tokenAddress, utxoUnderTest);
+    additionalUtxosUnderTest.forEach(u => provider.addUtxo(systemUnderTest.tokenAddress, u));
     provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
     provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
 
@@ -50,6 +52,28 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxoUnderTest, systemUnderTest.unlock.release())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: authUtxo.token,
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: utxoUnderTest.token,
+                }
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('should allow multiple UTXOs to be released', () => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(utxoUnderTest, systemUnderTest.unlock.release())
+            .addInputs(additionalUtxosUnderTest, systemUnderTest.unlock.verify())
             .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([

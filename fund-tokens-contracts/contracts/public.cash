@@ -102,7 +102,6 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
 
         // Create transaction manager contract address from fund parameters
         // This ensures each fund has a unique manager instance
-        // Formula: hash256(0x20 + hash256(fund) + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)
         int transactionManagerOutput = this.activeInputIndex + 3;
         require(tx.outputs[transactionManagerOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + hash256(fund) + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
         // Transaction manager gets fund identifier token (genesis hash)
