@@ -19,9 +19,10 @@ For developers integrating or auditing FundTokens:
 **System Tokens** (Enable operations):
 - **Inflow Token** - Authorizes fund token minting
 - **Outflow Token** - Authorizes fund token redemption
-- **Public Fund Token** - Broadcasts fund parameters on-chain
-- **Authorization Token** - System authorization (new execution threads, fees, BCMR)
+- **Public Fund Token** - Broadcasts trustless fund parameters on-chain
 - **Fee Tokens** - Authorizes FundToken actions
+- **Authorization Token** - System authorization (new execution threads, collect fees, manage BCMR)
+
 
 **Smart Contracts** (13 total):
 
