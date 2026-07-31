@@ -95,6 +95,10 @@ export function decodeFund(hex) {
 export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
 export function decodeFee({ prefix, network, hex }) {
+    const type = hex.slice(0, 2);
+    if(type !== '01') {
+        throw new Error('Fee type is not the expected value of 0x01');
+    }
     const category = swapEndianness(hex.slice(2, 66));
     const amount = binToBigIntUint64LE(hexToBin(hex.slice(66, 82)));
     if(hex.length > 82) {
@@ -119,7 +123,7 @@ export function encodeFee({ category, amount, destination }) {
     if(destination) {
         encoded += binToHex(cashAddressToLockingBytecode(destination).bytecode);
     }
-    return encoded;
+    return '01' + encoded;
 }
 
 // return [{ category: '', amount: 0n }]
@@ -127,6 +131,8 @@ export async function getAvailableFees({ feeContract, fee }) {
     if(!feeContract) {
         throw new Error('Expected a fee contract');
     }
+
+    const network = feeContract.provider.network;
 
     const {
         nft: feeCategory,
@@ -147,7 +153,7 @@ export async function getAvailableFees({ feeContract, fee }) {
                 const {
                     category,
                     amount,
-                } = decodeFee({ hex: curr.token.nft.commitment });
+                } = decodeFee({ network, hex: curr.token.nft.commitment });
                 prev[category] = {
                     category,
                     amount: prev[category]?.amount < amount ? prev[category].amount : amount,

@@ -221,7 +221,6 @@ describe('happy path', () => {
             ]);
         const response = await transaction.send();
         console.log('prove a public fund on-chain - tx size', response.hex.length / 2);
-        // expect(transaction).not.toFailRequire();
     });
 
     it('should complete an inflow tx', async ({ expect }) => {

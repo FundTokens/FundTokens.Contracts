@@ -228,7 +228,7 @@ export default class SystemTransactionBuilder extends TransactionBuilder {
                             ...feeTokenUtxo.token,
                             nft: {
                                 capability: 'none',
-                                commitment: '01' + encodeFee(fee),
+                                commitment: encodeFee(fee),
                             }
                         }
                     }),

@@ -11,6 +11,7 @@ import { generateWallet } from '@/wallet.js';
 import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
+import { decodeFee, getAvailableFees } from '@lib/utils';
 
 const DustAmount = 1000n;
 
@@ -81,7 +82,7 @@ describe('encoded CashTokens fee testing', () => {
         console.log('initialize system tx size', response.hex.length / 2);
     });
 
-    it('should create new system threads', async ({ expect }) => {
+    it('should create new system threads', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemTransactionBuilder({ provider, system });
@@ -89,8 +90,6 @@ describe('encoded CashTokens fee testing', () => {
         addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
         await transaction.addSystemThreads();
-        await transaction.addCreateFundFee();
-        await transaction.addExecuteFundFee();
         transaction.addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH());
         transaction.addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH());
         transaction.addOutput({
@@ -103,7 +102,7 @@ describe('encoded CashTokens fee testing', () => {
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
-    it('should create new encoded fee threads', async ({ expect }) => {
+    it('should create new encoded fee threads', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemTransactionBuilder({ provider, system });
@@ -123,6 +122,37 @@ describe('encoded CashTokens fee testing', () => {
 
         const response = await transaction.send();
         console.log('create new public fund threads tx size', response.hex.length / 2);
+    });
+
+    it('should decode encoded fee threads', async () => {
+        const transaction = new SystemTransactionBuilder({ provider, system });
+        const { createFundFeeContract, executeFundFeeContract } = transaction.getContracts();
+
+        const createFees = await createFundFeeContract.getUtxos();
+        const createFee = decodeFee({ network: provider.network, hex: createFees[0].token.nft.commitment });
+        expect(createFee.category).to.equal(payByToken.category);
+        expect(createFee.amount).to.equal(50000n);
+        expect(createFee.destination).to.equal(destinationWallet.tokenAddress);
+
+
+        const executeFees = await executeFundFeeContract.getUtxos();
+        const executeFee = decodeFee({ network: provider.network, hex: executeFees[0].token.nft.commitment });
+        expect(executeFee.category).to.equal(payByToken.category);
+        expect(executeFee.amount).to.equal(5000n);
+        expect(executeFee.destination).to.equal(destinationWallet.tokenAddress);
+    });
+
+    it('should get available fees', async () => {
+        const transaction = new SystemTransactionBuilder({ provider, system });
+        const { createFundFeeContract, executeFundFeeContract } = transaction.getContracts();
+
+        const createFees = await getAvailableFees({ feeContract: createFundFeeContract, fee: system.fees.create });
+        expect(createFees[payByToken.category].category).to.equal(payByToken.category);
+        expect(createFees[payByToken.category].amount).to.equal(50000n);
+
+        const executeFees = await getAvailableFees({ feeContract: executeFundFeeContract, fee: system.fees.execute });
+        expect(executeFees[payByToken.category].category).to.equal(payByToken.category);
+        expect(executeFees[payByToken.category].amount).to.equal(5000n);
     });
 
     const fund = {
