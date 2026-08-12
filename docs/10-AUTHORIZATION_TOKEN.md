@@ -40,9 +40,9 @@ Each bit in the permission flags byte represents a specific authorization capabi
 | 0x0004 | Close Fee | Authorize closing/archiving fee management structures and consolidating fees |
 | 0x0008 | Close Public Fund | Authorize closing public fund data streams and preventing further proofs or UTXO discovery (i.e. tx lookup must be used) |
 | 0x0010 | Fee Minting | Authorize FeeMinter to create new fee token NFTs with encoded fee parameters |
-| 0x0040 | RESERVED | Reserved for future usage
+| 0x0040 | Burn Instance Tokens | Authorize burning on-chain instance encoded data
 | 0x0080 | Release Vault Authorization | Authorize releasing funds from vault contracts and SimpleVault operations |
-| 0xFF00 | RESERVED | Reserved for future usage
+| 0xFF00 | RESERVED (MULTI) | Reserved for future usage
 
 #### Combining Permissions
 

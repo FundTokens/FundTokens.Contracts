@@ -150,5 +150,6 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[prevInput].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[prevInput].tokenCategory);
         require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[prevInput].outpointTransactionHash);
+        require(tx.inputs[this.activeInputIndex].outpointIndex > tx.inputs[prevInput].outpointIndex);
     }
 }
