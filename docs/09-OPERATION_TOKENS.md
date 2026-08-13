@@ -1,19 +1,21 @@
-# System Tokens
+# Operation Tokens
 
-This document provides detailed specifications for the system token system, including commitment encoding.
+This document provides detailed specifications for the Inflow/Outlfow token system, including commitment encoding.
 
 ## Overview
 
-The System Tokens is a multiple CashToken NFT that enables user operations such as fund creation/proof and inflow/outflow operations. These tokens are a technical requirement used to create a secure method for contracts to compose themselves using TX introspection.
+The operation tokens are multiple CashToken NFTs that enables user operations such as fund inflow and outflow. These tokens are a technical requirement used to create a secure method for contracts to compose themselves using TX introspection.
 
-## System Token Commitment Format
+## Operation Tokens Commitment Format
 
-System token commitments encode token type and serial numbers into CashToken NFTs.
+Operation token commitments encode token type and serial numbers into CashToken NFTs.
 
 ### Commitment Structure
 
+The commitment structure can operate as a serial (at least two bytes) or can contain a created fund's category and hash (65 bytes).
+
 ```
-[type (1 byte)][serial_number (vm number)] | [fund_category (32 bytes)][fund_hash (32 bytes)]
+[type (1 byte)][serial_number (vm number)] | [type (1 byte)][fund_category (32 bytes)][fund_hash (32 bytes)]
 ```
 
 - **type**: One byte containing the token type
@@ -23,11 +25,11 @@ System token commitments encode token type and serial numbers into CashToken NFT
 
 ### NFT Types
 
-| Hex | Capability | Type | Purpose |
+| Hex | Capability | Role | Description |
 |-----|------------|-----------|---------|
-| 0x00 | Minting | Minting Token | Mint new fund minting tokens as needed and maintain serial number for next minting |
-| 0x01 | Minting | Fund Creation | Mint new fund contract tokens for the user, many threads may be minted per fund |
-| Commitment Length >= 48 | None | Fund Contract | Execution thread on smart contract for a fund, many threads may exist sans public fund proofs |
+| 0x00 | Minting | New Thread Creation | Mint new executing threads as needed and maintain serial number for next minting |
+| 0x01 | Minting | Fund Thread Creation | Mint new fund executing threads for the user. Many threads may be minted per fund |
+| 0x02 | None | Executing Thread | Execution thread on smart contract for a fund. |
 
 ### Serial Number
 

@@ -19,42 +19,38 @@ pragma cashscript ~0.13.0;
 contract InstanceVault(bytes32 instance, bytes32 authorization)
 {
     /**
-     * close(): Signal this instance is no longer being used or maintained by burning all encoding tokens related to this instance
+     * burn(): Burn the Instance tokens to signal this instance is no longer being used or maintained
      * 
      * Validates and aggregates all instance NFT commitment data, verifies the hash,
      * confirms authorization (bit 0x0040), and burns all instance tokens from outputs.
      * 
      * Notes:
      * - Instance parameters data can be recovered from transaction history even after burning
-     * - Intended to signal for rare closure events only
+     * - Intended to signal for rare closure event only
      * - Requires authorization token with bit 0x0040 (instance deprecation permission)
      * 
      * Parameters:
      *   hash: Expected hash256 of concatenated instance commitment data
      * 
      * Constraints:
-     * - All instance inputs must be processed sequentially
+     * - Both inputs must be processed sequentially
      * - Authorization token (bit 0x0040) must be present somewhere in the transaction
      * - No instance tokens allowed in any output (complete token burn)
      */
-    function close() {
+    function burn() {
+        // ensure only spends for expected token
+        require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
         // build data
-        bytes hashType, bytes hash = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
-        require(hashType == 0x00);
+        bytes type, bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
+        require(type == 0x00);
+        bytes hash, bytes data = hashAndData.split(32);
+        require(tx.inputs.length >= this.activeInputIndex + 2);
         int dataIndex = this.activeInputIndex + 1;
-        bytes data = 0x;
-        do {
-            // order is implicit via hash
-            data = data + tx.inputs[dataIndex].nftCommitment;
-            require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
-
-            dataIndex = dataIndex + 1;
-        } while(dataIndex < tx.inputs.length && tx.inputs[dataIndex].tokenCategory == instance);
+        require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode, 'Data input must spend from this lockingBytecode');
+        data = data + tx.inputs[dataIndex].nftCommitment;
 
         // hash and verify
-        bytes dataType, bytes rest = data.split(1);
-        require(dataType == 0x01);
-        require(hash256(rest) == hash);        
+        require(hash256(data) == hash, 'Encoded hash and calculated hash must match');      
 
         // burn the tokens
         int outputIndex = 0;
@@ -63,8 +59,6 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
 
-        // sanity check
-        require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
 
         // check for authorization
         bool authorized = false;
@@ -81,9 +75,9 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
     }
 
     /**
-     * prove(): Proves instance composition on-chain
+     * proof(): Proves instance composition on-chain
      * 
-     * Validates that all instance inputs are properly forwarded to matching outputs,
+     * Validates that both instance inputs are properly forwarded to matching outputs,
      * aggregates their commitment data, and verifies the hash matches expected state.
      * 
      * This pattern establishes an immutable proof chain:
@@ -92,37 +86,32 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      * 
      * Constraints:
      * - Active input (this UTXO) must forward without change
-     * - All consecutive instance inputs/outputs must be in matching positions
+     * - The next input must be in matching criteria
      * - Commitment data is immutable (same in/out)
      */
-    function prove() {
-        // build data
-        bytes hashType, bytes hash = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
-        require(hashType == 0x00);
-        int dataIndex = this.activeInputIndex + 1;
-        bytes data = 0x;
-        do {
-            // order is implicit via hash
-            data = data + tx.inputs[dataIndex].nftCommitment;
-            require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
-            
-            require(tx.inputs[dataIndex].lockingBytecode == tx.outputs[dataIndex].lockingBytecode);
-            require(tx.inputs[dataIndex].tokenCategory == tx.outputs[dataIndex].tokenCategory);
-            require(tx.inputs[dataIndex].nftCommitment == tx.outputs[dataIndex].nftCommitment, 'NFT commitment and order must be preserved');
-
-            dataIndex = dataIndex + 1;
-        } while(dataIndex < tx.inputs.length && tx.inputs[dataIndex].tokenCategory == instance);
+    function proof() {
+        // ensure only spends for expected token
         require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
+        // build data
+        bytes type, bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
+        require(type == 0x00);
+        bytes hash, bytes data = hashAndData.split(32);
+        require(tx.inputs.length >= this.activeInputIndex + 2);
+        int dataIndex = this.activeInputIndex + 1;
+        
+        require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode, 'Data input must spend from this lockingBytecode');
+        require(tx.inputs[dataIndex].lockingBytecode == tx.outputs[dataIndex].lockingBytecode, 'Data input must be preserved');
+        require(tx.inputs[dataIndex].tokenCategory == tx.outputs[dataIndex].tokenCategory, 'Data input category must be preserved');
+        require(tx.inputs[dataIndex].nftCommitment == tx.outputs[dataIndex].nftCommitment, 'Data input commitment must be preserved');
+        data = data + tx.inputs[dataIndex].nftCommitment;
 
         // hash and verify
-        bytes dataType, bytes rest = data.split(1);
-        require(dataType == 0x01);
-        require(hash256(rest) == hash);
+        require(hash256(data) == hash, 'Encoded hash and calculated hash must match');
 
         // return input to contract
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode, 'This input must be preserved');
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory, 'This input category must be preserved');
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment, 'This input commitment must be preserved');
     }
 
     /**

@@ -24,10 +24,10 @@ Fee token commitments encode fee details into CashToken NFTs. The maintainer may
 
 ### Fee Types
 
-| Hex | Capability | Auth Type | Purpose |
+| Hex | Capability | Role | Description |
 |-----|------------|-----------|---------|
-| 0x00 | Minting | New Tokens | Mint new fee tokens as needed |
-| 0x01 | None | Fee NFT | Used to encode fee details |
+| 0x00 | Minting | Fee Thread Creation | Mint new fee threads as needed |
+| 0x01 | None | Execution Fee NFT | Used by the smart contract to enforce fee payment |
 
 ### Serial Number
 

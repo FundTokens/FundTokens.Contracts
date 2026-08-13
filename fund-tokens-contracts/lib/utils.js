@@ -54,7 +54,7 @@ export function getFundHex(fund) {
     const hex = [];
     hex.push(swapEndianness(category)); // 32 bytes
     hex.push(binToHex(bigIntToBinUint64LEClamped(amount))); // 8 bytes
-    hex.push(binToHex(bigIntToBinUint64LEClamped(satoshis))); // 8 bytes
+    hex.push(binToHex(bigIntToBinUint64LEClamped(satoshis))); // 8 bytes  // hex.push(binToHex(numberToBinUint32LEClamped(Number(satoshis)))); // 4 bytes
     assets.sort(categoryAscending).map(asset => {
         hex.push(swapEndianness(asset.category)); // 32 bytes
         hex.push(binToHex(bigIntToBinUint64LEClamped(asset.amount))); // 8 bytes

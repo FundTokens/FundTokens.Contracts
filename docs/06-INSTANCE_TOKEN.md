@@ -1,11 +1,11 @@
 # Instance Token
 
-This document provides detailed specifications for the instance token system, including commitment encoding.
+This document provides detailed specifications for the Instance token system, including commitment encoding.
 
 ## Overview
 
-The Instance Token is a CashToken NFT that is used to encode FundToken system details in the startup TX for on-chain verification and recovery.
-These tokens are a voluntary one-time proof created in the initial system transaction that encodes all constructor details needed to run FundTokens.
+The Instance token is a CashToken NFT that is used to encode FundToken system details in the startup TX for on-chain verification and recovery.
+These tokens are a voluntary one-time proof created at initial token seeding. The tokens can be used to reconstruct the parameters required to execute FundTokens.
 
 ## Instance System Token Commitment Format
 
@@ -13,8 +13,10 @@ Instance token commitments encode FundToken system details into CashToken NFTs.
 
 ### Commitment Structure
 
+The 233 byte structure is split across two CashTokens NFT w/ limit of 128bytes per NFT commitment.
+
 ```
-[type (1 byte)][hash (32 byte)] | [type (1 byte)][inflow (32 bytes)][outflow (32 bytes)][publicFund (32 bytes)][authorization (32 bytes)][fees_create_nft (32 bytes)][fees_create_sats (4 bytes)][fees_execute_nft (32 bytes)][fees_execute_sats (4 bytes)]
+[type (1 byte)][hash (32 byte)][inflow (32 bytes)][outflow (32 bytes)][publicFund (32 bytes)][authorization (32 bytes)][fees_create_nft (32 bytes)][fees_create_sats (4 bytes)][fees_execute_nft (32 bytes)][fees_execute_sats (4 bytes)]
 ```
 
 - **type**: One byte containing the token type
@@ -30,10 +32,9 @@ Instance token commitments encode FundToken system details into CashToken NFTs.
 
 ### NFT Types
 
-| Hex | Capability | Type | Purpose |
+| Hex | Capability | Role | Description |
 |-----|------------|-----------|---------|
-| 0x00 | None | System Hash | Contains the system hash for on-chain verification |
-| 0x01 | None | System Details | Contains the system parameters for on-chain reference and history |
+| 0x00 | None | Instance Proof | Acts as an on-chain proof when spending from it's vault. Additionaly this ensures parameter recovory is always available |
 
 ## See Also
 

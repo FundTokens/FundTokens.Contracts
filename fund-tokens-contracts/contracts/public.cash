@@ -145,5 +145,6 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         int thisOutput = this.activeInputIndex + 4;
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[thisOutput].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[thisOutput].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[thisOutput].nftCommitment);
     }
 }

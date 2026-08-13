@@ -57,8 +57,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             amount: 123456n,
         },
     };
-    const instanceHex = `01${swapEndianness(inflow)}${swapEndianness(outflow)}${swapEndianness(publicFund)}${swapEndianness(fees.create.nft)}${binToHex(numberToBinInt32LE(Number(fees.create.amount)))}${swapEndianness(fees.execute.nft)}${binToHex(numberToBinInt32LE(Number(fees.execute.amount)))}`;
-    const instanceHash = binToHex(hash256(hexToBin(instanceHex.slice(2))));
+    const instanceHex = `${swapEndianness(inflow)}${swapEndianness(outflow)}${swapEndianness(publicFund)}${swapEndianness(fees.create.nft)}${binToHex(numberToBinInt32LE(Number(fees.create.amount)))}${swapEndianness(fees.execute.nft)}${binToHex(numberToBinInt32LE(Number(fees.execute.amount)))}`;
+    const instanceHash = binToHex(hash256(hexToBin(instanceHex)));
 
     const instanceTxId = randomUtxo().txid;
     const instanceUtxos = [
@@ -71,7 +71,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: '00' + instanceHash
+                    commitment: '00' + instanceHash + instanceHex.slice(0, 190)
                 }
             }
         }),
@@ -84,20 +84,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: instanceHex.slice(0, 256)
-                }
-            }
-        }),
-        randomUtxo({
-            txid: instanceTxId,
-            vout: 2,
-            satoshis: 3000n,
-            token: {
-                category: instanceCategory,
-                amount: 0n,
-                nft: {
-                    capability: 'none',
-                    commitment: instanceHex.slice(256)
+                    commitment: instanceHex.slice(190)
                 }
             }
         })
@@ -112,9 +99,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         provider.addUtxo(userWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(instanceUtxos[0], systemUnderTest.unlock.prove())
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.proof())
             .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
-            .addInput(instanceUtxos[2], systemUnderTest.unlock.data())
             .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([
                 {
@@ -126,11 +112,6 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     to: systemUnderTest.tokenAddress,
                     amount: DustAmount,
                     token: instanceUtxos[1].token
-                },
-                {
-                    to: systemUnderTest.tokenAddress,
-                    amount: DustAmount,
-                    token: instanceUtxos[2].token
                 },
                 {
                     to: ownerWallet.address,
@@ -146,9 +127,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         provider.addUtxo(userWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider });
         transaction
-            .addInput(instanceUtxos[0], systemUnderTest.unlock.prove())
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.proof())
             .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
-            .addInput(instanceUtxos[2], systemUnderTest.unlock.data())
             .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([
                 {
@@ -162,24 +142,18 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     token: instanceUtxos[0].token
                 },
                 {
-                    to: systemUnderTest.tokenAddress,
-                    amount: DustAmount,
-                    token: instanceUtxos[2].token
-                },
-                {
                     to: ownerWallet.address,
                     amount: DustAmount,
                 }
             ]);
-        expect(transaction).toFailRequireWith('NFT commitment and order must be preserved');
+        expect(transaction).toFailRequireWith('Data input commitment must be preserved');
     });
 
     it('Authorized user can burn data and tokens', async () => {
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
-            .addInput(instanceUtxos[0], systemUnderTest.unlock.close())
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.burn())
             .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
-            .addInput(instanceUtxos[2], systemUnderTest.unlock.data())
             .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH()) // contains auth and sats
             .addOutputs([
                 {

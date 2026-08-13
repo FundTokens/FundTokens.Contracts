@@ -13,7 +13,7 @@ Authorization token commitments encode permission flags into CashToken NFTs. The
 ### Commitment Structure
 
 ```
-[auth_type (1 byte)][permission_flags (2 byte)][serial_number (vm number)]
+[auth_type (1 byte)][serial_number (vm number)] | [auth_type (1 byte)][permission_flags (2 byte)][serial_number (vm number)]
 ```
 
 - **auth_type**: One byte containing the authorization token type
@@ -22,9 +22,9 @@ Authorization token commitments encode permission flags into CashToken NFTs. The
 
 ### Auth Types
 
-| Hex | Capability | Auth Type | Purpose |
+| Hex | Capability | Role | Description |
 |-----|------------|-----------|---------|
-| 0x00 | Minting | New Tokens | Mint new authorization tokens as needed and maintain serial number for next minting |
+| 0x00 | Minting | New Auth Tokens | Mint new authorization tokens as needed and maintain serial number for next minting |
 | 0x01 | None | User | A user held token that can be used at will |
 | 0x02 | Mutable\|None | Contract | A contract held token that can be used based on the contract's spend conditions |
 

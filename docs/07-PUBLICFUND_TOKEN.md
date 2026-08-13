@@ -1,39 +1,40 @@
-# Instance Token
+# PublicFund Tokens
 
-This document provides detailed specifications for the instance token system, including commitment encoding.
+This document provides detailed specifications for the PublicFund token system, including commitment encoding.
 
 ## Overview
 
-The Instance Token is a CashToken NFT that is used to encode FundToken system details in the startup TX for on-chain verification and recovery.
-These tokens are a voluntary one-time proof created in the initial system transaction that encodes all constructor details needed to run FundTokens.
+The PublicFund tokens is a CashToken NFT that proves a fund was trustlessly created via smart contract enforcement and enables on-chain verification and recovery.
+The tokens are held in a vault to provide a secure method for on-chain proofs and building using TX introspection.
 
-## Instance System Token Commitment Format
+## Publicfund Token Commitment Format
 
-Instance token commitments encode FundToken system details into CashToken NFTs.
+PublicFund token commitments encode token type and serial numbers into CashToken NFTs.
 
 ### Commitment Structure
 
+The commitment structure guarantees at least 77 bytes with additional optional 40 byte increments with no contract enforced limit.
+
 ```
-[type (1 byte)][hash (32 byte)] | [type (1 byte)][inflow (32 bytes)][outflow (32 bytes)][publicFund (32 bytes)][authorization (32 bytes)][fees_create_nft (32 bytes)][fees_create_sats (4 bytes)][fees_execute_nft (32 bytes)][fees_execute_sats (4 bytes)]
+[type (1 byte)][serial_number (vm number)] | [type (1byte)][fund_hash (32 bytes)][fund_category (32 bytes)][divisor (8 bytes)][satoshis (4 bytes)][[asset_category (32 bytes)][asset_amount (8 bytes)]]*
 ```
 
 - **type**: One byte containing the token type
-- **hash**: The hash of the system settings
-- **inflow**: The token used as a signal for a Fund's inflow
-- **outflow**: The token used as a signal for a Fund's outflow
-- **publicFund**: The token used to encode trustless public funds parameters on-chain
-- **authorization**: The token used by the system maintainer to manage UTXO threads and fees
-- **fees_create_nft**: The token used to encode dynamic fees for creating a new fund
-- **fees_create_sats**: A default amount (in satoshis) to create a new fund that prevents total lockout
-- **fees_execute_nft**: The token used to encode dynamic fees for executing an existing fund
-- **fees_execute_sats**: A default amount (in satoshis) to execute (inflow/outflow operations) that prevents total lockout
+- **serial_number**: VM number encoded serial number
+- **fund_hash**: The fund's hash
+- **fund_category**: The fund's token category
 
 ### NFT Types
 
-| Hex | Capability | Type | Purpose |
+| Hex | Capability | Role | Purpose |
 |-----|------------|-----------|---------|
-| 0x00 | None | System Hash | Contains the system hash for on-chain reference, intended to be burned |
-| 0x01 | None | System Details | Contains the system parameters for on-chain reference and history |
+| 0x00 | Minting | Thread Creation | Mint new UTXO threads (i.e. minting tokens) as needed and maintain serial number for next minting |
+| 0x01 | Minting | New PublicFund Creation | Mint new PublicFund NFTs to the vault, many threads may exist |
+| 0x02 | None | PublicFund Proofs | Execute an on-chain proof and recreate PublicFund parameters, only one proof will exist. |
+
+### Serial Number
+
+A serial number (VM Number encoded) that can be used to easily reference specific tokens i.e. users and systems
 
 ## See Also
 
