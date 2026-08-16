@@ -13,13 +13,14 @@ Instance token commitments encode FundToken system details into CashToken NFTs.
 
 ### Commitment Structure
 
-The 233 byte structure is split across two CashTokens NFT w/ limit of 128bytes per NFT commitment.
+The 235 byte structure is split across two CashTokens NFT w/ limit of 128bytes per NFT commitment.
 
 ```
-[type (1 byte)][hash (32 byte)][inflow (32 bytes)][outflow (32 bytes)][publicFund (32 bytes)][authorization (32 bytes)][fees_create_nft (32 bytes)][fees_create_sats (4 bytes)][fees_execute_nft (32 bytes)][fees_execute_sats (4 bytes)]
+[type (1 byte)][version (2 bytes)][hash (32 bytes)][inflow (32 bytes)][outflow (32 bytes)][publicFund (32 bytes)][authorization (32 bytes)][fees_create_nft (32 bytes)][fees_create_sats (4 bytes)][fees_execute_nft (32 bytes)][fees_execute_sats (4 bytes)]
 ```
 
 - **type**: One byte containing the token type
+- **version**: The working contract version
 - **hash**: The hash of the system settings
 - **inflow**: The token used as a signal for a Fund's inflow
 - **outflow**: The token used as a signal for a Fund's outflow

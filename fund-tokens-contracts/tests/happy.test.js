@@ -8,7 +8,7 @@ import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
 
-import { decodeFund, getFundHex, hashFund, categoryAscending } from '@lib/utils';
+import { decodeFund, getFundHex, hashFund, categoryAscending, getFundCommitment, decodeFundCommitment } from '@lib/utils';
 import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
@@ -178,9 +178,9 @@ describe('happy path', () => {
 
         fundParts.forEach(p => fundHex += p.token.nft.commitment);
 
-        expect(getFundHex(fund)).to.equal(fundHex);
+        expect(getFundCommitment(fund)).to.equal(fundHex);
 
-        const decodedFund = decodeFund(fundHex);
+        const decodedFund = decodeFundCommitment(fundHex);
 
         expect(decodedFund.category).to.equal(fund.category);
         expect(decodedFund.amount).to.equal(fund.amount);
@@ -207,7 +207,7 @@ describe('happy path', () => {
         const utxos = await publicFundVaultContract.getUtxos();
 
         transaction
-            .addInput(utxos[0], publicFundVaultContract.unlock.prove(hashFund(fund)))
+            .addInput(utxos[0], publicFundVaultContract.unlock.proof())
             .addInputs(utxos.slice(1), publicFundVaultContract.unlock.data())
             .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([
@@ -340,7 +340,7 @@ describe('happy path', () => {
         const utxos = await publicFundVaultContract.getUtxos();
 
         transaction
-            .addInput(utxos[0], publicFundVaultContract.unlock.close(hashFund(fund)))
+            .addInput(utxos[0], publicFundVaultContract.unlock.burn())
             .addInputs(utxos.slice(1), publicFundVaultContract.unlock.data())
             .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())

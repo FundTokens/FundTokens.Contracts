@@ -19,7 +19,7 @@ pragma cashscript ~0.13.0;
 contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 {
     /**
-     * close(bytes hash): Permanently delists a public fund data stream by burning all public tokens related to this public fund
+     * burn(): Permanently delists a public fund data stream by burning all public tokens related to this public fund
      * 
      * Validates and aggregates all publicFund NFT commitment data, verifies the hash,
      * confirms authorization (bit 0x0008), and burns all publicFund tokens from outputs.
@@ -29,26 +29,14 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
      * - Intended to signal for rare delisting events only
      * - Requires authorization token with bit 0x0008 (fund delisting permission)
      * 
-     * Parameters:
-     *   hash: Expected hash256 of concatenated fund commitment data
-     * 
      * Constraints:
      * - All publicFund inputs must be processed sequentially
      * - Authorization token (bit 0x0008) must be present somewhere in the transaction
      * - No publicFund tokens allowed in any output (complete burn)
      */
-    function close(bytes hash) {
-        // build data
-        int fundIndex = this.activeInputIndex;
-        bytes fund = 0x;
-        do {
-            fund = fund + tx.inputs[fundIndex].nftCommitment;
-            fundIndex = fundIndex + 1;
-        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
-
-        // hash and verify
-        require(hash256(fund) == hash);
-
+    function burn() {
+        // ensure only spends for the expected token
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
         // check for authorization
         bool authorized = false;
         int inputIndex = 0;
@@ -61,66 +49,67 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length);
         require(authorized);
-
         // burn the tokens
         int outputIndex = 0;
         do {
             require(tx.outputs[outputIndex].tokenCategory != publicFund);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+        // verify data
+        int fundIndex = this.activeInputIndex;
+        bytes fundCommitment = 0x;
+        do {
+            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
+            fundIndex = fundIndex + 1;
+        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
 
-        // sanity check
-        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+        bytes type, bytes hashAndData = fundCommitment.split(1);
+        require(type == 0x02);
+        bytes hash, bytes fund = hashAndData.split(32);
+
+        // hash and verify
+        require(hash256(fund) == hash);
     }
 
     /**
-     * prove(bytes hash): Proves fund composition on-chain via hash verification
+     * proof(): Proves fund composition on-chain via hash verification
      * 
      * Validates that all publicFund inputs are properly forwarded to matching outputs,
      * aggregates their commitment data, and verifies the hash matches expected state.
-     * Ensures no other publicFund proofs exist in the same transaction.
      * 
      * This pattern establishes an immutable proof chain:
      * - Input commitment data must exactly match output commitment data
      * - All intermediate UTXOs are validated for consistency
      * - Hash verification prevents tampering with fund state
      * 
-     * Parameters:
-     *   hash: Expected hash256 of concatenated fund commitment data
-     * 
      * Constraints:
      * - Active input (this UTXO) must forward without changes
      * - All consecutive publicFund inputs/outputs must be in matching positions
      * - Commitment data is immutable (same in/out)
-     * - No other publicFund proofs allowed in same transaction
      */
-    function prove(bytes hash) {
+    function proof() {
+        // ensure only spends for expected token
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
         // build data
         int fundIndex = this.activeInputIndex;
-        bytes fund = 0x;
+        bytes fundCommitment = 0x;
         do {
             require(tx.inputs[fundIndex].lockingBytecode == tx.outputs[fundIndex].lockingBytecode);
             require(tx.inputs[fundIndex].tokenCategory == tx.outputs[fundIndex].tokenCategory);
             require(tx.inputs[fundIndex].nftCommitment == tx.outputs[fundIndex].nftCommitment);
 
-            fund = fund + tx.inputs[fundIndex].nftCommitment;
+            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
             fundIndex = fundIndex + 1;
         } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
+
+        bytes type, bytes hashAndData = fundCommitment.split(1);
+        require(type == 0x02);
+        bytes hash, bytes fund = hashAndData.split(32);
 
         // hash and verify
         require(hash256(fund) == hash);
 
-        // no more proofs in the tx
-        int inputIndex = 0;
-        do {
-            if(!within(inputIndex, this.activeInputIndex, fundIndex)) {
-                require(tx.inputs[inputIndex].tokenCategory != publicFund);
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length);
-
         // return input to contract
-        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
@@ -150,6 +139,5 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[prevInput].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[prevInput].tokenCategory);
         require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[prevInput].outpointTransactionHash);
-        require(tx.inputs[this.activeInputIndex].outpointIndex > tx.inputs[prevInput].outpointIndex);
     }
 }

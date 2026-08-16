@@ -12,8 +12,10 @@ import {
 import {
     getBestFee,
     getFundBin,
+    getFundCommitment,
     getFundHex,
     getRandomInt,
+    hashFund,
     withDust,
 } from './utils.js';
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
@@ -202,7 +204,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
         } else {
             // verify authhead output
             const authhead = this.outputs[0];
-            if(authhead.to != authHeadVaultContract.tokenAddress || authhead.token) {
+            if (authhead.to != authHeadVaultContract.tokenAddress || authhead.token) {
                 throw new Error('Authhead output is incorrect, expecting to send to authhead vault with no tokens');
             }
         }
@@ -234,10 +236,13 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
 
         const fundTokenAmount = 9223372036854775807n;
 
+        const fundHex = getFundHex(fund);
+        const fundHash = hashFund(fund);
+
         this.addInputs([
             {
                 ...startupUtxo,
-                unlocker: startupContract.unlock.start(getFundBin(fund)),
+                unlocker: startupContract.unlock.start(fundHex),
             },
             {
                 ...inflowUtxo,
@@ -253,7 +258,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             },
             {
                 ...publicFundUtxo,
-                unlocker: publicFundContract.unlock.broadcast(getFundBin(fund))
+                unlocker: publicFundContract.unlock.broadcast()
             }
         ])
             .addOutputs([
@@ -279,7 +284,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                         ...inflowUtxo.token,
                         nft: {
                             capability: 'none',
-                            commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
+                            commitment: swapEndianness(genesisUtxo.txid) + fundHash,
                         }
                     }
                 }),
@@ -289,7 +294,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                         ...outflowUtxo.token,
                         nft: {
                             capability: 'none',
-                            commitment: swapEndianness(genesisUtxo.txid) + binToHex(hash256(getFundBin(fund))),
+                            commitment: swapEndianness(genesisUtxo.txid) + fundHash,
                         }
                     }
                 }),
@@ -302,34 +307,18 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                 }),
                 withDust({
                     to: publicFundContract.tokenAddress,
-                    token: {
-                        category: this.#system.publicFund,
-                        amount: 0n,
-                        nft: {
-                            capability: 'minting',
-                            commitment: '',
-                        }
-                    }
+                    token: publicFundUtxo.token,
                 }),
             ]);
 
 
-        const maxSize = 128 * 2;
-
-        const fundHex = getFundHex(fund);
-        const fundHexParts = [];
-
+            
+        const maxSize = 128 * 2; // NFT commitment max size 128 bytes Layla - May 2026
         let curr = 0;
         let next = maxSize;
-
-
-        while (curr < fundHex.length) {
-            fundHexParts.push(fundHex.slice(curr, next));
-            curr = next;
-            next += maxSize
-        }
-
-        fundHexParts.forEach(part => {
+        
+        const fundCommitment = getFundCommitment(fund);
+        while (curr < fundCommitment.length) {
             this.addOutput(withDust({
                 to: publicFundVaultContract.tokenAddress,
                 token: {
@@ -337,10 +326,12 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                     amount: 0n,
                     nft: {
                         capability: 'none',
-                        commitment: part
+                        commitment: fundCommitment.slice(curr, next)
                     }
                 }
-            }))
-        });
+            }));
+            curr = next;
+            next += maxSize
+        }
     }
 }

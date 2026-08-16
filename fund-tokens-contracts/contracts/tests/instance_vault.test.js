@@ -59,6 +59,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     };
     const instanceHex = `${swapEndianness(inflow)}${swapEndianness(outflow)}${swapEndianness(publicFund)}${swapEndianness(fees.create.nft)}${binToHex(numberToBinInt32LE(Number(fees.create.amount)))}${swapEndianness(fees.execute.nft)}${binToHex(numberToBinInt32LE(Number(fees.execute.amount)))}`;
     const instanceHash = binToHex(hash256(hexToBin(instanceHex)));
+    const instanceCommitment = '000001' + instanceHash + instanceHex;
 
     const instanceTxId = randomUtxo().txid;
     const instanceUtxos = [
@@ -71,7 +72,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: '00' + instanceHash + instanceHex.slice(0, 190)
+                    commitment: instanceCommitment.slice(0, 190)
                 }
             }
         }),
@@ -84,7 +85,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: instanceHex.slice(190)
+                    commitment: instanceCommitment.slice(190)
                 }
             }
         })

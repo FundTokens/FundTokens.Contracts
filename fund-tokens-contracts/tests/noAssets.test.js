@@ -8,7 +8,7 @@ import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
 
-import { decodeFund, getFundHex } from '@lib/utils';
+import { decodeFund, getFundHex, decodeFundCommitment, getFundCommitment } from '@lib/utils';
 import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
@@ -135,9 +135,9 @@ describe('edge case test', () => {
 
         fundParts.forEach(p => fundHex += p.token.nft.commitment);
         
-        expect(getFundHex(fund)).to.equal(fundHex);
+        expect(getFundCommitment(fund)).to.equal(fundHex);
         
-        const decodedFund = decodeFund(fundHex);
+        const decodedFund = decodeFundCommitment(fundHex);
 
         expect(decodedFund.category).to.equal(fund.category);
         expect(decodedFund.amount).to.equal(fund.amount);

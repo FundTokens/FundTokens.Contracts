@@ -46,7 +46,7 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
      * - Output[activeInputIndex+5]: Fund chunks (128 bytes max each in NFT commitments)
      * - Output[activeInputIndex+5+D]: Fund chunks (128 bytes max each in NFT commitments)
      */
-    function broadcast(bytes fund) {
+    function broadcast() {
         // Verify genesis input (first input) is the confirmed fund creation
         require(tx.inputs[0].outpointIndex == 0); // Genesis output
         require(tx.inputs[0].tokenCategory == 0x); // No tokens on genesis
@@ -61,11 +61,60 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         // Verify we're holding the "public" token (minted with continued capability 0x02)
         require(tx.inputs[this.activeInputIndex].tokenCategory == bytes(token + 0x02));
 
+        // Chunk fund into X-byte pieces and store in output NFT commitments
+        // Each chunk goes into an output as NFT commitment data
+        // Assuming selfish behavior and being as efficient as possible
+        int lastOutput = this.activeInputIndex + 5;
+        bytes fundCommitment = 0x;
+        bool break = false;
+        while(tx.outputs.length > lastOutput && !break) {
+            if(tx.outputs[lastOutput].tokenCategory == token) {
+                require(tx.outputs[lastOutput].lockingBytecode == publicFundDestination);
+                fundCommitment = fundCommitment + tx.outputs[lastOutput].nftCommitment;
+            } else {
+                break = true;
+            }
+            lastOutput = lastOutput + 1;
+        }
+        // Verify no unauthorized token minting
+        // Check all outputs outside the managed range
+        int outputIndex = 1; // 0 (authhead) already validated
+        do {
+            // Skip outputs we've already validated
+            if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) {
+                if(tx.outputs[outputIndex].tokenCategory != 0x) {
+                    // Prevent minting fund category tokens outside our control
+                    bytes category = tx.outputs[outputIndex].tokenCategory.slice(0, 32);
+                    require(category != tx.inputs[0].outpointTransactionHash);
+                    // Prevent minting public/governance tokens outside our control
+                    require(category != token);
+                }
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+        // Verify fund commitment output
+        bytes type, bytes hashAndData = fundCommitment.split(1);
+        require(type == 0x02);
+        bytes fundHash, bytes fund = hashAndData.split(32);
+        require(fundHash == hash256(fund));
+
         // Parse and validate fund parameters
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
         // Fund category must be genesis transaction hash (identifies the fund)
         require(nft_fundCategory != 0x);
         require(nft_fundCategory == tx.inputs[0].outpointTransactionHash);
+        // We don't introspect the unlocking bytecode of the startup contract, we infer the user input the correct value here
+        require(tx.outputs[this.activeInputIndex + 1].nftCommitment == (nft_fundCategory + fundHash));
+        require(tx.outputs[this.activeInputIndex + 2].nftCommitment == (nft_fundCategory + fundHash));
+
+        // Create transaction manager contract address from fund parameters
+        // This ensures each fund has a unique manager instance
+        int transactionManagerOutput = this.activeInputIndex + 3;
+        require(tx.outputs[transactionManagerOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
+        // Transaction manager gets fund identifier token (genesis hash)
+        require(tx.outputs[transactionManagerOutput].tokenCategory == tx.inputs[0].outpointTransactionHash);
+        // Token amount is max uint64 (indicates continued minting capability)
+        require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // max uint64      
         
         // Fund amount (tokens per share) must be > 0
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
@@ -98,48 +147,7 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         } else {
             // If no assets, satoshis must be used
             require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin)); 
-        }
-
-        // Create transaction manager contract address from fund parameters
-        // This ensures each fund has a unique manager instance
-        int transactionManagerOutput = this.activeInputIndex + 3;
-        require(tx.outputs[transactionManagerOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + hash256(fund) + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
-        // Transaction manager gets fund identifier token (genesis hash)
-        require(tx.outputs[transactionManagerOutput].tokenCategory == tx.inputs[0].outpointTransactionHash);
-        // Token amount is max uint64 (indicates continued minting capability)
-        require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // max uint64
-
-        // Chunk fund into 128-byte pieces and store in output NFT commitments
-        // Each chunk goes into an output as NFT commitment data
-        int lastOutput = this.activeInputIndex + 5;
-        bytes fundRemaining = fund;
-        do {
-            // Take up to 128 bytes per chunk (CashScript data limit)
-            int chunkSize = min(128, fundRemaining.length);
-            bytes part, bytes fundNext = fundRemaining.split(chunkSize);
-            // Store chunk in NFT commitment of output
-            require(tx.outputs[lastOutput].nftCommitment == part);
-            require(tx.outputs[lastOutput].lockingBytecode == publicFundDestination);
-            lastOutput = lastOutput + 1;
-            fundRemaining = fundNext;
-        } while(fundRemaining.length > 0);
-
-        // Verify no unauthorized token minting
-        // Check all outputs outside the managed range
-        int outputIndex = 1; // 0 (authhead) already validated
-        do {
-            // Skip outputs we've already validated
-            if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) {
-                if(tx.outputs[outputIndex].tokenCategory != 0x) {
-                    // Prevent minting fund category tokens outside our control
-                    bytes category = tx.outputs[outputIndex].tokenCategory.slice(0, 32);
-                    require(category != tx.inputs[0].outpointTransactionHash);
-                    // Prevent minting public/governance tokens outside our control
-                    require(category != token);
-                }
-            }
-            outputIndex = outputIndex + 1;
-        } while(outputIndex < tx.outputs.length);
+        }  
 
         // PublicFund returns to itself (self) with token tracking
         int thisOutput = this.activeInputIndex + 4;

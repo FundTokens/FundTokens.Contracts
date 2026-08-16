@@ -72,11 +72,10 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         int mintedOutflowOutput = this.activeInputIndex + 6;
         require(tx.outputs[mintedInflowOutput].tokenCategory == inflowToken);
         require(tx.outputs[mintedOutflowOutput].tokenCategory == outflowToken);
-        bytes hash = hash256(fund);
-        bytes commitment = bytes(nft_fundCategory + hash);
+        bytes fundHash = hash256(fund);
+        bytes commitment = bytes(nft_fundCategory + fundHash);
         require(tx.outputs[mintedInflowOutput].nftCommitment == commitment);
-        require(tx.outputs[mintedOutflowOutput].nftCommitment == commitment);
-        
+        require(tx.outputs[mintedOutflowOutput].nftCommitment == commitment);        
 
         // Ensure no other outputs mint inflow/outflow tokens
         int outputIndex = 0;

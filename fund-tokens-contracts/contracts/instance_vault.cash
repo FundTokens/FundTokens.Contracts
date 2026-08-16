@@ -41,8 +41,10 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         // ensure only spends for expected token
         require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
         // build data
-        bytes type, bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
-        require(type == 0x00);
+        bytes typeAndVersion, bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(3);
+        bytes type, bytes version = typeAndVersion.split(1);
+        require(type == 0x00, 'NFT type must be 0x00');
+        require(version != 0x0000, 'Must provide a library version');
         bytes hash, bytes data = hashAndData.split(32);
         require(tx.inputs.length >= this.activeInputIndex + 2);
         int dataIndex = this.activeInputIndex + 1;
@@ -93,8 +95,10 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         // ensure only spends for expected token
         require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
         // build data
-        bytes type, bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
+        bytes type, bytes versionAndRest = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
         require(type == 0x00);
+        bytes version, bytes hashAndData = versionAndRest.split(2);
+        require(version != 0x0000);
         bytes hash, bytes data = hashAndData.split(32);
         require(tx.inputs.length >= this.activeInputIndex + 2);
         int dataIndex = this.activeInputIndex + 1;

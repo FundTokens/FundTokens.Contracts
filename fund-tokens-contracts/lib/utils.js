@@ -18,7 +18,7 @@ export const withDust = output => {
         lockingBytecode: cashAddressToLockingBytecode(output.to).bytecode,
         valueSatoshis: 0n,
     };
-    if(output.token) {
+    if (output.token) {
         o.token = {
             ...output.token,
             category: hexToBin(output.token?.category),
@@ -51,23 +51,50 @@ export function getFundHex(fund) {
         satoshis,
         assets,
     } = fundClone;
-    const hex = [];
-    hex.push(swapEndianness(category)); // 32 bytes
-    hex.push(binToHex(bigIntToBinUint64LEClamped(amount))); // 8 bytes
-    hex.push(binToHex(bigIntToBinUint64LEClamped(satoshis))); // 8 bytes  // hex.push(binToHex(numberToBinUint32LEClamped(Number(satoshis)))); // 4 bytes
+    const hexParts = [];
+    hexParts.push(swapEndianness(category)); // 32 bytes
+    hexParts.push(binToHex(bigIntToBinUint64LEClamped(amount))); // 8 bytes
+    hexParts.push(binToHex(bigIntToBinUint64LEClamped(satoshis))); // 8 bytes  // hex.push(binToHex(numberToBinUint32LEClamped(Number(satoshis)))); // 4 bytes
     assets.sort(categoryAscending).map(asset => {
-        hex.push(swapEndianness(asset.category)); // 32 bytes
-        hex.push(binToHex(bigIntToBinUint64LEClamped(asset.amount))); // 8 bytes
+        hexParts.push(swapEndianness(asset.category)); // 32 bytes
+        hexParts.push(binToHex(bigIntToBinUint64LEClamped(asset.amount))); // 8 bytes
     });
-    return hex.join('');
+    return hexParts.join('');
+}
+
+export function getFundCommitment(fund) {
+    const fundHex = getFundHex(fund);
+    const fundHash = binToHex(hash256(hexToBin(fundHex)));
+    return '02' + fundHash + fundHex;
 }
 
 export function getFundBin(fund) {
     return hexToBin(getFundHex(fund));
 }
 
+export function decodeFundCommitment(hex) {
+    if (typeof hex !== 'string' && typeof hex !== 'number') {
+        throw new Error('provide the fund hex as a string or number');
+    }
+    hex = typeof hex === 'number' ? hex.toString(16) : hex;
+
+    const type = hex.slice(0, 2);
+    if (type !== '02') {
+        throw new Error('Type in the commitment structure is an unexpected value');
+    }
+    const hash = hex.slice(2, 66);
+
+    const fund = decodeFund(hex.slice(66));
+
+    if (hash !== hashFund(fund)) {
+        throw new Error('Hash and fund details do not match');
+    }
+
+    return fund;
+}
+
 export function decodeFund(hex) {
-    if(typeof hex !== 'string' && typeof hex !== 'number') {
+    if (typeof hex !== 'string' && typeof hex !== 'number') {
         throw new Error('provide the fund hex as a string or number');
     }
     hex = typeof hex === 'number' ? hex.toString(16) : hex;
@@ -81,7 +108,7 @@ export function decodeFund(hex) {
 
     let assetsHex = hex.slice(96);
 
-    while(assetsHex.length > 0) {
+    while (assetsHex.length > 0) {
         fund.assets.push({
             category: swapEndianness(assetsHex.slice(0, 64)),
             amount: binToBigIntUint64LE(hexToBin(assetsHex.slice(64, 80))),
@@ -96,12 +123,12 @@ export const hashFund = fund => binToHex(hash256(getFundBin(fund)));
 
 export function decodeFee({ prefix, network, hex }) {
     const type = hex.slice(0, 2);
-    if(type !== '01') {
+    if (type !== '01') {
         throw new Error('Fee type is not the expected value of 0x01');
     }
     const category = swapEndianness(hex.slice(2, 66));
     const amount = binToBigIntUint64LE(hexToBin(hex.slice(66, 82)));
-    if(hex.length > 82) {
+    if (hex.length > 82) {
         const lockingBytecode = hex.slice(82);
         const { address } = assertSuccess(
             lockingBytecodeToCashAddress({
@@ -116,11 +143,11 @@ export function decodeFee({ prefix, network, hex }) {
 }
 
 export function encodeFee({ category, amount, destination }) {
-    if(!amount) {
+    if (!amount) {
         throw new Error('Unable to encode fee, amount is required');
     }
     let encoded = swapEndianness(category ?? BitcoinCategory) + binToHex(bigIntToBinUint64LEClamped(amount));
-    if(destination) {
+    if (destination) {
         encoded += binToHex(cashAddressToLockingBytecode(destination).bytecode);
     }
     return '01' + encoded;
@@ -128,7 +155,7 @@ export function encodeFee({ category, amount, destination }) {
 
 // return [{ category: '', amount: 0n }]
 export async function getAvailableFees({ feeContract, fee }) {
-    if(!feeContract) {
+    if (!feeContract) {
         throw new Error('Expected a fee contract');
     }
 
@@ -144,7 +171,7 @@ export async function getAvailableFees({ feeContract, fee }) {
     return utxos
         .filter(u => !u.token || u.token.category === feeCategory)
         .reduce((prev, curr) => {
-            if(!curr.token) {
+            if (!curr.token) {
                 prev[BitcoinCategory] = {
                     category: BitcoinCategory,
                     amount: prev[BitcoinCategory]?.amount < defaultValue ? prev[BitcoinCategory].amount : defaultValue,
@@ -164,10 +191,10 @@ export async function getAvailableFees({ feeContract, fee }) {
 }
 
 export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) {
-    if(!feeContract || !feeVaultContract) {
+    if (!feeContract || !feeVaultContract) {
         throw new Error('Expected fee contract and fee vault contracts');
     }
-    if(feeContract.provider.network !== feeVaultContract.provider.network) {
+    if (feeContract.provider.network !== feeVaultContract.provider.network) {
         throw new Error('Expected the contracts to be using the same network');
     }
 
@@ -180,14 +207,14 @@ export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) 
     } = fee;
     const feeUtxos = (await feeContract.getUtxos())
         .filter(u => {
-            if(!u.token) {
+            if (!u.token) {
                 return true;
             } else {
                 return u.token.category === nft;
             }
         })
         .map(u => {
-            if(!u.token) {
+            if (!u.token) {
                 return {
                     isBitcoin: true,
                     amount: defaultValue,
@@ -197,7 +224,7 @@ export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) 
             }
 
             const encodedFee = decodeFee({ network, hex: u.token.nft.commitment });
-            
+
             return {
                 isBitcoin: encodedFee.category === BitcoinCategory,
                 category: encodedFee.category,
@@ -208,7 +235,7 @@ export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) 
         })
         .filter(b => {
             const payByBitcoin = !payBy || payBy === '' || payBy === BitcoinCategory;
-            if(payByBitcoin) {
+            if (payByBitcoin) {
                 return b.isBitcoin;
             } else {
                 return b.category === payBy;
@@ -218,7 +245,7 @@ export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) 
             return a.amount > b.amount;
         });
 
-    if(!feeUtxos || !feeUtxos.length) {
+    if (!feeUtxos || !feeUtxos.length) {
         throw new Error('No acceptable fee UTXOs found');
     }
 
@@ -238,7 +265,7 @@ export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }) 
         ],
     };
 
-    if(result.isBitcoin) {
+    if (result.isBitcoin) {
         result.outputs.push({
             to: result.destination,
             amount: result.amount,
