@@ -32,30 +32,37 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
      */
     function start(bytes fund) {
         // Parse fund parameters from commitment bytes
-        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32); // no direct fund category validation here
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
         // Fund amount must be > 0 (determines token divisor)
         require(int(nft_fundAmount) > 0);
-        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
-        // Satoshis must be within Bitcoin supply range (0 to 21 million BTC)
-        // Note: PublicFund contract enforces stricter limits based on asset composition
-        require(within(int(nft_satoshis), 0, 2100000000000000));
+        bytes nft_satoshis, bytes nft_assets = nft_next2.split(7);
 
-        // Validate asset sorting and amounts
-        bytes lastAssetCategory = 0x;
-        while(nft_assets.length > 0) {
-            bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
-            bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
-            // Each asset amount must be > 0
-            require(int(nft_assetAmount) > 0);
+        if(nft_assets.length > 0) {
+            // Satoshis must be within Bitcoin supply range (0 sat to 21 million BTC)
+            require(int(nft_satoshis) >= 0);
+            // require(within(int(nft_satoshis), 0 sats, 21000000 bitcoin));
 
-            // Assets must be in ascending order by category
-            if(lastAssetCategory != 0x) {
-                require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
-            }
+            // Verify assets are sorted ascending by category
+            bytes lastAssetCategory = 0x;
+            do {
+                bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
+                bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
+                // Each asset must have amount > 0
+                require(int(nft_assetAmount) > 0);
 
-            nft_assets = nft_next4;
-            lastAssetCategory = nft_assetCategory;
+                // Assets must be in ascending order for deterministic sorting
+                if(lastAssetCategory != 0x) { // The first asset
+                    require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
+                }
+
+                nft_assets = nft_next4;
+                lastAssetCategory = nft_assetCategory;
+            } while(nft_assets.length > 0);
+        } else {
+            // Satoshis must be within Bitcoin supply range (1 sat to 21 million BTC)
+            // require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin));
+            require(int(nft_satoshis) > 0);
         }
 
         // Verify inflow and outflow token input (with minting capability)
@@ -69,13 +76,13 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 
         // Mint inflow and outflow tokens with fund commitment (fund_category | fund_hash)
         int mintedInflowOutput = this.activeInputIndex + 5;
-        int mintedOutflowOutput = this.activeInputIndex + 6;
         require(tx.outputs[mintedInflowOutput].tokenCategory == inflowToken);
+        int mintedOutflowOutput = this.activeInputIndex + 6;
         require(tx.outputs[mintedOutflowOutput].tokenCategory == outflowToken);
         bytes fundHash = hash256(fund);
-        bytes commitment = bytes(nft_fundCategory + fundHash);
-        require(tx.outputs[mintedInflowOutput].nftCommitment == commitment);
+        bytes commitment = 0x02 + nft_fundCategory + fundHash;
         require(tx.outputs[mintedOutflowOutput].nftCommitment == commitment);        
+        require(tx.outputs[mintedInflowOutput].nftCommitment == commitment);
 
         // Ensure no other outputs mint inflow/outflow tokens
         int outputIndex = 0;

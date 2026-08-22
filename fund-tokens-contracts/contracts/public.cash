@@ -1,9 +1,9 @@
 pragma cashscript ~0.13.0;
 
 /**
- * PublicFund: Broadcasts and validates fund parameters in transaction
+ * PublicFund: Broadcasts and validates fund hash parameters in transaction
  * 
- * Validates fund parameters and chunks them into individual outputs for
+ * Validates fund hash parameters and chunks them into individual outputs for
  * blockchain visibility. This allows external observers to reconstruct fund
  * details without accessing the contract directly.
  * 
@@ -64,18 +64,19 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         // Chunk fund into X-byte pieces and store in output NFT commitments
         // Each chunk goes into an output as NFT commitment data
         // Assuming selfish behavior and being as efficient as possible
-        int lastOutput = this.activeInputIndex + 5;
         bytes fundCommitment = 0x;
+        int lastOutput = this.activeInputIndex + 5;
         bool break = false;
         while(tx.outputs.length > lastOutput && !break) {
             if(tx.outputs[lastOutput].tokenCategory == token) {
                 require(tx.outputs[lastOutput].lockingBytecode == publicFundDestination);
                 fundCommitment = fundCommitment + tx.outputs[lastOutput].nftCommitment;
+                lastOutput = lastOutput + 1;
             } else {
                 break = true;
             }
-            lastOutput = lastOutput + 1;
         }
+
         // Verify no unauthorized token minting
         // Check all outputs outside the managed range
         int outputIndex = 1; // 0 (authhead) already validated
@@ -92,6 +93,7 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+
         // Verify fund commitment output
         bytes type, bytes hashAndData = fundCommitment.split(1);
         require(type == 0x02);
@@ -99,13 +101,13 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         require(fundHash == hash256(fund));
 
         // Parse and validate fund parameters
-        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
+        bytes nft_fundCategory = fund.slice(0, 32);
         // Fund category must be genesis transaction hash (identifies the fund)
-        require(nft_fundCategory != 0x);
         require(nft_fundCategory == tx.inputs[0].outpointTransactionHash);
         // We don't introspect the unlocking bytecode of the startup contract, we infer the user input the correct value here
-        require(tx.outputs[this.activeInputIndex + 1].nftCommitment == (nft_fundCategory + fundHash));
-        require(tx.outputs[this.activeInputIndex + 2].nftCommitment == (nft_fundCategory + fundHash));
+        bytes expectedCommitment = 0x02 + nft_fundCategory + fundHash;
+        require(tx.outputs[this.activeInputIndex + 1].nftCommitment == expectedCommitment);
+        require(tx.outputs[this.activeInputIndex + 2].nftCommitment == expectedCommitment);
 
         // Create transaction manager contract address from fund parameters
         // This ensures each fund has a unique manager instance
@@ -115,39 +117,6 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         require(tx.outputs[transactionManagerOutput].tokenCategory == tx.inputs[0].outpointTransactionHash);
         // Token amount is max uint64 (indicates continued minting capability)
         require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // max uint64      
-        
-        // Fund amount (tokens per share) must be > 0
-        bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
-        require(int(nft_fundAmount) > 0);
-        
-        // Satoshis value for fund (0 or in Bitcoin supply range)
-        bytes nft_satoshis, bytes nft_assets = nft_next2.split(8);
-
-        // Validate assets (if any exist)
-        if(nft_assets.length > 0) {
-            // Satoshis must be valid, greater than or equal to zero
-            require(within(int(nft_satoshis), 0, 21000000 bitcoin));
-            
-            // Verify assets are sorted ascending by category
-            bytes lastAssetCategory = 0x;
-            do {
-                bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
-                bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
-                // Each asset must have amount > 0
-                require(int(nft_assetAmount) > 0);
-
-                // Assets must be in ascending order for deterministic sorting
-                if(lastAssetCategory != 0x) {
-                    require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
-                }
-
-                nft_assets = nft_next4;
-                lastAssetCategory = nft_assetCategory;
-            } while(nft_assets.length > 0);
-        } else {
-            // If no assets, satoshis must be used
-            require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin)); 
-        }  
 
         // PublicFund returns to itself (self) with token tracking
         int thisOutput = this.activeInputIndex + 4;

@@ -62,7 +62,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(hash256(fund) == fundHash);
         // Verify this input carries inflow signal token
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
+        require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(0x02 + fundCategory + fundHash));
 
         int feeInputIndex = this.activeInputIndex + 1;
         int feeOutputIndex = this.activeInputIndex + 1; // go to the end
@@ -117,7 +117,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         fundReleasedAmount = fundReleasedAmount / fundAmount;
 
         // Parse satoshi configuration
-        bytes nft_sats, bytes nft_next3 = nft_next2.split(8);
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(4);
         int fundSats = int(nft_sats);
         int satoshiOutputIndex = fundOutputIndex; // fundOutputIndex is currently the first asset in the fund
         
@@ -204,7 +204,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(hash256(fund) == fundHash);
         // Verify this input carries outflow signal token
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
-        require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(fundCategory + fundHash));
+        require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(0x02 + fundCategory + fundHash));
 
         int feeInputIndex = this.activeInputIndex + 1;
         int feeOutputIndex = this.activeInputIndex + 1;
@@ -250,7 +250,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         fundLockingAmount = fundLockingAmount / fundAmount;
 
         // Fee contract input must follow fund manager
-        bytes nft_sats, bytes nft_next3 = nft_next2.split(8);
+        bytes nft_sats, bytes nft_next3 = nft_next2.split(7);
 
         int satoshiAssetInputIndex = fundInputIndex;
         int satoshiAssetOutputIndex = fundOutputIndex;

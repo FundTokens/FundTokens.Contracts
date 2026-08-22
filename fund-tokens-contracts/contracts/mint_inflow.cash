@@ -62,7 +62,9 @@ contract FundInflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowT
 
         // Extract fund parameters from output NFT commitment
         int inflowOutput = this.activeInputIndex + 4;
-        bytes fundCategory, bytes fundHash = tx.outputs[inflowOutput].nftCommitment.split(32);
+        bytes tokenType, bytes categoryAndHash = tx.outputs[inflowOutput].nftCommitment.split(1);
+        require(tokenType == 0x02);
+        bytes fundCategory, bytes fundHash = categoryAndHash.split(32);
 
         // Extract asset contract bytecode from this contract's activation bytecode
         // Push opcodes add ~2 bytes of overhead for >75 byte push

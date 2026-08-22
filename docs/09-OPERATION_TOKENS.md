@@ -15,7 +15,7 @@ Operation token commitments encode token type and serial numbers into CashToken 
 The commitment structure can operate as a serial (at least two bytes) or can contain a created fund's category and hash (65 bytes).
 
 ```
-[type (1 byte)][serial_number (vm number)] | [type (1 byte)][fund_category (32 bytes)][fund_hash (32 bytes)]
+[type (1 byte)][serial_number (vm number)] | [type (0x02 1 byte)][fund_category (32 bytes)][fund_hash (32 bytes)]
 ```
 
 - **type**: One byte containing the token type

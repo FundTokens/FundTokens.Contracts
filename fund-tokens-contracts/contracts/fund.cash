@@ -34,7 +34,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      */
     function mint() {
         int prevInflowInput = this.activeInputIndex - 2;
-        bool prevInflow = tx.inputs[prevInflowInput].tokenCategory == inflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(fundCategory + fundHash);
+        bool prevInflow = tx.inputs[prevInflowInput].tokenCategory == inflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(0x02 + fundCategory + fundHash);
 
         if(prevInflow) {
             int nextOutput = this.activeInputIndex + 1;
@@ -57,7 +57,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      */
     function redeem() {
         int prevInflowInput = this.activeInputIndex - 2;
-        bool prevOutflow = tx.inputs[prevInflowInput].tokenCategory == outflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(fundCategory + fundHash);
+        bool prevOutflow = tx.inputs[prevInflowInput].tokenCategory == outflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(0x02 + fundCategory + fundHash);
 
         if(prevOutflow) {
             // This contract returns to itself (fund UTXO stays alive)

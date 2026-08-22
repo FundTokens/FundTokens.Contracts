@@ -284,7 +284,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                         ...inflowUtxo.token,
                         nft: {
                             capability: 'none',
-                            commitment: swapEndianness(genesisUtxo.txid) + fundHash,
+                            commitment: '02' + swapEndianness(genesisUtxo.txid) + fundHash,
                         }
                     }
                 }),
@@ -294,7 +294,7 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
                         ...outflowUtxo.token,
                         nft: {
                             capability: 'none',
-                            commitment: swapEndianness(genesisUtxo.txid) + fundHash,
+                            commitment: '02' + swapEndianness(genesisUtxo.txid) + fundHash,
                         }
                     }
                 }),

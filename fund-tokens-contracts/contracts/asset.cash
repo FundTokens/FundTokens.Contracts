@@ -37,7 +37,7 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
         // find the outflow, searching to the start
         while(inputIndex >= 0 && !prevOutflow) {
             if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
-                require(tx.inputs[inputIndex].nftCommitment.slice(32, 64) == fundHash);
+                require(tx.inputs[inputIndex].nftCommitment.slice(33, 65) == fundHash); // type 0x02 + fund category 32 bytes + fund hash 32 bytes
                 prevOutflow = true;
             }
             inputIndex = inputIndex - 1;

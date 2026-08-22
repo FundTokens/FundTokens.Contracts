@@ -16,7 +16,7 @@ PublicFund token commitments encode token type and serial numbers into CashToken
 The commitment structure guarantees at least 77 bytes with additional optional 40 byte increments with no contract enforced limit.
 
 ```
-[type (1 byte)][serial_number (vm number)] | [type (1byte)][fund_hash (32 bytes)][fund_category (32 bytes)][divisor (8 bytes)][satoshis (4 bytes)][[asset_category (32 bytes)][asset_amount (8 bytes)]]*
+[type (1 byte)][serial_number (vm number)] | [type (1byte)][fund_hash (32 bytes)][fund_category (32 bytes)][divisor (8 bytes)][satoshis (7 bytes)][[asset_category (32 bytes)][asset_amount (8 bytes)]]*
 ```
 
 - **type**: One byte containing the token type
