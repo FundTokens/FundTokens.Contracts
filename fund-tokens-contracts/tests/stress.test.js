@@ -106,7 +106,7 @@ describe('happy path', () => {
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
-    const numberOfFundAssets = 30;
+    const numberOfFundAssets = 40;
 
     const fund = {
         category: '7777777777777777777777777777777777777777777777777777777777777777',
@@ -217,7 +217,7 @@ describe('happy path', () => {
                 
         const response = await transaction.send();
         console.log('outflow tx size', response.hex.length / 2);
-    });
+    }, 100000);
 
     it('should allow closing fee threads', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });

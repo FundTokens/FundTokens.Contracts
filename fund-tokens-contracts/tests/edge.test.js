@@ -108,7 +108,7 @@ describe('edge case test', () => {
     });
 
     const expectedToFailFunds = [
-        { // no bitcoin or assets
+        { // no bitcoin and no assets
             category: '7777777777777777777777777777777777777777777777777777777777777777',
             amount: 1n,
             satoshis: 0n,

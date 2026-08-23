@@ -65,13 +65,17 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         // Each chunk goes into an output as NFT commitment data
         // Assuming selfish behavior and being as efficient as possible
         bytes fundCommitment = 0x;
-        int lastOutput = this.activeInputIndex + 5;
+        int broadcastOutputEnd = this.activeInputIndex + 5;
         bool break = false;
-        while(tx.outputs.length > lastOutput && !break) {
-            if(tx.outputs[lastOutput].tokenCategory == token) {
-                require(tx.outputs[lastOutput].lockingBytecode == publicFundDestination);
-                fundCommitment = fundCommitment + tx.outputs[lastOutput].nftCommitment;
-                lastOutput = lastOutput + 1;
+        int lastCommitmentLength = -1;
+        while(tx.outputs.length > broadcastOutputEnd && !break) {
+            if(tx.outputs[broadcastOutputEnd].tokenCategory == token) {
+                int thisCommitmentLength = tx.outputs[broadcastOutputEnd].nftCommitment.length;
+                require(lastCommitmentLength == -1 || lastCommitmentLength >= thisCommitmentLength);
+                lastCommitmentLength = thisCommitmentLength;
+                require(tx.outputs[broadcastOutputEnd].lockingBytecode == publicFundDestination);
+                fundCommitment = fundCommitment + tx.outputs[broadcastOutputEnd].nftCommitment;
+                broadcastOutputEnd = broadcastOutputEnd + 1;
             } else {
                 break = true;
             }
@@ -82,7 +86,7 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         int outputIndex = 1; // 0 (authhead) already validated
         do {
             // Skip outputs we've already validated
-            if(!within(outputIndex, this.activeInputIndex - 4, lastOutput)) {
+            if(!within(outputIndex, this.activeInputIndex - 4, broadcastOutputEnd)) {
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
                     // Prevent minting fund category tokens outside our control
                     bytes category = tx.outputs[outputIndex].tokenCategory.slice(0, 32);

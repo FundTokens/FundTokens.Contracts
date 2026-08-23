@@ -40,8 +40,7 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 
         if(nft_assets.length > 0) {
             // Satoshis must be within Bitcoin supply range (0 sat to 21 million BTC)
-            require(int(nft_satoshis) >= 0);
-            // require(within(int(nft_satoshis), 0 sats, 21000000 bitcoin));
+            require(within(int(nft_satoshis), 0 sats, 21000000 bitcoin));
 
             // Verify assets are sorted ascending by category
             bytes lastAssetCategory = 0x;
@@ -61,8 +60,7 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             } while(nft_assets.length > 0);
         } else {
             // Satoshis must be within Bitcoin supply range (1 sat to 21 million BTC)
-            // require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin));
-            require(int(nft_satoshis) > 0);
+            require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin));
         }
 
         // Verify inflow and outflow token input (with minting capability)
