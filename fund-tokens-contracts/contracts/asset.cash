@@ -43,13 +43,12 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
             inputIndex = inputIndex - 1;
         }
 
-        int parametersLength = 36;
         int prevInput = this.activeInputIndex - 1;
-        bool additionalAssetManager = tx.inputs[this.activeInputIndex].unlockingBytecode.slice(parametersLength, tx.inputs[this.activeInputIndex].unlockingBytecode.length - 1) == tx.inputs[prevInput].unlockingBytecode.slice(parametersLength, tx.inputs[prevInput].unlockingBytecode.length - 1);
+        bytes prevUnlockingBytecode = tx.inputs[prevInput].unlockingBytecode;
+        bytes thisUnlockingBytecode = tx.inputs[this.activeInputIndex].unlockingBytecode;
+        bool additionalAssetManager = thisUnlockingBytecode.slice(36, thisUnlockingBytecode.length - 1) == prevUnlockingBytecode.slice(36, prevUnlockingBytecode.length - 1);
         if(additionalAssetManager) {
-            bytes previousAsset = tx.inputs[prevInput].unlockingBytecode.slice(4, 36);
-
-            int iPrevious = int(previousAsset + 0x00);
+            int iPrevious = int(prevUnlockingBytecode.slice(4, 36) + 0x00);
             int iCurrent = int(assetCategory + 0x00);
 
             require(iPrevious < iCurrent || iPrevious == iCurrent);
@@ -57,8 +56,7 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
         require(prevOutflow || additionalAssetManager);
         
         // Verify asset type matches
-        bytes32 satoshiAsset = 0x0000000000000000000000000000000000000000000000000000000000000000;
-        if(assetCategory == satoshiAsset) {
+        if(assetCategory == 0x0000000000000000000000000000000000000000000000000000000000000000) {
             // For Bitcoin: input should have no token (satoshis only)
             require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
         } else {

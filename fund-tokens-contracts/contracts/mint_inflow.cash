@@ -50,8 +50,9 @@ contract FundInflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflowT
         require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == new LockingBytecodeP2SH32(validator));
 
         // Must have inflow token with minting capability (0x02 flag)
-        require(tx.inputs[this.activeInputIndex].tokenCategory == (inflowToken + 0x02));
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        bytes thisTokenCategory = tx.inputs[this.activeInputIndex].tokenCategory;
+        require(thisTokenCategory == (inflowToken + 0x02));
+        require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
 
         // This FundMint UTXO returns to itself (self-contained minting)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);

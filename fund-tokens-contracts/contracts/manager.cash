@@ -64,12 +64,11 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[this.activeInputIndex].tokenCategory == inflowToken);
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(0x02 + fundCategory + fundHash));
 
-        int feeInputIndex = this.activeInputIndex + 1;
-        int feeOutputIndex = this.activeInputIndex + 1; // go to the end
+        int feeIndex = this.activeInputIndex + 1;
+        bytes feeInputLockingBytecode = tx.inputs[feeIndex].lockingBytecode;
         // Fee contract input must follow fund manager (validates fees paid)
-        require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
-        require(tx.inputs[feeInputIndex].lockingBytecode == tx.outputs[feeOutputIndex].lockingBytecode); // sends back to self, it's paid
-        feeOutputIndex = feeOutputIndex + 1; // skip over paid fee
+        require(feeInputLockingBytecode == new LockingBytecodeP2SH32(fee));
+        require(feeInputLockingBytecode == tx.outputs[feeIndex].lockingBytecode, "Fee must not close"); // sends back to self, it's paid, verify not being closed
 
         // Parse fund parameters
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
@@ -79,18 +78,15 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // Fund amount: divisor determining whole token units
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
         int fundAmount = int(nft_fundAmount);
-        
 
         //
-        int fundInputIndex = feeInputIndex + 1;
-        int fundOutputIndex = feeOutputIndex + 1;
-
         bytes fundManager = new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract));
         int fundReleasedAmount = 0;
 
         // Calculate released fund tokens
         // Release = (input tokens - output tokens) / fundAmount
         // Division ensures whole token units (no fractional tokens)
+        int fundInputIndex = this.activeInputIndex + 2;
         bool break = false;
         while(tx.inputs.length > fundInputIndex && !break) {
             if(tx.inputs[fundInputIndex].lockingBytecode == fundManager) {
@@ -101,6 +97,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             }
         }
 
+        //
+        int fundOutputIndex = this.activeInputIndex + 3;
         break = false;
         while(tx.outputs.length > fundOutputIndex && !break) {
             if(tx.outputs[fundOutputIndex].lockingBytecode == fundManager) {
@@ -206,29 +204,25 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken);
         require(tx.inputs[this.activeInputIndex].nftCommitment == bytes(0x02 + fundCategory + fundHash));
 
-        int feeInputIndex = this.activeInputIndex + 1;
-        int feeOutputIndex = this.activeInputIndex + 1;
-        require(tx.inputs[feeInputIndex].lockingBytecode == new LockingBytecodeP2SH32(fee));
-        require(tx.inputs[feeInputIndex].lockingBytecode == tx.outputs[feeOutputIndex].lockingBytecode); // sends back to self, it's paid
-        feeOutputIndex = feeOutputIndex + 1; // skip over paid fee
-
-        int fundInputAmount = 0;
-        int fundOutputAmount = 0;
+        int feeIndex = this.activeInputIndex + 1;
+        bytes feeInputLockingBytecode = tx.inputs[feeIndex].lockingBytecode;
+        require(feeInputLockingBytecode == new LockingBytecodeP2SH32(fee));
+        require(feeInputLockingBytecode == tx.outputs[feeIndex].lockingBytecode); // sends back to self, it's paid
 
         bytes managerContract = new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract));
 
         // Fund manager contract is next input
         // Verify fund manager contract address
-        int fundInputIndex = feeInputIndex + 1;
+        int fundInputAmount = 0;
+        int fundInputIndex = this.activeInputIndex + 2;
         while(tx.inputs[fundInputIndex].lockingBytecode == managerContract) {
-            if(tx.inputs[fundInputIndex].tokenCategory != 0x) {
-                require(tx.inputs[fundInputIndex].tokenCategory == fundCategory);
-                fundInputAmount = fundInputAmount + tx.inputs[fundInputIndex].tokenAmount;
-            }
+            require(tx.inputs[fundInputIndex].tokenCategory == 0x || tx.inputs[fundInputIndex].tokenCategory == fundCategory);
+            fundInputAmount = fundInputAmount + tx.inputs[fundInputIndex].tokenAmount;
             fundInputIndex = fundInputIndex + 1;
         }
 
-        int fundOutputIndex = feeOutputIndex + 1;
+        int fundOutputAmount = 0;
+        int fundOutputIndex = this.activeInputIndex + 3;
         while(tx.outputs[fundOutputIndex].lockingBytecode == managerContract) {
             require(tx.outputs[fundOutputIndex].tokenCategory == fundCategory);
             fundOutputAmount = fundOutputAmount + tx.outputs[fundOutputIndex].tokenAmount;

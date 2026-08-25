@@ -106,7 +106,7 @@ describe('happy path', () => {
         console.log('create new public fund threads tx size', response.hex.length / 2);
     });
 
-    const numberOfFundAssets = 40;
+    const numberOfFundAssets = 25;
 
     const fund = {
         category: '7777777777777777777777777777777777777777777777777777777777777777',

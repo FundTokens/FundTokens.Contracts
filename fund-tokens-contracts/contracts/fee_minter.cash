@@ -76,10 +76,11 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
 
 
         // Verify this is a fee minting token
-        require(tx.inputs[this.activeInputIndex].tokenCategory == (token + 0x02));
         // Preserve UTXO
+        bytes thisInputCategory = tx.inputs[this.activeInputIndex].tokenCategory;
+        require(thisInputCategory == (token + 0x02));
+        require(thisInputCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
 }

@@ -43,8 +43,8 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
         require(inputType == 0x00); // Verify minting input token's type is thread minting
 
         // Verify all outputs minting this token go to the destination
-        int outputIndex = 0;
         int mintedTokens = 0;
+        int outputIndex = 0;
         do {
             if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
                 // If output is minting our token category
@@ -54,7 +54,7 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
                     // Token category must match for consistency, including capability
                     require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
                     bytes outputType, bytes outputSerial = tx.outputs[outputIndex].nftCommitment.split(1);
-                    require(outputType == 0x01); // Type must be fudn minting
+                    require(outputType == 0x01); // Type must be fund minting
                     // Minted token must increment serial number in order of output
                     require(int(outputSerial) == (int(inputSerial) + mintedTokens));
                     mintedTokens = mintedTokens + 1;
@@ -71,8 +71,9 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
         // Contract must return to itself (locked pattern)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         // Verify this is the minting token
-        require(tx.inputs[this.activeInputIndex].tokenCategory == (token + 0x02));
         // Keep the minting token for future minting
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        bytes thisTokenCategory = tx.inputs[this.activeInputIndex].tokenCategory;
+        require(thisTokenCategory == (token + 0x02));
+        require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
     }
 }

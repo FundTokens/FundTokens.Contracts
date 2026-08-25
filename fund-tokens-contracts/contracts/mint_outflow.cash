@@ -50,8 +50,9 @@ contract FundOutflowMint(bytes32 validator, bytes32 inflowToken, bytes32 outflow
         require(tx.inputs[this.activeInputIndex - 1].tokenCategory == (inflowToken + 0x02));
 
         // This FundMint holds outflow token with minting capability
-        require(tx.inputs[this.activeInputIndex].tokenCategory == outflowToken + 0x02);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        bytes thisTokenCategory = tx.inputs[this.activeInputIndex].tokenCategory;
+        require(thisTokenCategory == outflowToken + 0x02);
+        require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
 
         // This FundMint returns to itself
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
