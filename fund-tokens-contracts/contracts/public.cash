@@ -70,10 +70,10 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         int lastCommitmentLength = -1;
         while(tx.outputs.length > broadcastOutputEnd && !break) {
             if(tx.outputs[broadcastOutputEnd].tokenCategory == token) {
+                require(tx.outputs[broadcastOutputEnd].lockingBytecode == publicFundDestination);
                 int thisCommitmentLength = tx.outputs[broadcastOutputEnd].nftCommitment.length;
                 require(lastCommitmentLength == -1 || lastCommitmentLength >= thisCommitmentLength);
                 lastCommitmentLength = thisCommitmentLength;
-                require(tx.outputs[broadcastOutputEnd].lockingBytecode == publicFundDestination);
                 fundCommitment = fundCommitment + tx.outputs[broadcastOutputEnd].nftCommitment;
                 broadcastOutputEnd = broadcastOutputEnd + 1;
             } else {
