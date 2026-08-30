@@ -7,15 +7,14 @@ import {
     cashAddressToLockingBytecode,
     getDustThreshold,
     hexToBin,
-    cashAddressToLockingBytecode,
     utf8ToBin,
     vmNumberToBigInt,
     bigIntToVmNumber,
     binToHex,
 } from '@bitauth/libauth';
 
-import { PublicFundTransactionBuilder, encodeFee } from '../lib';
-import { withDust } from '../lib/utils';
+import PublicFundTransactionBuilder from '../lib/PublicFundTransactionBuilder.js';
+import { withDust, encodeFee } from '../lib/utils.js';
 
 import feeMinterJson from '../lib/art/fee_minter.json' with { type: 'json' };
 import simpleMinterJson from '../lib/art/simple_minter.json' with { type: 'json' };

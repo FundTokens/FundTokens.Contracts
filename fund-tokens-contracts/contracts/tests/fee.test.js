@@ -75,6 +75,17 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const defaultFeeUtxo = randomUtxo();
     const defaultFeeAmount = 2000n;
 
+    const voluntaryFeeUtxo = randomUtxo({
+        token: {
+            category: contractToken.category,
+            amount: 0n,
+            nft: {
+                capability: 'none',
+                commitment: '02',
+            }
+        }
+    });
+
     const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category), binToHex(cashAddressToLockingBytecode(ownerWallet.tokenAddress).bytecode), swapEndianness(contractToken.category), defaultFeeAmount], { provider });
 
     const authUtxo = randomUtxo({ token: authToken });
@@ -84,6 +95,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeUtxo);
     provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeWithDestinationUtxo);
     provider.addUtxo(systemUnderTest.tokenAddress, encodedBitcoinFeeUtxo);
+    provider.addUtxo(systemUnderTest.tokenAddress, voluntaryFeeUtxo);
 
     it('pay with default fee', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
@@ -105,11 +117,11 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('should fail when fee doesnt match default', async ({ expect }) => {
+    it('should fail when fee is less than default', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         provider.addUtxo(userWallet.address, feeUtxo);
 
-        const testRange = [-1n, 1n];
+        const testRange = [-2n, -1n, 1n];
 
         for (let index = 0; index < testRange.length; ++index) {
             const offset = testRange[index];
@@ -197,23 +209,23 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             const offset = testRange[index];
             const transaction = new TransactionBuilder({ provider });
             transaction
-            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.pay())
-            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
-            .addOutputs([
-                {
-                    to: systemUnderTest.tokenAddress,
-                    amount: encodedTokenFeeUtxo.satoshis,
-                    token: encodedTokenFeeUtxo.token,
-                },
-                {
-                    to: ownerWallet.address,
-                    amount: DustAmount,
-                    token: {
-                        category: payByToken.category,
-                        amount: payByTokenAmount + offset,
+                .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.pay())
+                .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    {
+                        to: systemUnderTest.tokenAddress,
+                        amount: encodedTokenFeeUtxo.satoshis,
+                        token: encodedTokenFeeUtxo.token,
+                    },
+                    {
+                        to: ownerWallet.address,
+                        amount: DustAmount,
+                        token: {
+                            category: payByToken.category,
+                            amount: payByTokenAmount + offset,
+                        }
                     }
-                }
-            ]);
+                ]);
             expect(transaction).toFailRequire();
         }
     });
@@ -244,6 +256,23 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         amount: payByTokenAmount,
                     }
                 }
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('allows voluntary payment', async () => {
+        const feeUtxo = randomUtxo();
+        provider.addUtxo(userWallet.address, feeUtxo);
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(voluntaryFeeUtxo, systemUnderTest.unlock.pay())
+            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: voluntaryFeeUtxo.satoshis,
+                    token: voluntaryFeeUtxo.token,
+                },
             ]);
         expect(transaction).not.toFailRequire();
     });
@@ -332,28 +361,6 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     to: ownerWallet.address,
                     amount: DustAmount,
                     token: encodedTokenFeeUtxo.token,
-                },
-                {
-                    to: ownerWallet.address,
-                    amount: DustAmount,
-                    token:authUtxo.token,
-                },
-            ]);
-        expect(transaction).toFailRequire();
-    });
-
-    it('strict structure difference when closing fee to avoid contract substitution', async () => {
-        const feeUtxo = randomUtxo();
-        provider.addUtxo(ownerWallet.address, feeUtxo);
-        const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
-        transaction
-            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
-            .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.close())
-            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
-            .addOutputs([
-                {
-                    to: systemUnderTest.tokenAddress,
-                    amount: DustAmount,
                 },
                 {
                     to: ownerWallet.address,

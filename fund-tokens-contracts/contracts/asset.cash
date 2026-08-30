@@ -1,40 +1,45 @@
 pragma cashscript ~0.13.0;
 
 /**
- * AssetManager: Holds individual fund assets
- * 
- * Each asset in a fund has a dedicated AssetManager contract instance.
- * Releases assets
- *     1. if the preceeding contract is a AssetManager of a category that is lower (sorted) or the same asset
- *     2. If the outflow token is present with matching fund hash
+ * AssetManager: Holds individual assets for funds
  * 
  * This contract gates asset access during redemption (outflow) transactions.
  * Amount verification is performed by the TransactionManager contract.
+ * Each asset in a fund has a dedicated AssetManager contract instance.
  * 
  * Parameters:
  *   outflowToken: Token category that authorizes redemption
  *   fundHash: Hash of fund parameters (prevents spending wrong fund's assets)
  *   assetCategory: The specific asset category this contract holds
- *                  (0x00...00 = Bitcoin satoshis, else = token category)
+ *                  (0x00...00 = Bitcoin, else = token category)
  */
 contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory) 
 {
     /**
      * release(): Releases held assets when outflow is authorized
+     *
+     * AssetManager relies on TransactionManager for redeeming asset amount verification.
+     * To release, checking for outflow token or linking w/ this contract.
      * 
      * Ensures:
      * - Outflow token with matching fund hash is present (correct redemption)
-     * - Asset type is verified (Bitcoin satoshis or tokens)
-     * - Linked to a AssetManager or outflow token at "expected" input
-     * 
-     * Note: AssetManager relies on TransactionManager for amount validation.
-     * This contract only gates access; amounts are verified elsewhere.
+     * - Asset type is verified (Bitcoin or tokens)
+     * - Outflow token at "expected" input or uses efficient linking to a previous AssetManager
      */
     function release() {
+        //
+        // Verify this spends the correct asset
+        // Bitcoin for 0x00... otherwise verify token category
+        if(assetCategory == 0x0000000000000000000000000000000000000000000000000000000000000000) {
+            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
+        } else {
+            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
+        }
+
+        //
+        // Find the outflow, searching to the start
         bool prevOutflow = false;
         int inputIndex = this.activeInputIndex - 3; // at least this far but could be further
-
-        // find the outflow, searching to the start
         while(inputIndex >= 0 && !prevOutflow) {
             if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
                 require(tx.inputs[inputIndex].nftCommitment.slice(33, 65) == fundHash); // type 0x02 + fund category 32 bytes + fund hash 32 bytes
@@ -42,26 +47,23 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
             }
             inputIndex = inputIndex - 1;
         }
-
+        
+        //
+        // Check if the previous input is an AssetManager contract for this fund
         int prevInput = this.activeInputIndex - 1;
-        bytes prevUnlockingBytecode = tx.inputs[prevInput].unlockingBytecode;
+        bytes prevParamsAndBytecode = tx.inputs[prevInput].unlockingBytecode.split(4)[1];
+        bytes prevCategory, bytes prevUnlockingBytecode = prevParamsAndBytecode.split(32);
         bytes thisUnlockingBytecode = tx.inputs[this.activeInputIndex].unlockingBytecode;
-        bool additionalAssetManager = thisUnlockingBytecode.slice(36, thisUnlockingBytecode.length - 1) == prevUnlockingBytecode.slice(36, prevUnlockingBytecode.length - 1);
+        bool additionalAssetManager = thisUnlockingBytecode.slice(36, thisUnlockingBytecode.length - 1) == prevUnlockingBytecode; // slice out the asset category
         if(additionalAssetManager) {
-            int iPrevious = int(prevUnlockingBytecode.slice(4, 36) + 0x00);
+            int iPrevious = int(prevCategory + 0x00);
             int iCurrent = int(assetCategory + 0x00);
 
             require(iPrevious < iCurrent || iPrevious == iCurrent);
         }
+
+        //
+        // Must have redemption signal or previous AssetManager contract
         require(prevOutflow || additionalAssetManager);
-        
-        // Verify asset type matches
-        if(assetCategory == 0x0000000000000000000000000000000000000000000000000000000000000000) {
-            // For Bitcoin: input should have no token (satoshis only)
-            require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
-        } else {
-            // For tokens: input must have the correct asset category
-            require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
-        }
     }
 }

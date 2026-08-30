@@ -1,34 +1,31 @@
 pragma cashscript ~0.13.0;
 
 /**
- * PublicFund: Broadcasts and validates fund hash parameters in transaction
+ * PublicFund: Broadcasts and validates new public funds that are verified and created on-chain
  * 
- * Validates fund hash parameters and chunks them into individual outputs for
- * blockchain visibility. This allows external observers to reconstruct fund
- * details without accessing the contract directly.
- * 
- * Fund data format:
- * [fund_category (32) | fund_amount (8) | satoshis (8) | 
- *  asset1_category (32) | asset1_amount (8) | ... | assetN_category (32) | assetN_amount (8)]
+ * Defers fund makup validation to startup contract.
+ * Validates minted operating tokens and fund data encoding.
+ * Chunks fund data into individual outputs for blockchain visibility and allows contract parameters recovery.
  * 
  * Parameters:
- *   authHeadDestination: AuthHeadVault output destination (for fund access control)
- *   token: Genesis transaction hash (fund identifier, part of commitment)
- *   startupContract: FundStartup contract hash (verifies fund creation came from startup)
- *   fundContract: Fund manager bytecode template (used in commitment calculation)
- *   inflowToken: Inflow token category (for transaction manager commitment)
- *   outflowToken: Outflow token category (for transaction manager commitment)
+ *   authHeadDestination: AuthHeadVault output destination
+ *   publicFundDestination: PublicFund token destination (vault and on-chain proofing)
+ *   token: The "PublicFund" token used to signal trustlessly created public funds
+ *   startupContract: FundStartup contract hash (verifies fund creation)
+ *   fundContract: Fund manager bytecode template
+ *   inflowToken: Inflow token category
+ *   outflowToken: Outflow token category
  */
 contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, bytes32 token, bytes32 startupContract, bytes fundContract, bytes32 inflowToken, bytes32 outflowToken)
 {   
     /**
-     * broadcast(bytes fund): Validates and broadcasts fund parameters
+     * broadcast(): Verify new token safely created and broadcast fund parameters
      * 
-     * Chunks fund into up to 128-byte pieces and stores in output NFT commitments.
-     * Verifies fund parameters (amounts, satoshis, asset sorting) match startup.
-     * Creates transaction manager contract hash as output.
+     * Broadcasting encodes public fund details into a series of NFT commitments.
+     * Verifies the user did not create additional system tokens or fund tokens.
+     * Only one new public fund can be created per transaction.
      * 
-     * Validates:
+     * Ensures:
      * - Genesis input (index 0) has no tokens and outpointIndex == 0
      * - Fund category matches genesis input transaction hash
      * - Fund amount > 0
@@ -37,30 +34,23 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
      * - Each asset amount > 0
      * - Transaction manager contract properly calculated from fund parameters
      * - No unauthorized token minting
-     * 
-     * Creates outputs:
-     * - Output[0]: AuthHeadVault output for fund access control
-     * - Output[activeInputIndex-4]: Startup contract
-     * - Output[activeInputIndex+3]: FundContract with verified genesis token
-     * - Output[activeInputIndex+4]: PublicFund returned
-     * - Output[activeInputIndex+5]: Fund chunks (128 bytes max each in NFT commitments)
-     * - Output[activeInputIndex+5+D]: Fund chunks (128 bytes max each in NFT commitments)
      */
     function broadcast() {
-        // Verify genesis input (first input) is the confirmed fund creation
-        require(tx.inputs[0].outpointIndex == 0); // Genesis output
-        require(tx.inputs[0].tokenCategory == 0x); // No tokens on genesis
+        //
+        // Verify genesis input (first input) is confirmed for fund creation
+        require(tx.inputs[0].outpointIndex == 0);
+        require(tx.inputs[0].tokenCategory == 0x);
 
-        // Output 0 goes to authhead vault (fund access control point)
+        //
+        // Verify identity output is sent to our identity vault
         require(tx.outputs[0].lockingBytecode == authHeadDestination);
         require(tx.outputs[0].tokenCategory == 0x);
 
-        // Verify FundStartup input (4 inputs before this PublicFund)
-        require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));
+        //
+        // Verify startup contract is in expect tx sequence
+        require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));        
 
-        // Verify we're holding the "public" token (minted with continued capability 0x02)
-        require(tx.inputs[this.activeInputIndex].tokenCategory == bytes(token + 0x02));
-
+        //
         // Chunk fund into X-byte pieces and store in output NFT commitments
         // Each chunk goes into an output as NFT commitment data
         // Assuming selfish behavior and being as efficient as possible
@@ -81,48 +71,47 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
             }
         }
 
-        // Verify no unauthorized token minting
-        // Check all outputs outside the managed range
+        //
+        // Verify no unauthorized token minting, efficiently check by skipping verified outputs
         int outputIndex = 1; // 0 (authhead) already validated
         do {
-            // Skip outputs we've already validated
-            if(!within(outputIndex, this.activeInputIndex - 4, broadcastOutputEnd)) {
+            if(!within(outputIndex, this.activeInputIndex - 4, broadcastOutputEnd)) { // skip the expected tx sequence
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
-                    // Prevent minting fund category tokens outside our control
+                    //
+                    // No minting fund tokens or system tokens outside of our tx
                     bytes category = tx.outputs[outputIndex].tokenCategory.slice(0, 32);
                     require(category != tx.inputs[0].outpointTransactionHash);
-                    // Prevent minting public/governance tokens outside our control
                     require(category != token);
                 }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
 
-        // Verify fund commitment output
+        //
+        // Start parsing fund details and verify
         bytes type, bytes hashAndData = fundCommitment.split(1);
         require(type == 0x02);
         bytes fundHash, bytes fund = hashAndData.split(32);
         require(fundHash == hash256(fund));
 
-        // Parse and validate fund parameters
+        //
+        // Verify the fund token category based on the provided genesis input
         bytes nft_fundCategory = fund.slice(0, 32);
-        // Fund category must be genesis transaction hash (identifies the fund)
         require(nft_fundCategory == tx.inputs[0].outpointTransactionHash);
-        // We don't introspect the unlocking bytecode of the startup contract, we infer the user input the correct value here
-        bytes expectedCommitment = 0x02 + nft_fundCategory + fundHash;
+        bytes expectedCommitment = 0x02 + nft_fundCategory + fundHash; // startup contract relies on this contract to verify the commitment encoding
         require(tx.outputs[this.activeInputIndex + 1].nftCommitment == expectedCommitment);
         require(tx.outputs[this.activeInputIndex + 2].nftCommitment == expectedCommitment);
 
-        // Create transaction manager contract address from fund parameters
-        // This ensures each fund has a unique manager instance
+        //
+        // Verify the fund token is minted and routed to the fund manager
         int transactionManagerOutput = this.activeInputIndex + 3;
         require(tx.outputs[transactionManagerOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
-        // Transaction manager gets fund identifier token (genesis hash)
         require(tx.outputs[transactionManagerOutput].tokenCategory == tx.inputs[0].outpointTransactionHash);
-        // Token amount is max uint64 (indicates continued minting capability)
-        require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // max uint64      
+        require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // max uint64
 
-        // PublicFund returns to itself (self) with token tracking
+        //
+        // Verify this spending input and the UTXO is preserved
+        require(tx.inputs[this.activeInputIndex].tokenCategory == bytes(token + 0x02));
         int thisOutput = this.activeInputIndex + 4;
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[thisOutput].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[thisOutput].tokenCategory);

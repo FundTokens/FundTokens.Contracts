@@ -1,25 +1,19 @@
 pragma cashscript ~0.13.0;
 
 /**
- * InstanceVault: FundToken instance settings and proof contract
+ * InstanceVault: Holding vault for encoded FundToken contract parameters and on-chain proofs
  * 
- * Vault to store the instance hash and instance settings into a NFT token
- * Enables on-chain parameter validation and ensures system parameter history is always recoverable
- * 
- * Key Features:
- * - On-chain instance composition proofs via hash verification
- * - Controlled instance closure signal with authorization checks
- * - Commitment data chaining for proof continuity
- * - Prevents unauthorized token state changes and reordering
+ * Vault to store on-chain the instance parameters into a NFT token commitment.
+ * Enables on-chain parameter validation and ensures contract parameters are always recoverable.
  * 
  * Parameters:
- *   instance: Token category of the NFT
- *   authorization: Token category that authorizes instance
+ *   instance: Token category of the holding NFT
+ *   authorization: Token category that authorizes sensitive operations
  */
 contract InstanceVault(bytes32 instance, bytes32 authorization)
 {
     /**
-     * burn(): Burn the Instance tokens to signal this instance is no longer being used or maintained
+     * burn(): Burn the tokens to signal this instance is no longer being used or maintained
      * 
      * Validates and aggregates all instance NFT commitment data, verifies the hash,
      * confirms authorization (bit 0x0040), and burns all instance tokens from outputs.
@@ -29,10 +23,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      * - Intended to signal for rare closure event only
      * - Requires authorization token with bit 0x0040 (instance deprecation permission)
      * 
-     * Parameters:
-     *   hash: Expected hash256 of concatenated instance commitment data
-     * 
-     * Constraints:
+     * Ensures:
      * - Both inputs must be processed sequentially
      * - Authorization token (bit 0x0040) must be present somewhere in the transaction
      * - No instance tokens allowed in any output (complete token burn)
@@ -79,39 +70,42 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
     /**
      * proof(): Proves instance composition on-chain
      * 
-     * Validates that both instance inputs are properly forwarded to matching outputs,
-     * aggregates their commitment data, and verifies the hash matches expected state.
+     * Validates that both instance inputs are properly forwarded to matching outputs.
+     * Aggregate NFT commitment data and verify the hash matches expected state.
      * 
-     * This pattern establishes an immutable proof chain:
-     * - Input commitment data must exactly match output commitment data
-     * - Hash verification prevents tampering with instance state
-     * 
-     * Constraints:
+     * Ensures:
      * - Active input (this UTXO) must forward without change
      * - The next input must be in matching criteria
      * - Commitment data is immutable (same in/out)
      */
     function proof() {
-        // ensure only spends for expected token
+        //
+        // Check the starting input (and shortcut input validation because we know the length)
+        require(tx.inputs.length >= this.activeInputIndex + 2);
         require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
-        // build data
+
+        //
+        // Start splitting this token and validate data as we go
         bytes type, bytes versionAndRest = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
         require(type == 0x00);
         bytes version, bytes hashAndData = versionAndRest.split(2);
-        require(version != 0x0000);
+        require(version != 0x0000); // version is for the JS library
         bytes hash, bytes data = hashAndData.split(32);
-        require(tx.inputs.length >= this.activeInputIndex + 2);
+
+        //
+        // Only two tokens expected, verify the next token is a data token
         int dataIndex = this.activeInputIndex + 1;
-        
         require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode, 'Data input must spend from this lockingBytecode');
         require(tx.inputs[dataIndex].lockingBytecode == tx.outputs[dataIndex].lockingBytecode, 'Data input must be preserved');
         require(tx.inputs[dataIndex].tokenCategory == tx.outputs[dataIndex].tokenCategory, 'Data input category must be preserved');
         require(tx.inputs[dataIndex].nftCommitment == tx.outputs[dataIndex].nftCommitment, 'Data input commitment must be preserved');
-        data = data + tx.inputs[dataIndex].nftCommitment;
 
-        // hash and verify
+        //
+        // Concate the data and verify the hash
+        data = data + tx.inputs[dataIndex].nftCommitment;
         require(hash256(data) == hash, 'Encoded hash and calculated hash must match');
 
+        //
         // return input to contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode, 'This input must be preserved');
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory, 'This input category must be preserved');
@@ -121,16 +115,9 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
     /**
      * data(): Validates commitment data continuity in the proof chain
      * 
-     * Ensures this UTXO is part of a continuous chain of instance proofs
-     * by verifying it was created from the previous input and will be followed
-     * by the next proof in the sequence.
+     * Ensures this UTXO is part of a continuous chain of instance proofs.
      * 
-     * Used to:
-     * - Link proof UTXOs together in a chain
-     * - Maintain commitment data lineage
-     * - Prevent proof interruption or substitution
-     * 
-     * Constraints:
+     * Ensures
      * - This input must contain instance token
      * - Previous input must have identical locking bytecode
      * - Previous input must have identical token category

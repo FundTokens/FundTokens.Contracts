@@ -11,7 +11,6 @@ import {
 } from '@bitauth/libauth';
 import {
     getBestFee,
-    getFundBin,
     getFundCommitment,
     getFundHex,
     getRandomInt,
@@ -312,11 +311,11 @@ export default class PublicFundTransactionBuilder extends TransactionBuilder {
             ]);
 
 
-            
+
         const maxSize = 128 * 2; // NFT commitment max size 128 bytes Layla - May 2026
         let curr = 0;
         let next = maxSize;
-        
+
         const fundCommitment = getFundCommitment(fund);
         while (curr < fundCommitment.length) {
             this.addOutput(withDust({

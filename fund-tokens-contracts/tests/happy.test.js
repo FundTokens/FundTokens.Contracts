@@ -8,11 +8,10 @@ import 'cashscript/vitest';
 
 import { generateWallet } from '@/wallet.js';
 
-import { decodeFund, getFundHex, hashFund, categoryAscending, getFundCommitment, decodeFundCommitment } from '@lib/utils';
+import { categoryAscending, getFundCommitment, decodeFundCommitment } from '@lib/utils';
 import SystemTransactionBuilder from '@system/SystemTransactionBuilder.js';
 import PublicFundTransactionBuilder from '@lib/PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from '@lib/FundTokenTransactionBuilder.js';
-import calculateScriptOperationCost from './calculateScriptOperationCost';
 
 const DustAmount = 1000n;
 const DataDustAmount = 1065n;
@@ -375,48 +374,5 @@ describe('happy path', () => {
 
         const response = await transaction.send();
         console.log('close fee threads tx size', response.hex.length / 2);
-    });
-
-    it('should log public fund contract cost', () => {
-        const transaction = new PublicFundTransactionBuilder({ provider, system });
-        const contracts = transaction.getContracts();
-        const keys = Object.keys(contracts);
-        const costs = keys.reduce((prev, curr) => {
-            const { breakdown, ...rest } = calculateScriptOperationCost(contracts[curr].bytecode);
-            prev[curr] = {
-                ...rest,
-                opcount: contracts[curr].opcount,
-                bytesize: contracts[curr].bytesize,
-            };
-            return prev;
-        }, {});
-        console.log('public fund cost', costs);
-    });
-
-    it('should log fund contract cost', () => {
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
-        const contracts = transaction.getContracts();
-        const keys = Object.keys(contracts);
-        const costs = keys.reduce((prev, curr) => {
-            if(Array.isArray(contracts[curr])) {
-                prev[curr] = contracts[curr].slice(0, 1).map(c => {
-                    const { breakdown, ...rest } = calculateScriptOperationCost(c.bytecode);
-                    return {
-                        ...rest,
-                        opcount: c.opcount,
-                        bytesize: c.bytesize,
-                    };
-                })[0];
-            } else {
-                const { breakdown, ...rest } = calculateScriptOperationCost(contracts[curr].bytecode);
-                prev[curr] = {
-                    ...rest,
-                    opcount: contracts[curr].opcount,
-                    bytesize: contracts[curr].bytesize,
-                };
-            }
-            return prev;
-        }, {});
-        console.log('fund cost', costs);
     });
 });

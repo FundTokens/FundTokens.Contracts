@@ -1,31 +1,22 @@
 pragma cashscript ~0.13.0;
 
 /**
- * AuthHeadVault: Modified authorization vault with strict authhead requirements
- * 
- * A authorization vault with additional output constraints to maintain authhead identity:
- * - Must be the first input (index 0)
- * - First output must not contain any tokens
- * - Must be authorized with permission bit 0x0002
- *
- * Authhead identity burning to support full lifecycle of BCMR identities
- * - No input positioning restriction, burn X identities in a single transaction
- * - First output must be a no value, no token OP_RETURN
- * - No restrictions on data embedded in OP_RETURN
- * - Must be authorized with permission bit 0x0020
+ * AuthHeadVault: Token identity vault with authorization requirements
  * 
  * Used specifically for authorizing fund's BCMR update operations.
+ * Operations are authorized via token using commitment as permission bits.
  * 
  * Parameters:
- *   authToken: Token category that authorizes fund creation
+ *   authToken: Token category that authorizes contract operations
  */
 contract AuthHeadVault(bytes32 authToken)
 {
     /**
      * update(): Authorizes authhead update with strict transaction structure
      * 
-     * Supports:
-     * - No BCMR update restrictions
+     * There are no restrictions on updating BCMR or identity.
+     * Preserves the identity UTXO without combining identites.
+     * Only one identity can be updated in a tx.
      *
      * Ensures:
      * - This vault is the first input (positioning control)
@@ -33,16 +24,20 @@ contract AuthHeadVault(bytes32 authToken)
      * - Authorization token is present with bit 0x0002 (authhead update permission)
      */
     function update() {
-        // This vault MUST be the first input, ensures only one update but prevents combining identities
+        //
+        // Verify this input
         require(this.activeInputIndex == 0, "expected to be the first input");
-        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
-        // First output must have no tokens (ensures clean state to maintain authhead integrity)
+
+        //
+        // Verify the identity output
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
         require(tx.outputs[this.activeInputIndex].tokenCategory == 0x, "no token allowed on authhead");
 
-        // Check for authorization token in ANY input
+        //
+        // Check for authorization token in ANY input but can skip the identity
         // Bit 0x0002 in commitment indicates authhead (BCMR maintenance) authorization
         bool authorized = false;
-        int inputIndex = 0;
+        int inputIndex = 1;
         do {
             if(tx.inputs[inputIndex].tokenCategory == authToken) {
                 if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0002)) == 0x0002) {
@@ -57,8 +52,8 @@ contract AuthHeadVault(bytes32 authToken)
     /**
      * burn(): Authorizes authhead identity burning with strict transaction structure
      *
-     * Supports:
-     * - Multiple identity burning in a single tx
+     * Able to burn multiple identities in a single tx.
+     * Used to signal this identity is no longer maintained and for UTXO cleanup.
      *
      * Ensures:
      * - The outputs' authhead is an OP_RETURN
@@ -66,12 +61,12 @@ contract AuthHeadVault(bytes32 authToken)
      * - Authorization token is present with bit 0x0020 (authhead identity burning permission)
      */
     function burn() {
-        // First output must be an OP_RETURN
+        //
+        // Verify the burned identity
         require(tx.outputs[0].lockingBytecode.slice(0, 1) == 0x6a, "first output must be an OP_RETURN");
-        // First output must have no tokens or value (ensures clean state to maintain authhead integrity)
         require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
-        require(tx.outputs[0].value == 0);
 
+        //
         // Check for authorization token in ANY input
         // Bit 0x0020 in commitment indicates authhead (BCMR maintenance) identity burning
         bool authorized = false;

@@ -1,43 +1,35 @@
 pragma cashscript ~0.13.0;
 
 /**
- * PublicFundVault: Fund transparency and proof contract
+ * PublicFundVault: PublicFund token vault and execute on-chain proofs
  * 
- * Extends the authorization pattern established by SimpleVault to manage public fund state.
- * Enables transparent on-chain proof of fund composition and controlled fund delisting.
- * 
- * Key Features:
- * - On-chain asset composition proofs via hash verification
- * - Controlled fund delisting signal with authorization checks
- * - Commitment data chaining for proof continuity
- * - Prevents unauthorized token state changes
+ * Holding vault for the PublicFund token that broadcasts fund composition.
+ * Supports on-chain fund proofs.
  * 
  * Parameters:
  *   publicFund: Token category of the public fund NFT
- *   authorization: Token category that authorizes fund delisting
+ *   authorization: Token category that authorizes sensitive operations
  */
 contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 {
     /**
-     * burn(): Permanently delists a public fund data stream by burning all public tokens related to this public fund
+     * burn(): Permanently delists a public fund data stream by burning all tokens related to this fund
      * 
-     * Validates and aggregates all publicFund NFT commitment data, verifies the hash,
-     * confirms authorization (bit 0x0008), and burns all publicFund tokens from outputs.
+     * Delist a public fund and allow UTXO cleanup.
+     * Verifies the entire fund series is burned together.
      * 
-     * Notes:
-     * - Fund data can be recovered from transaction history even after burning
-     * - Intended to signal for rare delisting events only
-     * - Requires authorization token with bit 0x0008 (fund delisting permission)
-     * 
-     * Constraints:
+     * Ensures:
      * - All publicFund inputs must be processed sequentially
      * - Authorization token (bit 0x0008) must be present somewhere in the transaction
      * - No publicFund tokens allowed in any output (complete burn)
      */
     function burn() {
-        // ensure only spends for the expected token
+        //
+        // Verify this input
         require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
-        // check for authorization
+
+        //
+        // Check for user authorization
         bool authorized = false;
         int inputIndex = 0;
         do {
@@ -49,15 +41,19 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length);
         require(authorized);
-        // burn the tokens
+
+        //
+        // Ensure all tokens are implicitly burned
         int outputIndex = 0;
         do {
             require(tx.outputs[outputIndex].tokenCategory != publicFund);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
-        // verify data
-        int fundIndex = this.activeInputIndex;
+
+        //
+        // Verify data integrity (contains the entire sequence)
         bytes fundCommitment = 0x;
+        int fundIndex = this.activeInputIndex;
         do {
             fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
             fundIndex = fundIndex + 1;
@@ -66,33 +62,28 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         bytes type, bytes hashAndData = fundCommitment.split(1);
         require(type == 0x02);
         bytes hash, bytes fund = hashAndData.split(32);
-
-        // hash and verify
         require(hash256(fund) == hash);
     }
 
     /**
-     * proof(): Proves fund composition on-chain via hash verification
+     * proof(): Proves fund composition on-chain via hash verification and commitment introspection
      * 
-     * Validates that all publicFund inputs are properly forwarded to matching outputs,
-     * aggregates their commitment data, and verifies the hash matches expected state.
+     * Support on-chain proofs using commitment introspection and hash verification.
      * 
-     * This pattern establishes an immutable proof chain:
-     * - Input commitment data must exactly match output commitment data
-     * - All intermediate UTXOs are validated for consistency
-     * - Hash verification prevents tampering with fund state
-     * 
-     * Constraints:
+     * Ensures:
      * - Active input (this UTXO) must forward without changes
      * - All consecutive publicFund inputs/outputs must be in matching positions
      * - Commitment data is immutable (same in/out)
      */
     function proof() {
-        // ensure only spends for expected token
+        //
+        // Check this input
         require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
-        // build data
-        int fundIndex = this.activeInputIndex;
+        
+        //
+        // Build data and validate sequence via hash
         bytes fundCommitment = 0x;
+        int fundIndex = this.activeInputIndex;
         do {
             require(tx.inputs[fundIndex].lockingBytecode == tx.outputs[fundIndex].lockingBytecode);
             require(tx.inputs[fundIndex].tokenCategory == tx.outputs[fundIndex].tokenCategory);
@@ -105,11 +96,10 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         bytes type, bytes hashAndData = fundCommitment.split(1);
         require(type == 0x02);
         bytes hash, bytes fund = hashAndData.split(32);
-
-        // hash and verify
         require(hash256(fund) == hash);
 
-        // return input to contract
+        //
+        // Preserve this UTXO return input to contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
@@ -118,22 +108,17 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
     /**
      * data(): Validates commitment data continuity in the proof chain
      * 
-     * Ensures this UTXO is part of a continuous chain of publicFund proofs
-     * by verifying it was created from the previous input and will be followed
-     * by the next proof in the sequence.
+     * Ensures this UTXO is part of a continuous chain of publicFund proofs.
      * 
-     * Used to:
-     * - Link proof UTXOs together in a chain
-     * - Maintain commitment data lineage
-     * - Prevent proof interruption or substitution
-     * 
-     * Constraints:
+     * Ensures:
      * - This input must contain publicFund token
      * - Previous input must have identical locking bytecode
      * - Previous input must have identical token category
      * - Previous input must be from the same transaction (outpointTransactionHash)
      */
     function data() {
+        //
+        // Check for linked token on this contract
         require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
         int prevInput = this.activeInputIndex - 1;
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[prevInput].lockingBytecode);

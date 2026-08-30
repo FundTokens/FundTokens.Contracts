@@ -29,11 +29,11 @@ const sortDecreasingTokenAmount = (a, b) => {
     const aAmount = a.token?.amount ?? 0n;
     const bAmount = b.token?.amount ?? 0n;
 
-    if(aAmount === bAmount) {
+    if (aAmount === bAmount) {
         return 0;
     }
 
-    if(aAmount > bAmount) {
+    if (aAmount > bAmount) {
         return -1;
     }
 

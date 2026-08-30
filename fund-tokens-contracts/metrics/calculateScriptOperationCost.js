@@ -1,7 +1,6 @@
 import {
-  disassembleBytecodeBCH,
+  disassembleBytecodeBch,
   hexToBin,
-  OpcodesBCH,
 } from '@bitauth/libauth';
 
 /**
@@ -12,9 +11,9 @@ export default function calculateScriptOperationCost(
   estimatedSigPreimageBytes = 180
 ) {
   const bytecodeBin = hexToBin(bytecodeHex);
-  
+
   // Disassemble raw binary into space-delimited ASM string (e.g. "OP_1 OP_ADD 0x1234 OP_EQUAL")
-  const asm = disassembleBytecodeBCH(bytecodeBin);
+  const asm = disassembleBytecodeBch(bytecodeBin);
   const tokens = asm.split(' ').filter((t) => t.length > 0);
 
   let totalCost = 0;

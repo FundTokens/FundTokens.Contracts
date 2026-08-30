@@ -13,7 +13,7 @@ Fee token commitments encode fee details into CashToken NFTs. The maintainer may
 ### Commitment Structure
 
 ```
-[fee_type (0x00) (1 byte)][serial_number (vm number)] | [fee_type (0x01) (1 byte)][fee_category (32 bytes)][fee_amount (8 bytes)][fee_destination? (undefined)]
+[fee_type (0x00) (1 byte)][serial_number (vm number)] | [fee_type (0x01) (1 byte)][fee_category (32 bytes)][fee_amount (8 bytes)][fee_destination? (undefined)] | [fee_type (0x03) (1 byte)]
 ```
 
 - **fee_type**: One byte containing the fee token type
@@ -27,7 +27,8 @@ Fee token commitments encode fee details into CashToken NFTs. The maintainer may
 | Hex | Capability | Role | Description |
 |-----|------------|-----------|---------|
 | 0x00 | Minting | Fee Thread Creation | Mint new fee threads as needed |
-| 0x01 | None | Execution Fee NFT | Used by the smart contract to enforce fee payment |
+| 0x01 | None | Dynamic Fee NFT | Used by the smart contract to support dynamic fee payments |
+| 0x02 | None | Voluntary Fee NFT | Used by the smart contract to allow voluntary fee payments |
 
 ### Serial Number
 

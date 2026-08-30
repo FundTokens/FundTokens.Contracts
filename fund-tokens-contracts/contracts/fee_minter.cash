@@ -1,38 +1,34 @@
 pragma cashscript ~0.13.0;
 
 /**
- * FeeMinter: Authorization-controlled fee token minting with encoded fee commitments
+ * FeeMinter: Vault to holding fee minting token with strict minting enforcement and authorization requirements
  * 
- * A authorization gated minted and fee encoding restrictions in NFT commitments.
- * Fee tokens carry commitment data: [type | category | amount | destination_override]
- * Used to create tokens that encode specific fee amounts and routing.
- * 
- * Destination override is variable-length by design - allows forward compatibility
- * with future locking bytecode formats without redeploying contract.
- *
- * Fee minting is a tool to ensure the FundToken system has robust fee options.
- * Downstream "default" values ensure fees are capped to a Bitcoin amount:
- *     This ensures user protection from excessive or malicious fee extraction
- *     Users are guaranteed access to their funds
- *     Maintainer is incentivized to provide well-formed and competitive fee options
+ * Minting fee tokens provides a way to compose a flexible fee structure into the protocol.
+ * Operations are authorized via token using commitment as permission bits.
  * 
  * Parameters:
- *   authorization: Token category that authorizes minting
+ *   authorization: Token category that authorizes operations
  *   token: Fee token category being minted
- *   destination: Default destination for fee payments
+ *   next: Destination for newly minted fee tokens (fee enforcement contract)
  */
-contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
+contract FeeMinter(bytes32 authorization, bytes32 token, bytes next)
 {
     /**
      * mint(): Mints fee tokens with commitment encoding
      * 
-     * Fee commitment format: [fee_type (1) | fee_category (32) | fee_amount (8) | destination_override (0+)]
-     * - Category: 0x00 = Bitcoin satoshis, else = token category
-     * - Amount: int64 LE integer
-     * - Destination: Optional locking bytecode override for fee routing
+     * Acts as a vault for long term fee token holding.
+     * Allows authorized fee token minting to FeeManager with NFT commitment structure validation.
+     * Ensures this minting token UTXO is preserved
+     *
+     * Ensures:
+     * - Action is authorized with permission bit 0x0010
+     * - Enforces minted tokens destination to FeeManager
+     * - Ensures proper NFT commitment structure (type and additional data as needed)
      */
     function mint() {
-        // Require owner authorization
+        //
+        // Check for authorization token in ANY input
+        // Bit 0x0010 in commitment indicates fee minting permission
         bool authorized = false;
         int inputIndex = 0;
         do {
@@ -44,39 +40,42 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes destination)
             inputIndex = inputIndex + 1;
         } while(inputIndex < tx.inputs.length && !authorized);
         require(authorized, "unauthorized user");
-        
 
-        // Verify all outputs minting fee tokens have proper commitment
+        //
+        // Verify ALL outputs with locking bytecode enforcement
         int outputIndex = 0;
         do {
             if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
                 if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
-                    // Fee tokens go to the destination
-                    require(tx.outputs[outputIndex].lockingBytecode == destination);
+                    //
+                    // Validate minted token output including NFT commitment
+                    require(tx.outputs[outputIndex].lockingBytecode == next);
                     require(tx.outputs[outputIndex].tokenCategory == token);
 
-                    // Fee token MUST have a commitment encoding fee details
-                    require(tx.outputs[outputIndex].nftCommitment.length >= 40, "must provide at least a category and amount");
-
-                    // Parse commitment: [fee_category | fee_amount | destination_override]
                     bytes fee_type, bytes fee_next0 = tx.outputs[outputIndex].nftCommitment.split(1);
-                    require(fee_type == 0x01);
-                    bytes fee_category, bytes fee_next1 = fee_next0.split(32);
-                    // Fee category must be specified (0x00 for Bitcoin, or token category)
-                    require(fee_category != 0x);
-                    
-                    bytes fee_amount = fee_next1.slice(0, 8);
-                    // Fee amount must be positive
-                    require(int(fee_amount) > 0);
-                    // Destination is optional (0x for default, or locking bytecode)
+                    require(fee_type == 0x01 || fee_type == 0x02); // minting type not allowed
+
+                    if(fee_type == 0x01) {
+                        bytes fee_category, bytes fee_next1 = fee_next0.split(32);
+                        require(fee_category != 0x);
+                        
+                        bytes fee_amount = fee_next1.slice(0, 8);
+                        require(int(fee_amount + 0x00) > 0); // treat as uint
+                        
+                        // Destination is optional (0x for default, or locking bytecode)
+                    }
+
+                    if(fee_type == 0x02) {
+                        require(fee_next0 == 0x); // No additional commitment needed
+                    }
                 }
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
 
 
-        // Verify this is a fee minting token
-        // Preserve UTXO
+        //
+        // Verify this is a fee minting token and the UTXO is preserved
         bytes thisInputCategory = tx.inputs[this.activeInputIndex].tokenCategory;
         require(thisInputCategory == (token + 0x02));
         require(thisInputCategory == tx.outputs[this.activeInputIndex].tokenCategory);

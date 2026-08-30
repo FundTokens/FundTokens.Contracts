@@ -1,14 +1,11 @@
 pragma cashscript ~0.13.0;
 
 /**
- * FundStartup: Validates and initializes a new fund
+ * FundStartup: Initialize a new fund and create additional fund threads
  * 
- * Called once during fund creation and to create additional threads. Mints inflow/outflow tokens and validates
- * all fund parameters including amounts, satoshis, and asset ordering.
- * 
- * Fund data format (passed as bytes):
- * [fund_category (32) | fund_amount (8) | satoshis (8) | 
- *  asset1_category (32) | asset1_amount (8) | ... | assetN_category (32) | assetN_amount (8)]
+ * Called once during fund creation and to create additional threads.
+ * Validates inflow/outflow commitments tokens and fund parameters.
+ * Public and private funds can use this contract to create new system tokens.
  * 
  * Parameters:
  *   fee: Fee contract hash (for fee input verification)
@@ -18,23 +15,24 @@ pragma cashscript ~0.13.0;
 contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 {
     /**
-     * start(bytes fund): Validates fund parameters and mints tokens
+     * start(bytes fund): Validates fund parameters and mint protocol tokens
+     *
+     * Parameters:
+     *   fund: Encoded fund data
+     *
+     * Verify the fund structure and minted inflow/outflow tokens commitments
      * 
-     * Validates:
+     * Ensures:
      * - Fund amount > 0
      * - Satoshis in valid range
      * - Assets are sorted by category ascending
      * - Each asset amount > 0
-     * 
-     * Creates:
-     * - Inflow token NFT with fund commitment
-     * - Outflow token NFT with fund commitment
+     * - Minted inflow/outflow NFTs have fund commitment
      */
     function start(bytes fund) {
-        // Parse fund parameters from commitment bytes
-        bytes nft_fundCategory, bytes nft_next1 = fund.split(32); // no fund category is assumed correct here
-
-        // Mint inflow and outflow tokens with fund commitment (fund_category | fund_hash)
+        //
+        // Parse out the fund category and verify matches inflow/outflow commitments
+        bytes nft_fundCategory, bytes nft_next1 = fund.split(32);
         int mintedInflowOutput = this.activeInputIndex + 5;
         int mintedOutflowOutput = this.activeInputIndex + 6;
         bytes fundHash = hash256(fund);
@@ -44,46 +42,51 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         require(tx.outputs[mintedOutflowOutput].tokenCategory == outflowToken);
         require(tx.outputs[mintedInflowOutput].tokenCategory == inflowToken);
 
+        //
+        // Continue splitting out the fund data and verify
         bytes nft_fundAmount, bytes nft_next2 = nft_next1.split(8);
-        // Fund amount must be > 0 (determines token divisor)
-        require(int(nft_fundAmount) > 0);
+        require(int(nft_fundAmount + 0x00) > 0); // Fund amount must be > 0 (token divisor)
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(7);
 
         if(nft_assets.length > 0) {
-            // Satoshis must be within Bitcoin supply range (0 sat to 21 million BTC)
-            require(within(int(nft_satoshis), 0 sats, 21000000 bitcoin));
+            //
+            // Satoshis are optional and continue verifying asset composition
+            require(within(int(nft_satoshis), 0 sats, 21000000 bitcoin)); // No sats to max supply
 
-            // Verify assets are sorted ascending by category
-            bytes lastAssetCategory = 0x;
+            //
+            // Verify assets are sorted ascending by category and amounts are positive
+            bytes lastAssetCategory = 0x; // Verify assets are sorted ascending by category
             do {
                 bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
                 bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
-                // Each asset must have amount > 0
-                require(int(nft_assetAmount) > 0);
-
-                // Assets must be in ascending order for deterministic sorting
-                if(lastAssetCategory != 0x) { // The first asset
-                    require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00));
+                require(int(nft_assetAmount + 0x00) > 0);
+                
+                if(lastAssetCategory != 0x) {
+                    require(int(lastAssetCategory + 0x00) < int(nft_assetCategory + 0x00)); // Assets must be in ascending order for deterministic sorting
                 }
 
                 nft_assets = nft_next4;
                 lastAssetCategory = nft_assetCategory;
             } while(nft_assets.length > 0);
         } else {
-            // Satoshis must be within Bitcoin supply range (1 sat to 21 million BTC)
-            require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin));
+            //
+            // Satoshis are required
+            require(within(int(nft_satoshis), 1 sats, 21000000 bitcoin)); // 1 sat to max supply
         }
 
-        // Verify inflow and outflow token input (with minting capability)
+        //
+        // Verify inflow and outflow token input (with correct capability)
         require(tx.inputs[this.activeInputIndex + 1].tokenCategory == bytes(inflowToken + 0x02));
         require(tx.inputs[this.activeInputIndex + 2].tokenCategory == bytes(outflowToken + 0x02));
 
+        //
         // Verify fee contract input
         int feeContractInput = this.activeInputIndex + 3;
         bytes feeContractInputBytecode = tx.inputs[feeContractInput].lockingBytecode;
         require(feeContractInputBytecode == new LockingBytecodeP2SH32(fee));
         require(feeContractInputBytecode == tx.outputs[feeContractInput].lockingBytecode); // sends back to self, it's paid
 
+        //
         // Ensure no other outputs mint inflow/outflow tokens
         int outputIndex = 0;
         do {
@@ -98,7 +101,9 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
 
-        // This startup UTXO returns to itself, no tokens needed
+        //
+        // This startup UTXO returns to itself
+        // No tokens are required on this UTXO...dependent contract uses locking bytecode
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
     }
 }
