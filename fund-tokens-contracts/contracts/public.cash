@@ -107,7 +107,7 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         int transactionManagerOutput = this.activeInputIndex + 3;
         require(tx.outputs[transactionManagerOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + nft_fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract)));
         require(tx.outputs[transactionManagerOutput].tokenCategory == tx.inputs[0].outpointTransactionHash);
-        require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // max uint64
+        require(tx.outputs[transactionManagerOutput].tokenAmount == 9223372036854775807); // int64, max positive value
 
         //
         // Verify this spending input and the UTXO is preserved

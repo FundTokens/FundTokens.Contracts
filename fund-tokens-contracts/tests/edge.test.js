@@ -126,25 +126,71 @@ describe('edge case test', () => {
             satoshis: 2100000000000001n,
             assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
         },
+        { // asset amount exceeds max cashtokens amount by one
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 1n,
+            satoshis: 0n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 9223372036854775808n }]
+        },
+        { // fund amount exceeds max cashtokens amount by one
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 9223372036854775808n,
+            satoshis: 0n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 123n }]
+        },
+        { // negative bitcoin amount
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 1n,
+            satoshis: 40532396646334463n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
+        },
+        { // negative asset amount
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 1n,
+            satoshis: 0n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 9223372036854775809n }]
+        },
+        { // negative fund amount
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 9223372036854775809n,
+            satoshis: 0n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 123n }]
+        },
     ];
 
-    it('should ensure funds fail', async ({ expect }) => {
+    test.each(expectedToFailFunds)('should ensure funds fail', async (fundUnderTest) => {
+        console.log('failing fund under test', fundUnderTest);
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
 
         addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
 
-        for (let index = 0; index < expectedToFailFunds.length; ++index) {
-            const expectedToFail = expectedToFailFunds[index];
-            const transaction = new PublicFundTransactionBuilder({ provider, system });
-            transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
-            await transaction.addBroadcast({ fund: expectedToFail });
-            transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund: fundUnderTest });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
 
-            expect(transaction).toFailRequire();
-        }
+        expect(transaction).toFailRequire();
     });
+
+    // it('should ensure funds fail', async ({ expect }) => {
+    //     const userWallet = generateWallet({ network });
+    //     const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+    //     const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+    //     addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+    //     for (let index = 0; index < expectedToFailFunds.length; ++index) {
+    //         const expectedToFail = expectedToFailFunds[index];
+    //         const transaction = new PublicFundTransactionBuilder({ provider, system });
+    //         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+    //         await transaction.addBroadcast({ fund: expectedToFail });
+    //         transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+
+    //         expect(transaction).toFailRequire();
+    //     }
+    // });
 
     const expectedToSucceedFunds = [
         {
@@ -158,6 +204,18 @@ describe('edge case test', () => {
             amount: 1n,
             satoshis: 999n,
             assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 1n }]
+        },
+        {
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 1n,
+            satoshis: 2100000000000000n,
+            assets: []
+        },
+        {
+            category: '7777777777777777777777777777777777777777777777777777777777777777',
+            amount: 9223372036854775807n,
+            satoshis: 2100000000000000n,
+            assets: [{ category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 9223372036854775807n }]
         },
     ];
 

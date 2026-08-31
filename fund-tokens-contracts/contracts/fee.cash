@@ -92,7 +92,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
 
                 //
                 // Verify the fee is paid
-                int fee_amount = int(fee_amount_bytes + 0x00);
+                int fee_amount = int(fee_amount_bytes);
                 if(int(fee_category) == 0) {
                     require(tx.outputs[feeOutput].value == fee_amount);
                 } else {

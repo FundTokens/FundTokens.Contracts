@@ -81,7 +81,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         //
         // Ensure release is whole multiple of fund amount (no change) and then convert to the "whole" fund unit for asset calculations
-        int fundAmount = int(nft_fundAmount + 0x00);
+        int fundAmount = int(nft_fundAmount);
         int fundReleasedAmount = fundInputAmount - fundOutputAmount;
         require(fundReleasedAmount % fundAmount == 0);
         fundReleasedAmount = fundReleasedAmount / fundAmount;
@@ -117,7 +117,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             // Verify the asset destination, category, and amounts
             require(tx.outputs[assetOutputIndex].lockingBytecode == new LockingBytecodeP2SH32(hash256(0x20 + nft_assetCategory + 0x20 + fundHash + 0x20 + outflowToken + assetContract)));
             require(tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory);
-            int assetAmount = int(nft_assetAmount + 0x00);
+            int assetAmount = int(nft_assetAmount);
             require(tx.outputs[assetOutputIndex].tokenAmount % assetAmount == 0);
             require((tx.outputs[assetOutputIndex].tokenAmount / assetAmount) == fundReleasedAmount);
             
@@ -186,7 +186,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         //
         // Ensure deposited is a whole multiple of fund amount (no change) and then convert to the "whole" fund unit for asset calculations
         int fundLockingAmount = fundOutputAmount - fundInputAmount;
-        int fundAmount = int(nft_fundAmount + 0x00);
+        int fundAmount = int(nft_fundAmount);
         require(fundLockingAmount % fundAmount == 0);
         fundLockingAmount = fundLockingAmount / fundAmount;
 
@@ -257,7 +257,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             bytes nft_assetAmount, bytes nft_remaining = nft_assetNext.split(8);
             nft_assetData = nft_remaining;
             
-            int assetAmount = int(nft_assetAmount + 0x00);
+            int assetAmount = int(nft_assetAmount);
             require((assetReleaseAmount % assetAmount) == 0);
             require((assetReleaseAmount / assetAmount) == fundLockingAmount);
         }
