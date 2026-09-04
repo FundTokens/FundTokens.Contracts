@@ -59,7 +59,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     };
     const instanceHex = `${swapEndianness(inflow)}${swapEndianness(outflow)}${swapEndianness(publicFund)}${swapEndianness(fees.create.nft)}${binToHex(numberToBinInt32LE(Number(fees.create.amount)))}${swapEndianness(fees.execute.nft)}${binToHex(numberToBinInt32LE(Number(fees.execute.amount)))}`;
     const instanceHash = binToHex(hash256(hexToBin(instanceHex)));
-    const instanceCommitment = '000001' + instanceHash + instanceHex;
+    const instanceCommitment = '00020001' + instanceHash + instanceHex;
 
     const instanceTxId = randomUtxo().txid;
     const instanceUtxos = [
@@ -71,8 +71,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 category: instanceCategory,
                 amount: 0n,
                 nft: {
-                    capability: 'none',
-                    commitment: instanceCommitment.slice(0, 190)
+                    capability: 'mutable',
+                    commitment: instanceCommitment.slice(0, 256)
                 }
             }
         }),
@@ -85,7 +85,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: instanceCommitment.slice(190)
+                    commitment: instanceCommitment.slice(256)
                 }
             }
         })
@@ -147,7 +147,143 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     amount: DustAmount,
                 }
             ]);
+        expect(transaction).toFailRequireWith('Data input category must be preserved');
+    });
+
+    it('Users can not output reordered proofs', async () => {
+        const userWallet = generateWallet(network);
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        provider.addUtxo(userWallet.address, feeUtxo);
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.proof())
+            .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
+            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        ...instanceUtxos[0].token,
+                        nft: {
+                            ...instanceUtxos[0].token.nft,
+                            commitment: instanceUtxos[1].token.nft.commitment,
+                        }
+                    } 
+                },
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        ...instanceUtxos[1].token,
+                        nft: {
+                            ...instanceUtxos[1].token.nft,
+                            commitment: instanceUtxos[0].token.nft.commitment,
+                        }
+                    }
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                }
+            ]);
         expect(transaction).toFailRequireWith('Data input commitment must be preserved');
+    });
+
+    it('Authorized user can update data lifecycle state', async () => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.update())
+            .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH()) // contains auth and sats
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        ...instanceUtxos[0].token,
+                        nft: {
+                            ...instanceUtxos[0].token.nft,
+                            commitment: '0003' + instanceUtxos[0].token.nft.commitment.slice(4),
+                        }
+                    } 
+                },
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: instanceUtxos[1].token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token: authUtxo.token,
+                }
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('Authorized user cannot change token typing', async () => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.update())
+            .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH()) // contains auth and sats
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        ...instanceUtxos[0].token,
+                        nft: {
+                            ...instanceUtxos[0].token.nft,
+                            commitment: '0103' + instanceUtxos[0].token.nft.commitment.slice(4),
+                        }
+                    } 
+                },
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: instanceUtxos[1].token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token: authUtxo.token,
+                }
+            ]);
+        expect(transaction).toFailRequire();
+    });
+
+    it('Authorized user cannot change library version', async () => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.update())
+            .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH()) // contains auth and sats
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        ...instanceUtxos[0].token,
+                        nft: {
+                            ...instanceUtxos[0].token.nft,
+                            commitment: '00030002' + instanceUtxos[0].token.nft.commitment.slice(8),
+                        }
+                    } 
+                },
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: instanceUtxos[1].token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token: authUtxo.token,
+                }
+            ]);
+        expect(transaction).toFailRequire();
     });
 
     it('Authorized user can burn data and tokens', async () => {

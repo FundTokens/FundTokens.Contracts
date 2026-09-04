@@ -1,4 +1,5 @@
 import {
+    Contract,
     MockNetworkProvider,
     randomToken,
 } from 'cashscript';
@@ -9,6 +10,9 @@ import FundTokenTransactionBuilder from '../lib/FundTokenTransactionBuilder.js';
 import calculateScriptOperationCost from './calculateScriptOperationCost.js';
 import { categoryAscending } from '../lib/utils.js';
 import logAnalyzedBytecode from './logAnalyzedBytcode.js';
+
+import instanceVaultJson from '../lib/art/instance_vault.json' with { type: 'json' };
+import { swapEndianness } from '@bitauth/libauth';
 
 ///
 const provider = new MockNetworkProvider();
@@ -57,6 +61,7 @@ const contracts = [
     ...Object.values(systemBuilder.getContracts()),
     ...Object.values(publicFundBuilder.getContracts()),
     ...Object.values(fundTokenBuilder.getContracts()),
+    new Contract(instanceVaultJson, [swapEndianness(randomToken().category), swapEndianness(randomToken().category)], { provider }),
 ].reduce((prev, curr) => {
     if(!prev[curr.name]) {
         prev[curr.name] = curr;

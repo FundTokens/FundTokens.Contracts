@@ -16,11 +16,12 @@ Instance token commitments encode FundToken system details into CashToken NFTs.
 The 235 byte structure is split across two CashTokens NFT w/ limit of 128bytes per NFT commitment.
 
 ```
-[type (1 byte)][version (2 bytes)][hash (32 bytes)][inflow (32 bytes)][outflow (32 bytes)][publicFund (32 bytes)][authorization (32 bytes)][fees_create_nft (32 bytes)][fees_create_sats (4 bytes)][fees_execute_nft (32 bytes)][fees_execute_sats (4 bytes)]
+[type (1 byte)][state (1 byte)][version (2 bytes)][hash (32 bytes)][inflow (32 bytes)][outflow (32 bytes)][publicFund (32 bytes)][authorization (32 bytes)][fees_create_nft (32 bytes)][fees_create_sats (4 bytes)][fees_execute_nft (32 bytes)][fees_execute_sats (4 bytes)] | [data (variable bytes)]
 ```
 
 - **type**: One byte containing the token type
-- **version**: The working contract version
+- **state**: The state of this instance
+- **version**: The working contract version to correspond with an interacting library
 - **hash**: The hash of the system settings
 - **inflow**: The token used as a signal for a Fund's inflow
 - **outflow**: The token used as a signal for a Fund's outflow
@@ -30,12 +31,23 @@ The 235 byte structure is split across two CashTokens NFT w/ limit of 128bytes p
 - **fees_create_sats**: A default amount (in satoshis) to create a new fund that prevents total lockout
 - **fees_execute_nft**: The token used to encode dynamic fees for executing an existing fund
 - **fees_execute_sats**: A default amount (in satoshis) to execute (inflow/outflow operations) that prevents total lockout
+- **data**: Trailing data token
 
 ### NFT Types
 
 | Hex | Capability | Role | Description |
 |-----|------------|-----------|---------|
-| 0x00 | None | Instance Proof | Acts as an on-chain proof when spending from it's vault. Additionaly this ensures parameter recovory is always available |
+| 0x00 | Mutable | On-chain Proof | Acts as an on-chain proof when spent and preserved to it's vault. Additionaly this ensures contract parameter recovory is always available. The leading data token will be preceeded with the token type. |
+| -- | None | Data Token | Contains supporting data token intended to be spent w/ a leading proof token
+
+### Lifecycle State
+
+| Hex | Role | Description |
+|-----|------|-------------|
+| 0x01 | Pre-release | Avaiable for early access, use at your own risk |
+| 0x02 | Main | Current instance that should be used for new funds |
+| 0x04 | Deprecated | Retired instance that should no longer be used for new fund and existing funds may continue to be used |
+| 0x08 | Vulnerable | Instance retired for discovered vulnerability and liquidating assets should be prioritized |
 
 ## See Also
 

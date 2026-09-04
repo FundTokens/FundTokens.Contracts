@@ -23,13 +23,13 @@ Allows an authorized user to mint new tokens to a specified destination.
 - Input UTXO must have `token` category
 - Input UTXO must return to itself
 - NFT commitment must be preserved
-- At least one input must contain the `authorization`
+  - Updated serial number
+- At least one input must contain the `authorization` token
 - Any output with the `token` category must:
   - Send to the specified `destination`
-  - Maintain the token category and commitment
-  - Have empty NFT commitment to destination
+  - Use a increasing serial number and encode token type
 
-**Usage**: System initialization, adding new threads
+**Usage**: System initialization, scaling w/ additional threads
 
 **Implementation**: See [contracts/simple_minter.cash](../fund-tokens-contracts/contracts/simple_minter.cash) for full source code.
 
@@ -57,16 +57,17 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 - Any output with the `token` category must:
   - Send to specified `destination`
   - Have NFT commitment with fee parameters:
-    - Bytes [0:32] - Fee category (0x00 = satoshis, else token category)
-    - Bytes [32:40] - Fee amount (int64 LE)
-    - Bytes [40:...] - Optional destination override (locking bytecode)
+    - Bytes [0:1] - Fee type (0x01)
+    - Bytes [1:33] - Fee category (0x00 = satoshis, else token category)
+    - Bytes [33:41] - Fee amount (int64 LE)
+    - Bytes [41:...] - Optional destination override (locking bytecode)
 
 **Fee Commitment Format**:
 ```
-[fee_category (32 bytes) | fee_amount (8 bytes) | destination_override (0+ bytes)]
+[fee_type (0x01) (1 byte)][fee_category (32 bytes) | fee_amount (8 bytes) | destination_override (0+ bytes)]
 ```
 
-**Usage**: Dynamic fees
+**Usage**: Flexible fee platform
 
 **Implementation**: See [contracts/fee_minter.cash](../fund-tokens-contracts/contracts/fee_minter.cash) for full source code.
 
@@ -74,7 +75,7 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 
 ### 3. SimpleVault
 
-**Purpose**: Custody contract that releases funds only with authorization token present
+**Purpose**: Custody contract that releases locked UTXOs only with authorization token present
 
 **Parameters**:
 - `authToken` (bytes32) - The authorization token category required for release
@@ -106,13 +107,65 @@ Allows vault release to be spent when the authToken is included in the tx
 
 #### `release()`
 
-Identical to SimpleVault - authorizes spending when token present and maintains no token authhead
+Authorizes spending when token present and maintains token identity
 
 **Usage**: PublicFund broadcast, BCMR maintenance
 
 **Implementation**: See [contracts/authhead_vault.cash](../fund-tokens-contracts/contracts/authhead_vault.cash) for full source code.
 
 ---
+
+### 4. InstanceVault
+
+**Purpose**: Public contract parameter vault w/ authorization token for maintenance/vulnerability signaling
+
+**Parameters**:
+- `instance` (bytes32) - The instance token category
+- `authorization` (bytes32) - The authorization token category
+
+**Functions**:
+
+#### `burn()`
+
+Permanently closes a instance data stream by aggregating all commitment data, verifying the hash, confirming authorization, and burning all tokens.
+
+Validates:
+- All publicFund inputs are collected sequentially
+- Concatenated commitment data hashes to expected value
+- Authorization token with bit 0x0008 (fund closure permission) is present
+- No publicFund tokens remain in any output (enforced burn)
+
+**Usage**: Signal fund closure, allow rebalancing of commitment chains
+
+#### `prove(bytes hash)`
+
+Proves fund composition on-chain by validating that all consecutive publicFund UTXOs are forwarded without modification and aggregated commitment data matches expected hash. Establishes an immutable proof chain.
+
+Validates:
+- Each publicFund input returns to matching output (no tampering)
+- Input/output locking bytecode and token categories match
+- NFT commitments are identical
+- Concatenated commitment data hashes to expected value
+- No other publicFund proofs exist in same transaction
+
+**Usage**: Transaction proofs, prove fund state at specific block height
+
+#### `data()`
+
+Validates commitment data continuity in the proof chain by ensuring this UTXO was created from the previous input and links proof UTXOs together.
+
+Validates:
+- This input has publicFund token
+- Previous input has identical locking bytecode
+- Previous input has identical token category
+
+**Usage**: Appending data for transaction proof chains
+
+**Implementation**: See [contracts/public_vault.cash](../fund-tokens-contracts/contracts/public_vault.cash) for full source code.
+
+---
+
+## Fund Initialization Contracts
 
 ### 4. PublicFundVault
 
@@ -163,8 +216,6 @@ Validates:
 **Implementation**: See [contracts/public_vault.cash](../fund-tokens-contracts/contracts/public_vault.cash) for full source code.
 
 ---
-
-## Fund Initialization Contracts
 
 ### 6. FundStartup
 

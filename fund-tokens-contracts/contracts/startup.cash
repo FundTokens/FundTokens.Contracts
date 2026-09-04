@@ -47,9 +47,6 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         require(int(nft_fundAmount) > 0); // Fund amount must be > 0 (token divisor)
         bytes nft_satoshis, bytes nft_assets = nft_next2.split(7);
 
-        int temp = int(nft_satoshis);
-        console.log('testing satoshis', temp);
-
         if(nft_assets.length > 0) {
             //
             // Satoshis are optional and continue verifying asset composition
@@ -61,9 +58,6 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             do {
                 bytes nft_assetCategory, bytes nft_next3 = nft_assets.split(32);
                 bytes nft_assetAmount, bytes nft_next4 = nft_next3.split(8);
-
-                int temp2 = int(nft_assetAmount);
-                console.log('checking asset amount', nft_assetCategory, temp2);
 
                 require(int(nft_assetAmount) > 0);
                 

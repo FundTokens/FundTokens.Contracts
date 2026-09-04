@@ -57,13 +57,27 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         bytes fundCommitment = 0x;
         int broadcastOutputEnd = this.activeInputIndex + 5;
         bool break = false;
+        int firstCommitmentLength = -1;
         int lastCommitmentLength = -1;
         while(tx.outputs.length > broadcastOutputEnd && !break) {
             if(tx.outputs[broadcastOutputEnd].tokenCategory == token) {
                 require(tx.outputs[broadcastOutputEnd].lockingBytecode == publicFundDestination);
+
+                //
+                // Ensure the first commitment sets the max size
+                // Only the last token can be smaller than the first
                 int thisCommitmentLength = tx.outputs[broadcastOutputEnd].nftCommitment.length;
-                require(lastCommitmentLength == -1 || lastCommitmentLength >= thisCommitmentLength);
+                if(firstCommitmentLength == -1) {
+                    firstCommitmentLength = thisCommitmentLength;
+                }
+                require(firstCommitmentLength >= thisCommitmentLength);
+                if(lastCommitmentLength != -1) {
+                    require(firstCommitmentLength == lastCommitmentLength);
+                }
                 lastCommitmentLength = thisCommitmentLength;
+
+                //
+                // Advance commitment and index var
                 fundCommitment = fundCommitment + tx.outputs[broadcastOutputEnd].nftCommitment;
                 broadcastOutputEnd = broadcastOutputEnd + 1;
             } else {

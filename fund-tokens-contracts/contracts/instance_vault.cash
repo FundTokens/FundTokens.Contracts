@@ -30,12 +30,9 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      */
     function burn() {
         // ensure only spends for expected token
-        require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == (instance + 0x01));
         // build data
-        bytes typeAndVersion, bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(3);
-        bytes type, bytes version = typeAndVersion.split(1);
-        require(type == 0x00, 'NFT type must be 0x00');
-        require(version != 0x0000, 'Must provide a library version');
+        bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(4)[1]; // skip validating meta
         bytes hash, bytes data = hashAndData.split(32);
         require(tx.inputs.length >= this.activeInputIndex + 2);
         int dataIndex = this.activeInputIndex + 1;
@@ -48,7 +45,9 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         // burn the tokens
         int outputIndex = 0;
         do {
-            require(tx.outputs[outputIndex].tokenCategory != instance);
+            if(tx.outputs[outputIndex].tokenCategory != 0x) {
+                require(tx.outputs[outputIndex].tokenCategory.split(32)[0] != instance);
+            }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
 
@@ -66,6 +65,55 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         } while(inputIndex < tx.inputs.length && !authorized);
         require(authorized);
     }
+    
+    /**
+     * update(): Updates state of instance composition on-chain
+     * 
+     * Validates that both instance inputs are properly preserved (allowing limited changes).
+     * Aggregate NFT commitment data and verify the hash matches expected state.
+     * 
+     * Ensures:
+     * - Active input (this UTXO) must be preserved allowing for a state change
+     * - The next input must be in matching criteria
+     * - Commitment data has mutable limitations
+     */
+    function update() {
+        //
+        // Check the starting input (and shortcut input validation because we know the length)
+        require(tx.inputs.length >= this.activeInputIndex + 2);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == (instance + 0x01));
+
+        //
+        // Start splitting the input token and validate against the mutable output
+        bytes type, bytes stateAndRest = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
+        bytes versionAndRest = stateAndRest.split(1)[1]; // No need to validate the input's type or state
+        bytes o_type, bytes o_stateAndRest = tx.outputs[this.activeInputIndex].nftCommitment.split(1);
+        require(o_type == type); // type cannot change
+        bytes o_state, bytes o_versionAndRest = o_stateAndRest.split(1);
+        require(o_state != 0x00); // state can change
+        require(o_versionAndRest == versionAndRest); // library version, hash, and data cannot change
+
+        //
+        // Build data and verify against the hash
+        // Only two tokens expected, verify the next token is a data token w/ token preservation
+        bytes hash, bytes data = versionAndRest.split(2)[1].split(32);
+
+        int dataIndex = this.activeInputIndex + 1;
+        require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode, 'Data input must spend from this lockingBytecode');
+        require(tx.inputs[dataIndex].lockingBytecode == tx.outputs[dataIndex].lockingBytecode, 'Data input must be preserved');
+        require(tx.inputs[dataIndex].tokenCategory == tx.outputs[dataIndex].tokenCategory, 'Data input category must be preserved');
+        require(tx.inputs[dataIndex].nftCommitment == tx.outputs[dataIndex].nftCommitment, 'Data input commitment must be preserved');
+
+        //
+        // Concate the data and verify the hash
+        data = data + tx.inputs[dataIndex].nftCommitment;
+        require(hash256(data) == hash, 'Encoded hash and calculated hash must match');
+
+        //
+        // return input to contract
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode, 'This input must be preserved');
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory, 'This input category must be preserved');
+    }
 
     /**
      * proof(): Proves instance composition on-chain
@@ -82,18 +130,15 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         //
         // Check the starting input (and shortcut input validation because we know the length)
         require(tx.inputs.length >= this.activeInputIndex + 2);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == (instance + 0x01));
 
         //
         // Start splitting this token and validate data as we go
-        bytes type, bytes versionAndRest = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
-        require(type == 0x00);
-        bytes version, bytes hashAndData = versionAndRest.split(2);
-        require(version != 0x0000); // version is for the JS library
+        bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(4)[1]; // no need to validate meta here, it's for external tooling signaling
         bytes hash, bytes data = hashAndData.split(32);
 
         //
-        // Only two tokens expected, verify the next token is a data token
+        // Only two tokens expected, verify the next token is a data token w/ token preservation
         int dataIndex = this.activeInputIndex + 1;
         require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode, 'Data input must spend from this lockingBytecode');
         require(tx.inputs[dataIndex].lockingBytecode == tx.outputs[dataIndex].lockingBytecode, 'Data input must be preserved');
@@ -128,6 +173,5 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         int prevInput = this.activeInputIndex - 1;
         require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[prevInput].outpointTransactionHash);
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[prevInput].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[prevInput].tokenCategory);
     }
 }

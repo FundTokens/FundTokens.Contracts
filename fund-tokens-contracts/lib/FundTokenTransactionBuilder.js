@@ -94,7 +94,7 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
             outflow: swapEndianness(system.outflow),
             authorization: swapEndianness(system.authorization),
             fee: {
-                nft: swapEndianness(system.fee.nft),
+                nft: swapEndianness(system.fee.nft), // TODO: enable passing global setting structure for easy usage
             },
         };
         this.#fund = {
