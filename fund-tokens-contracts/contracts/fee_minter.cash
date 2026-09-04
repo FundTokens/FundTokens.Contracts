@@ -60,7 +60,7 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes next)
                         require(fee_category != 0x);
                         
                         bytes fee_amount = fee_next1.slice(0, 8);
-                        require(int(fee_amount + 0x00) > 0); // treat as uint
+                        require(int(fee_amount) > 0); // treat as int
                         
                         // Destination is optional (0x for default, or locking bytecode)
                     }

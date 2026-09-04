@@ -159,7 +159,6 @@ describe('edge case test', () => {
     ];
 
     test.each(expectedToFailFunds)('should ensure funds fail', async (fundUnderTest) => {
-        console.log('failing fund under test', fundUnderTest);
         const userWallet = generateWallet({ network });
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
