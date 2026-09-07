@@ -136,10 +136,7 @@ async function userMintFundTokens({
 }) {
     const transaction = new FundTokenTransactionBuilder({
         provider,
-        system: {
-            ...system,
-            fee: system.fees.execute
-        },
+        system,
         fund
     });
 
@@ -223,10 +220,7 @@ async function userRedeemFundTokens({
 }) {
     const transaction = new FundTokenTransactionBuilder({
         provider,
-        system: {
-            ...system,
-            fee: system.fees.execute
-        },
+        system,
         fund
     });
 

@@ -47,7 +47,18 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         authorization: '', // 32 byte, token id
         fee: {
             nft: '', // 32 byte, token id
+            nftSwapped: '', // 32 byte, token id
             value: -1n, // bigint
+        },
+        fees: {
+            create: {
+                nft: '', // 32 byte, tx id/token id
+                value: -1n, // bigint
+            },
+            execute: {
+                nft: '', // 32 byte, tx id/token id
+                value: -1n, // bigint
+            }
         },
     };
     #swapped = {
@@ -88,13 +99,14 @@ export default class FundTokenTransactionBuilder extends TransactionBuilder {
         super({ provider });
         this.#system = {
             ...system,
+            fee: system.fee ?? system.fees.execute,
         };
         this.#swapped = {
             inflow: swapEndianness(system.inflow),
             outflow: swapEndianness(system.outflow),
             authorization: swapEndianness(system.authorization),
             fee: {
-                nft: swapEndianness(system.fee.nft), // TODO: enable passing global setting structure for easy usage
+                nft: swapEndianness(system.fee?.nft ?? system.fees.execute.nft),
             },
         };
         this.#fund = {

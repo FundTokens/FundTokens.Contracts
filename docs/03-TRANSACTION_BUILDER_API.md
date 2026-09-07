@@ -155,8 +155,7 @@ Handles fund operations: minting (inflow) and redemption (outflow).
 ```javascript
 new FundTokenTransactionBuilder({
     provider,   // CashScript Provider instance
-    system,     // System configuration object with fee info:
-                // { inflow, outflow, owner, fee: { nft, value } }
+    system,     // System configuration object
     logger,     // Optional: logger instance
     fund        // Fund specification object
 })
@@ -237,7 +236,7 @@ Mints fund tokens by depositing underlying assets.
 ```javascript
 const builder = new FundTokenTransactionBuilder({
     provider,
-    system: { inflow, outflow, authorization, fee },
+    system,
     fund: { category, amount: 10n, satoshis: 1000n, assets: [...] }
 });
 
@@ -315,7 +314,7 @@ Redeems fund tokens to withdraw underlying assets.
 ```javascript
 const builder = new FundTokenTransactionBuilder({
     provider,
-    system: { inflow, outflow, authorization, fee },
+    system,
     fund
 });
 

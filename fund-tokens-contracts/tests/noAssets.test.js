@@ -154,7 +154,7 @@ describe('edge case test', () => {
 
         const inflowAmount = 3n;
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ amount: inflowAmount });
         transaction
             .addInputs([feeUtxo], userWallet.signatureTemplate.unlockP2PKH())
@@ -184,7 +184,7 @@ describe('edge case test', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addOutflow({ amount: outflowAmount });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())

@@ -318,7 +318,7 @@ describe('testing transaction integrity', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ amount: inflowAmount });
         transaction
             .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
@@ -375,7 +375,7 @@ describe('testing transaction integrity', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ amount: inflowAmount });
         transaction
             .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
@@ -413,7 +413,7 @@ describe('testing transaction integrity', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addOutflow({ amount: outflowAmount });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
@@ -475,7 +475,7 @@ describe('testing transaction integrity', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addOutflow({ amount: outflowAmount });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())

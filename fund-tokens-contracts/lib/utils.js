@@ -9,6 +9,7 @@ import {
     lockingBytecodeToCashAddress,
     getDustThreshold,
     assertSuccess,
+    binToBigIntUint256BE,
 } from '@bitauth/libauth';
 import { BitcoinCategory } from './constants.js';
 import { getNetworkPrefix } from 'cashscript/dist/utils.js';
@@ -31,7 +32,16 @@ export const withDust = output => {
 };
 
 export const categoryAscending = (a, b) => {
-    return a.category.localeCompare(b.category);
+    const aAmount = binToBigIntUint256BE(hexToBin(a.category));
+    const bAmount = binToBigIntUint256BE(hexToBin(b.category));
+    const difference = aAmount - bAmount;
+    if(difference > 0) {
+        return 1;
+    } else if(difference < 0) {
+        return -1;
+    } else {
+        return 0;
+    }
 };
 
 // base - 48bytes

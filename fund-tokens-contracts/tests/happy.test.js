@@ -223,7 +223,7 @@ describe('happy path', () => {
         console.log('prove a public fund on-chain - tx size', response.hex.length / 2);
     });
 
-    it('should complete an inflow tx', async ({ expect }) => {
+    it('should complete an inflow tx', async () => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 110000n });
         const inflowAmount = 2n;
@@ -231,7 +231,7 @@ describe('happy path', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ amount: inflowAmount });
         transaction
             .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
@@ -256,7 +256,7 @@ describe('happy path', () => {
         console.log('inflow tx size', response.hex.length / 2);
     });
 
-    it('should complete a second inflow tx', async ({ expect }) => {
+    it('should complete a second inflow tx', async () => {
         const userWallet = generateWallet({ network });
         const feeUtxo = randomUtxo({ satoshis: 110000n });
         const inflowAmount = 3n;
@@ -264,7 +264,7 @@ describe('happy path', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ amount: inflowAmount });
         transaction
             .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
@@ -302,7 +302,7 @@ describe('happy path', () => {
 
         addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
 
-        const transaction = new FundTokenTransactionBuilder({ provider, system: { ...system, fee: system.fees.execute }, fund });
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addOutflow({ amount: outflowAmount });
         transaction
             .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())

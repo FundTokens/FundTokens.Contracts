@@ -32,7 +32,7 @@ const fund = {
 };
 
 // Add user's genesis UTXO and additional inputs
-// If adding outputs, ensure to add our identity output as the first output
+// If adding outputs, ensure to add our identity output first -> tx.addOutput(getAuthHeadOutput())
 await publicBuilder.addBroadcast({ fund });
 // Add additional IO
 // Add Bitcoin change
