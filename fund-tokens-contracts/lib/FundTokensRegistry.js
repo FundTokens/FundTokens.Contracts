@@ -4,11 +4,20 @@ function clone(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
+async function fetchJson(url) {
+    const httpResponse = await fetch(url);
+    if(httpResponse.status !== 200) {
+        throw new Error('Server returned unsuccessful status');
+    }
+    const response = await httpResponse.json();
+    return response;
+}
+
 export default class FundTokensRegistry {
     #network;
     #url;
 
-    #current = null;
+    #current = {};
     #instances = [];
 
     constructor ({ network, url }) {
@@ -17,49 +26,57 @@ export default class FundTokensRegistry {
     }
 
     clear() {
-        this.#current = null;
+        this.#current = {};
         this.#instances = [];
     }
 
-    async probe() {
-        const response = await fetch(this.#url + 'api/health');
+    async getHealth() {
+        const httpResponse = await fetch(this.#url + 'api/health');
+        const status = httpResponse.status;
+        const response = await httpResponse.text();
+        const healthy = status === 200 && response === 'OK';
+        return {
+            status: httpResponse.status,
+            text: status === 200 ? status : 'Unhealthy',
+            ready: healthy,
+        }
     }
 
     // return the registry data
-    async getCurrent({ type = FundTypes.FixedBasket.code }) { // fixed-basket, mean-reversion, etc
-        if(this.#current) {
-            return clone(this.#current.parameters);
+    async getCurrent(type = FundTypes.FixedBasket.code) { // fixed-basket, mean-reversion, etc
+        if(this.#current[type]) {
+            return clone(this.#current[type].parameters);
         }
 
-        let response = await fetch(this.#url + 'api/current');
-        const current = await response.json();
-        response = await fetch(this.#url + 'api/instances/' + current[type]);
-        const instanceMeta = await response.json();
+        const current = await fetchJson(this.#url + 'api/current');
+        const instance = await fetchJson(this.#url + 'api/instances/' + current[type]);
 
-        this.#current = instanceMeta;
-        return clone(instanceMeta.parameters);
+        this.#current[type] = instance;
+        return clone(instance.parameters);
     }
 
     async getInstance({ id, hash }) {
-
         if(this.#instances.some(i => i.id === id || i.hash === hash)) {
-            return clone(this.#instances.find(i => i.id === id || i.hash === hash));
+            return clone(this.#instances.find(i => i.id === id || i.hash === hash).parameters);
         }
 
         if(id) {
-            const response = await fetch(this.#url + 'api/instances/' + id);
-            const instanceMeta = await response.json();
-            this.#instances.push(instanceMeta);
-            return clone(instanceMeta.parameters);
+            const instance = await fetchJson(this.#url + 'api/instances/' + id);
+            this.#instances.push(instance);
+            return clone(instance.parameters);
         }
 
         if(hash) {
-            const response = await fetch(this.#url + 'api/instances');
-            const instances = await response.json();
-            this.#instances = instances;
-            return clone(instances.find(i => i.hash === hash)?.parameters);
+            await this.fetchInstances();
+            return clone(this.#instances.find(i => i.hash === hash)?.parameters);
         }
 
         throw new Error('id or hash must be provided');
+    }
+
+    async fetchInstances() {
+        const instances = await fetchJson(this.#url + 'api/instances');
+        this.#instances = instances;
+        return clone(this.#instances);
     }
 }

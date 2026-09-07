@@ -23,6 +23,7 @@
     "metrics:build": "yarn build && yarn metrics"
   },
   "devDependencies": {
+    "msw": "^2.15.0",
     "vitest": "^4.0.18"
   }
 }
