@@ -1,9 +1,22 @@
+import FundTokensRegistry from './FundTokensRegistry.js';
 import PublicFundTransactionBuilder from './PublicFundTransactionBuilder.js';
 import FundTokenTransactionBuilder from './FundTokenTransactionBuilder.js';
 import { BitcoinCategory } from './constants.js';
-import { getFundHex, getFundBin, decodeFund, getBestFee, hashFund, decodeFee, encodeFee, getAvailableFees, getFundCommitment, decodeFundCommitment } from './utils.js';
+import {
+    getFundHex,
+    getFundBin,
+    decodeFund,
+    getBestFee,
+    hashFund,
+    decodeFee,
+    encodeFee,
+    getAvailableFees,
+    getFundCommitment,
+    decodeFundCommitment,
+} from './utils.js';
 
 export {
+    FundTokensRegistry,
     PublicFundTransactionBuilder,
     FundTokenTransactionBuilder,
     BitcoinCategory,
