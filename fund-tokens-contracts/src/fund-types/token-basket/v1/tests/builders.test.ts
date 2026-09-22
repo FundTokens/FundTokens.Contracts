@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { randomToken, randomUtxo } from 'cashscript';
+import { randomUtxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
 import { dustThreshold } from '../../../../core/outputs.js';
 import {
@@ -8,8 +8,9 @@ import {
     type FundInput,
 } from '../index.js';
 import { bootstrapInstance, createFund, randomSystem, type TestInstance } from './support/bootstrap.js';
+import { randomCategory } from '@test-utils/random.js';
 
-const asset = (amount: bigint) => ({ category: randomToken().category, amount });
+const asset = (amount: bigint) => ({ category: randomCategory(), amount });
 
 describe('FundTokenTransactionBuilder', () => {
     let instance: TestInstance;
@@ -77,7 +78,7 @@ describe('FundTokenTransactionBuilder', () => {
         });
 
         it('reports a fund that does not exist yet', async () => {
-            const b = builder({ fund: { ...fund, category: randomToken().category } });
+            const b = builder({ fund: { ...fund, category: randomCategory() } });
             await expect(b.addInflow({ units: 1n })).rejects.toMatchObject({ code: 'MISSING_UTXO' });
         });
 
@@ -90,7 +91,7 @@ describe('FundTokenTransactionBuilder', () => {
         });
 
         it('reports when the fee cannot be paid in the requested token', async () => {
-            await expect(builder().addInflow({ units: 1n, payBy: randomToken().category }))
+            await expect(builder().addInflow({ units: 1n, payBy: randomCategory() }))
                 .rejects.toMatchObject({ code: 'MISSING_UTXO', message: expect.stringMatching(/No fee thread/) });
         });
 
@@ -159,7 +160,7 @@ describe('PublicFundTransactionBuilder', () => {
     const unlock = () => generateWallet().signatureTemplate.unlockP2PKH();
 
     it('requires the genesis input first', async () => {
-        await expect(builder().addBroadcast({ fund: { category: randomToken().category, amount: 1n, satoshis: 1000n } }))
+        await expect(builder().addBroadcast({ fund: { category: randomCategory(), amount: 1n, satoshis: 1000n } }))
             .rejects.toMatchObject({ code: 'INVALID_TRANSACTION_STATE' });
 
         const notGenesis = genesisFor({ vout: 1 });
@@ -169,7 +170,7 @@ describe('PublicFundTransactionBuilder', () => {
 
     it('requires the fund category to be the genesis txid', async () => {
         const genesis = genesisFor();
-        await expect(builder().addInput(genesis, unlock()).addBroadcast({ fund: { category: randomToken().category, amount: 1n, satoshis: 1000n } }))
+        await expect(builder().addInput(genesis, unlock()).addBroadcast({ fund: { category: randomCategory(), amount: 1n, satoshis: 1000n } }))
             .rejects.toThrow(/genesis input's txid/);
     });
 
@@ -200,7 +201,7 @@ describe('PublicFundTransactionBuilder', () => {
     });
 
     it('returns fund contracts matching those the fund token builder derives', () => {
-        const fund = { category: randomToken().category, amount: 5n, satoshis: 0n, assets: [asset(1n), asset(2n)] };
+        const fund = { category: randomCategory(), amount: 5n, satoshis: 0n, assets: [asset(1n), asset(2n)] };
         const fromBroadcaster = builder().getFundContracts(fund);
         const fromFundBuilder = new FundTokenTransactionBuilder({ provider: instance.provider, system: instance.system, fund }).contracts;
         expect(fromBroadcaster.managerContract.tokenAddress).toBe(fromFundBuilder.managerContract.tokenAddress);

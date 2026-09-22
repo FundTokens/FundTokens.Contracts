@@ -1,10 +1,11 @@
-import { Contract, MockNetworkProvider, randomToken } from 'cashscript';
+import { Contract, MockNetworkProvider } from 'cashscript';
 import { swapEndianness } from '@bitauth/libauth';
 
 import { TokenBasket } from '../src/index.js';
 import { deriveMaintenanceContracts } from '../src/fund-types/token-basket/v1/tests/support/system.js';
 import calculateScriptOperationCost from './calculateScriptOperationCost.js';
 import logAnalyzedBytecode from './logAnalyzedBytcode.js';
+import { randomCategory } from '../test-utils/random.js';
 
 const { v1 } = TokenBasket;
 
@@ -12,37 +13,37 @@ const { v1 } = TokenBasket;
 const provider = new MockNetworkProvider();
 
 const system = v1.parseSystemParameters({
-    inflow: randomToken().category,
-    outflow: randomToken().category,
-    publicFund: randomToken().category,
-    authorization: randomToken().category,
+    inflow: randomCategory(),
+    outflow: randomCategory(),
+    publicFund: randomCategory(),
+    authorization: randomCategory(),
     fees: {
         create: {
-            nft: randomToken().category,
+            nft: randomCategory(),
             value: 10000n,
         },
         execute: {
-            nft: randomToken().category,
+            nft: randomCategory(),
             value: 100000n,
         }
     },
 });
 
 const fund = v1.parseFund({
-    category: randomToken().category,
+    category: randomCategory(),
     amount: 10n,
     satoshis: 1000n,
     assets: [
         {
-            category: randomToken().category,
+            category: randomCategory(),
             amount: 2n,
         },
         {
-            category: randomToken().category,
+            category: randomCategory(),
             amount: 3n,
         },
         {
-            category: randomToken().category,
+            category: randomCategory(),
             amount: 4n,
         },
     ],
@@ -53,7 +54,7 @@ const { assetContracts: _, ...fundContracts } = v1.deriveFundContracts(provider,
 const contracts = [
     ...Object.values(deriveMaintenanceContracts(provider, system)),
     ...Object.values(fundContracts),
-    new Contract(v1.artifacts.instanceVault, [swapEndianness(randomToken().category), swapEndianness(randomToken().category)], { provider }),
+    new Contract(v1.artifacts.instanceVault, [swapEndianness(randomCategory()), swapEndianness(randomCategory())], { provider }),
 ].reduce<Record<string, { name: string; bytecode: string }>>((prev, curr) => {
     if (curr && !prev[curr.name]) {
         prev[curr.name] = curr;

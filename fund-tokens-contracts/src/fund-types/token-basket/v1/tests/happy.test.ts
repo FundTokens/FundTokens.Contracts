@@ -16,6 +16,7 @@ import {
     decodeFundCommitment,
     getFundCommitment,
 } from '../index.js';
+import { randomCategory } from '@test-utils/random.js';
 
 const DustAmount = 1000n;
 const DataDustAmount = 1065n;
@@ -33,17 +34,17 @@ describe('happy path', () => {
     const ownerWallet = generateWallet();
 
     const system = {
-        inflow: randomToken().category,
-        outflow: randomToken().category,
-        publicFund: randomToken().category,
-        authorization: randomToken().category,
+        inflow: randomCategory(),
+        outflow: randomCategory(),
+        publicFund: randomCategory(),
+        authorization: randomCategory(),
         fees: {
             create: {
-                nft: randomToken().category,
+                nft: randomCategory(),
                 value: 10000n,
             },
             execute: {
-                nft: randomToken().category,
+                nft: randomCategory(),
                 value: 100000n,
             }
         },
@@ -131,20 +132,20 @@ describe('happy path', () => {
     });
 
     const fund = {
-        category: randomToken().category,
+        category: randomCategory(),
         amount: 10n,
         satoshis: 1000n,
         assets: [
             {
-                category: randomToken().category,
+                category: randomCategory(),
                 amount: 2n,
             },
             {
-                category: randomToken().category,
+                category: randomCategory(),
                 amount: 3n,
             },
             {
-                category: randomToken().category,
+                category: randomCategory(),
                 amount: 4n,
             },
         ].sort(categoryAscending)

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { MockNetworkProvider, randomToken, randomUtxo, type Utxo } from 'cashscript';
+import { MockNetworkProvider, randomUtxo, type Utxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
 import { BitcoinCategory } from '../../../../core/constants.js';
 import { decodeFee, deriveSystemContracts, encodeFee, getAvailableFees, getBestFee } from '../index.js';
 import { randomSystem } from './support/bootstrap.js';
+import { randomCategory } from '@test-utils/random.js';
 
 describe('fee encoding', () => {
-    const token = randomToken().category;
+    const token = randomCategory();
 
     it('round-trips category, amount and destination', () => {
         const destination = generateWallet().tokenAddress;
@@ -68,7 +69,7 @@ describe('fee selection', () => {
 
     it('pays in a token when asked, to the encoded destination', async () => {
         const { feeContract, feeVaultContract, fee, add } = setup();
-        const token = randomToken().category;
+        const token = randomCategory();
         const destination = generateWallet().tokenAddress;
         add();
         add(encodeFee({ category: token, amount: 25n, destination }));
@@ -92,7 +93,7 @@ describe('fee selection', () => {
     it('reports when no fee thread accepts the requested payment', async () => {
         const { feeContract, feeVaultContract, fee, add } = setup();
         add();
-        await expect(getBestFee({ feeContract, feeVaultContract, fee, payBy: randomToken().category }))
+        await expect(getBestFee({ feeContract, feeVaultContract, fee, payBy: randomCategory() }))
             .rejects.toMatchObject({ code: 'MISSING_UTXO' });
         await expect(getBestFee({ feeContract, feeVaultContract, fee, payBy: 'not-a-category' }))
             .rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
@@ -100,7 +101,7 @@ describe('fee selection', () => {
 
     it('lists the cheapest fee per payment category', async () => {
         const { feeContract, fee, add } = setup();
-        const token = randomToken().category;
+        const token = randomCategory();
         add();
         add(encodeFee({ amount: 3000n }));
         add(encodeFee({ category: token, amount: 9n }));

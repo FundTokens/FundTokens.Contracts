@@ -15,6 +15,7 @@ import {
     FundTokenTransactionBuilder,
     PublicFundTransactionBuilder,
 } from '../index.js';
+import { randomCategory } from '@test-utils/random.js';
 
 const DustAmount = 1065n;
 
@@ -115,7 +116,7 @@ describe('happy path', () => {
         amount: 10n,
         satoshis: 1000n,
         assets: Array.from({ length: numberOfFundAssets }, (_, index) => ({
-            category: randomToken().category,
+            category: randomCategory(),
             amount: BigInt(index + 1),
         })),
     };

@@ -1,19 +1,20 @@
 /** Stands up a token basket v1 instance (and optionally a fund) on a mock network, for tests. */
-import { MockNetworkProvider, randomToken, randomUtxo } from 'cashscript';
+import { MockNetworkProvider, randomUtxo } from 'cashscript';
 import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
 import { PublicFundTransactionBuilder } from '../../PublicFundTransactionBuilder.js';
 import { parseSystemParameters } from '../../parameters.js';
 import type { FundInput, SystemParameters } from '../../types.js';
 import { SystemFixture } from './system.js';
+import { randomCategory } from '@test-utils/random.js';
 
 export const randomSystem = (): SystemParameters => parseSystemParameters({
-    inflow: randomToken().category,
-    outflow: randomToken().category,
-    publicFund: randomToken().category,
-    authorization: randomToken().category,
+    inflow: randomCategory(),
+    outflow: randomCategory(),
+    publicFund: randomCategory(),
+    authorization: randomCategory(),
     fees: {
-        create: { nft: randomToken().category, value: 10_000n },
-        execute: { nft: randomToken().category, value: 100_000n },
+        create: { nft: randomCategory(), value: 10_000n },
+        execute: { nft: randomCategory(), value: 100_000n },
     },
 });
 

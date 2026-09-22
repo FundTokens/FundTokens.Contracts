@@ -22,6 +22,7 @@ import {
 import { generateWallet } from '@test-utils/wallet.js';
 
 import systemUnderTestJson from '../../artifacts/instance_vault.js';
+import { randomCategory } from '@test-utils/random.js';
 
 const DustAmount = 2000n;
 
@@ -42,17 +43,17 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const authUtxo = randomUtxo({ satoshis: 10000n, token: authToken });
     provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
 
-    const instanceCategory = randomToken().category;
-    const inflow = randomToken().category;
-    const outflow = randomToken().category;
-    const publicFund = randomToken().category;
+    const instanceCategory = randomCategory();
+    const inflow = randomCategory();
+    const outflow = randomCategory();
+    const publicFund = randomCategory();
     const fees = {
         create: {
-            nft: randomToken().category,
+            nft: randomCategory(),
             amount: 1234n,
         },
         execute: {
-            nft: randomToken().category,
+            nft: randomCategory(),
             amount: 123456n,
         },
     };

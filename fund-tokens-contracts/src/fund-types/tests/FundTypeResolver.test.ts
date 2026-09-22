@@ -1,10 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { MockNetworkProvider, randomToken, randomUtxo } from 'cashscript';
+import { MockNetworkProvider, randomUtxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
 import { FundTokensRegistry } from '../../registry/FundTokensRegistry.js';
 import type { RegistryFund, RegistryInstance } from '../../registry/types.js';
 import { FundTypeResolver, TokenBasket } from '../index.js';
 import { bootstrapInstance, randomSystem, type TestInstance } from '../token-basket/v1/tests/support/bootstrap.js';
+import { randomCategory } from '@test-utils/random.js';
 
 const { v1 } = TokenBasket;
 
@@ -175,7 +176,7 @@ describe('FundTypeResolver on a live instance', () => {
         // Create
         const genesis = randomUtxo({ vout: 0, satoshis: 1000n });
         const createFunding = randomUtxo({ satoshis: 100_000n });
-        const asset = randomToken().category;
+        const asset = randomCategory();
         [genesis, createFunding].forEach(u => provider.addUtxo(user.tokenAddress, u));
         const broadcast = resolved.createPublicFundBuilder().addInput(genesis, unlock);
         await broadcast.addBroadcast({ fund: { category: genesis.txid, amount: 10n, satoshis: 1000n, assets: [{ category: asset, amount: 2n }] } });

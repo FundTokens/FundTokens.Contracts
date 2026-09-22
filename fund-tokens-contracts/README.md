@@ -272,6 +272,10 @@ fund-tokens-contracts/
 └─ metrics/                    contract operation cost report
 ```
 
+The project uses Yarn 4, pinned by `packageManager` in `package.json`. Corepack (bundled
+with Node) runs that version whenever you type `yarn`; run `corepack enable` once if
+`yarn` isn't found.
+
 | Script | Does |
 | --- | --- |
 | `yarn build:contracts` | Compiles every version's `.cash` into JSON and typed artifacts plus an index. Committed JSON is kept when its bytecode is unchanged |
@@ -281,6 +285,10 @@ fund-tokens-contracts/
 | `yarn build` | Compiles the library to `dist/` and copies the JSON artifacts |
 | `yarn verify` | All of the above, in the order CI should run them |
 | `yarn metrics` | Prints each contract's estimated VM operation cost |
+
+Tests that need distinct token categories should use `randomCategory()` from
+`test-utils/random.ts`. cashscript's `randomToken().category` only has 10,000
+possible values, so several draws can collide.
 
 Run the registry tests against a real registry too (read-only):
 
@@ -308,7 +316,7 @@ artifacts as JSON and typed modules), plus this README, `LICENSE` and
 
 1. From `fund-tokens-contracts/`, install and verify:
    ```bash
-   yarn install --frozen-lockfile
+   yarn install --immutable
    yarn verify
    ```
 2. Bump `version` in `package.json` (release candidates look like `0.2.0-rc2`) and commit.
