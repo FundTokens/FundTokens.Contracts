@@ -1,0 +1,529 @@
+import {
+    MockNetworkProvider,
+    Network,
+    randomToken,
+    randomUtxo,
+    type Utxo,
+} from 'cashscript';
+
+import { generateWallet } from '@test-utils/wallet.js';
+
+import { SystemFixture } from './support/system.js';
+import {
+    FundTokenTransactionBuilder,
+    PublicFundTransactionBuilder,
+    decodeFund,
+    decodeFundCommitment,
+    getFundCommitment,
+    getFundHex,
+} from '../index.js';
+
+const DustAmount = 1000n;
+
+describe('testing transaction integrity', () => {
+    const network = Network.MOCKNET;
+    const genesisPartial = { vout: 0, satoshis: DustAmount };
+
+    ///
+    const provider = new MockNetworkProvider({
+        updateUtxoSet: true,
+    });
+    const addUtxos = (address: string, utxos: Utxo[]) => utxos.forEach(u => provider.addUtxo(address, u));
+
+    const ownerWallet = generateWallet();
+
+    const system = {
+        inflow: '1111111111111111111111111111111111111111111111111111111111111111',
+        outflow: '2222222222222222222222222222222222222222222222222222222222222222',
+        publicFund: '3333333333333333333333333333333333333333333333333333333333333333',
+        authorization: '4444444444444444444444444444444444444444444444444444444444444444',
+        fees: {
+            create: {
+                nft: '5555555555555555555555555555555555555555555555555555555555555555',
+                value: 10000n,
+            },
+            execute: {
+                nft: '6666666666666666666666666666666666666666666666666666666666666666',
+                value: 100000n,
+            }
+        },
+    };
+
+    it('should initialize control tokens', async ({ expect }) => {
+        const inflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.inflow });
+        const outflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.outflow });
+        const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
+        const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
+        const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
+        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.authorization });
+        const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+
+        addUtxos(ownerWallet.tokenAddress, [feeUtxo, ...genesisInputs, authGenesisUtxo]);
+
+        const transaction = new SystemFixture({ provider, system });
+        transaction
+            .addInputs(genesisInputs, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInitializeSystem()
+            .addInput(authGenesisUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: system.authorization,
+                    amount: 0n,
+                    nft: {
+                        capability: 'none',
+                        commitment: '01FFFF01',
+                    }
+                }
+            });
+
+        const response = await transaction.send();
+        console.log('initialize system tx size', response.hex.length / 2);
+    });
+
+    it('should create new system threads', async ({ expect }) => {
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+        const transaction = new SystemFixture({ provider, system });
+
+        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
+
+        await transaction.addSystemThreads();
+        await transaction.addCreateFundFee();
+        await transaction.addExecuteFundFee();
+        transaction.addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH());
+        transaction.addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: ownerWallet.tokenAddress,
+            amount: DustAmount,
+            token: authUtxo.token,
+        });
+
+        const response = await transaction.send();
+        console.log('create new public fund threads tx size', response.hex.length / 2);
+    });
+
+    const fund = {
+        category: '7777777777777777777777777777777777777777777777777777777777777777',
+        amount: 10n,
+        satoshis: 1000n,
+        assets: [
+            {
+                category: '1212121212121212121212121212121212121212121212121212121212121212',
+                amount: 4n,
+            },
+            {
+                category: '8888888888888888888888888888888888888888888888888888888888888888',
+                amount: 2n,
+            },
+            {
+                category: '9999999999999999999999999999999999999999999999999999999999999999',
+                amount: 3n,
+            },
+        ]
+    };
+
+    it('ensure unable to mint inflow token outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet();
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: system.inflow,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: '',
+                }
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('ensure unable to mint outflow token outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet();
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: system.outflow,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: '',
+                }
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('ensure unable to mint NFT fund tokens outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet();
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: fund.category,
+                amount: 0n,
+                nft: {
+                    capability: 'none',
+                    commitment: '',
+                }
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('ensure unable to mint fungible fund tokens outside contract control', async ({ expect }) => {
+        const userWallet = generateWallet();
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        transaction.addOutput({
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+            token: {
+                category: fund.category,
+                amount: 1n,
+            }
+        });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('should ensure closing a fee does not work as replacement to paying for broadcast tx', async () => {
+        const userWallet = generateWallet();
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+
+        const { createFundFeeContract: feeContract } = transaction.getContracts();
+
+        const fundFeeUtxo = (await feeContract.getUtxos())[0];
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+
+        transaction.inputs[4] = {
+            ...fundFeeUtxo,
+            unlocker: feeContract.unlock.close(),
+        };
+        transaction.outputs[4] = {
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+        };
+        transaction.outputs[5] = {
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+        }
+        transaction
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: authUtxo.token,
+            });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('should broadcast a new fund', async ({ expect }) => {
+        const userWallet = generateWallet();
+        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const feeUtxo = randomUtxo({ satoshis: 100000n });
+
+        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
+        await transaction.addBroadcast({ fund });
+        transaction.addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH());
+
+        const response = await transaction.send();
+        console.log('broadcast new fund tx size', response.hex.length / 2);
+    });
+
+    it('should reconstruct broadcast fund', async ({ expect }) => {
+        const transaction = new PublicFundTransactionBuilder({ provider, system });
+        const { publicFundVaultContract } = transaction.getContracts();
+
+        const utxos = await publicFundVaultContract.getUtxos();
+
+        const fundParts = utxos.filter(u => u.token?.nft?.capability === 'none');
+        let fundHex = '';
+
+        fundParts.forEach(p => fundHex += p.token!.nft!.commitment);
+        
+        expect(getFundCommitment(fund)).to.equal(fundHex);
+        
+        const decodedFund = decodeFundCommitment(fundHex);
+
+        expect(decodedFund.category).to.equal(fund.category);
+        expect(decodedFund.amount).to.equal(fund.amount);
+        expect(decodedFund.satoshis).to.equal(fund.satoshis);
+
+        expect(decodedFund.assets[0].category).to.equal(fund.assets[0].category);
+        expect(decodedFund.assets[0].amount).to.equal(fund.assets[0].amount);
+
+        expect(decodedFund.assets[1].category).to.equal(fund.assets[1].category);
+        expect(decodedFund.assets[1].amount).to.equal(fund.assets[1].amount);
+
+        expect(decodedFund.assets[2].category).to.equal(fund.assets[2].category);
+        expect(decodedFund.assets[2].amount).to.equal(fund.assets[2].amount);
+    });
+
+    it('should ensure closing a fee does not work as replacement to paying for inflow tx', async () => {
+        const userWallet = generateWallet();
+        const feeUtxo = randomUtxo({ satoshis: 110000n });
+        const inflowAmount = 3n;
+        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
+
+        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
+        await transaction.addInflow({ units: inflowAmount });
+        transaction
+            .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fund.category,
+                    amount: inflowAmount * fund.amount,
+                }
+            })
+            .addOutputs(fund.assets.map(a => ({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: a.category,
+                    amount: 1n,
+                }
+            })));
+
+        const { feeContract } = transaction.getContracts();
+
+        const fundFeeUtxo = (await feeContract.getUtxos())[0];
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+
+        transaction.inputs[1] = {
+            ...fundFeeUtxo,
+            unlocker: feeContract.unlock.close(),
+        };
+        transaction.outputs[1] = {
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+        };
+        transaction.outputs[2] = {
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+        }
+        transaction
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: authUtxo.token,
+            });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('should complete an inflow tx', async ({ expect }) => {
+        const userWallet = generateWallet();
+        const feeUtxo = randomUtxo({ satoshis: 110000n });
+        const inflowAmount = 3n;
+        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
+
+        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
+        await transaction.addInflow({ units: inflowAmount });
+        transaction
+            .addInputs([feeUtxo, ...assetUtxos], userWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fund.category,
+                    amount: inflowAmount * fund.amount,
+                }
+            })
+            .addOutputs(fund.assets.map(a => ({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: a.category,
+                    amount: 1n,
+                }
+            })));
+
+        const response = await transaction.send();
+        console.log('inflow tx size', response.hex.length / 2);
+    });
+
+    it('should ensure closing a fee does not work as replacement to paying for outflow tx', async () => {
+        const userWallet = generateWallet();
+        const feeUtxo = randomUtxo({ satoshis: 1000000n });
+        const outflowAmount = 2n;
+        const fundTokenUtxo = randomUtxo({
+            token: randomToken({
+                category: fund.category,
+                amount: (outflowAmount * fund.amount) + 1n,
+            })
+        });
+
+        addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
+
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
+        await transaction.addOutflow({ units: outflowAmount });
+        transaction
+            .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs(fund.assets.map(a => ({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: a.category,
+                    amount: outflowAmount * a.amount
+                }
+            })))
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fund.category,
+                    amount: 1n,
+                }
+            });
+
+        const { feeContract } = transaction.getContracts();
+
+        const fundFeeUtxo = (await feeContract.getUtxos())[0];
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+
+        transaction.inputs[1] = {
+            ...fundFeeUtxo,
+            unlocker: feeContract.unlock.close(),
+        };
+        transaction.outputs[1] = {
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+        };
+        transaction.outputs[2] = {
+            to: userWallet.tokenAddress,
+            amount: DustAmount,
+        }
+        transaction
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: authUtxo.token,
+            });
+
+        expect(transaction).toFailRequire();
+    });
+
+    it('should complete an outflow tx', async ({ expect }) => {
+        const userWallet = generateWallet();
+        const feeUtxo = randomUtxo({ satoshis: 1000000n });
+        const outflowAmount = 2n;
+        const fundTokenUtxo = randomUtxo({
+            token: randomToken({
+                category: fund.category,
+                amount: (outflowAmount * fund.amount) + 1n,
+            })
+        });
+
+        addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
+
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
+        await transaction.addOutflow({ units: outflowAmount });
+        transaction
+            .addInputs([feeUtxo, fundTokenUtxo], userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs(fund.assets.map(a => ({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: a.category,
+                    amount: outflowAmount * a.amount
+                }
+            })))
+            .addOutput({
+                to: userWallet.tokenAddress,
+                amount: DustAmount,
+                token: {
+                    category: fund.category,
+                    amount: 1n,
+                }
+            });
+                
+        const response = await transaction.send();
+        console.log('outflow tx size', response.hex.length / 2);
+    });
+
+    it('should allow closing fee threads', async () => {
+        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
+        const transaction = new SystemFixture({ provider, system, allowImplicitFungibleTokenBurn: true });
+
+        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
+
+        await transaction.closeCreateFundFee();
+        await transaction.closeExecuteFundFee();
+        transaction
+            .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutput({
+                to: ownerWallet.tokenAddress,
+                amount: DustAmount,
+                token: authUtxo.token,
+            });
+
+        const response = await transaction.send();
+        console.log('close fee threads tx size', response.hex.length / 2);
+    });
+});

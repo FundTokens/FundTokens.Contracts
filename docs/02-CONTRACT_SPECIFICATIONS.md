@@ -31,7 +31,7 @@ Allows an authorized user to mint new tokens to a specified destination.
 
 **Usage**: System initialization, scaling w/ additional threads
 
-**Implementation**: See [contracts/simple_minter.cash](../fund-tokens-contracts/contracts/simple_minter.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/simple_minter.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/simple_minter.cash) for full source code.
 
 ---
 
@@ -69,7 +69,7 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 
 **Usage**: Flexible fee platform
 
-**Implementation**: See [contracts/fee_minter.cash](../fund-tokens-contracts/contracts/fee_minter.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/fee_minter.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/fee_minter.cash) for full source code.
 
 ---
 
@@ -92,7 +92,7 @@ Allows vault release to be spent when the authToken is included in the tx
 
 **Usage**: Fee collection destination
 
-**Implementation**: See [contracts/simple_vault.cash](../fund-tokens-contracts/contracts/simple_vault.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/simple_vault.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/simple_vault.cash) for full source code.
 
 ---
 
@@ -111,7 +111,7 @@ Authorizes spending when token present and maintains token identity
 
 **Usage**: PublicFund broadcast, BCMR maintenance
 
-**Implementation**: See [contracts/authhead_vault.cash](../fund-tokens-contracts/contracts/authhead_vault.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/authhead_vault.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/authhead_vault.cash) for full source code.
 
 ---
 
@@ -161,7 +161,7 @@ Validates:
 
 **Usage**: Appending data for transaction proof chains
 
-**Implementation**: See [contracts/public_vault.cash](../fund-tokens-contracts/contracts/public_vault.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/public_vault.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/public_vault.cash) for full source code.
 
 ---
 
@@ -213,7 +213,7 @@ Validates:
 
 **Usage**: Appending data for transaction proof chains
 
-**Implementation**: See [contracts/public_vault.cash](../fund-tokens-contracts/contracts/public_vault.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/public_vault.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/public_vault.cash) for full source code.
 
 ---
 
@@ -266,7 +266,7 @@ fund_category (32 bytes) | hash256(fund) (32 bytes)
 
 **Usage**: Validate fund details and send new threads to fund's transaction manager
 
-**Implementation**: See [contracts/startup.cash](../fund-tokens-contracts/contracts/startup.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/startup.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/startup.cash) for full source code.
 
 ---
 
@@ -307,7 +307,7 @@ Broadcasts fund parameters in chunks via transaction outputs.
 
 **Usage**: Ensure FundToken created properly and broadcast fund's details
 
-**Implementation**: See [contracts/public.cash](../fund-tokens-contracts/contracts/public.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/public.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/public.cash) for full source code.
 
 ---
 
@@ -340,7 +340,7 @@ Mints inflow threads to a fund's transaction manager
 
 **Usage**: Hold inflow token and mint for a new fund
 
-**Implementation**: See [contracts/mint_inflow.cash](../fund-tokens-contracts/contracts/mint_inflow.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/mint_inflow.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/mint_inflow.cash) for full source code.
 
 ---
 
@@ -377,7 +377,7 @@ Mints outflow threads to a fund's transaction manager
 
 **Usage**: Hold outflow token and mint for a new fund
 
-**Implementation**: See [contracts/mint_outflow.cash](../fund-tokens-contracts/contracts/mint_outflow.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/mint_outflow.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/mint_outflow.cash) for full source code.
 
 ---
 
@@ -427,7 +427,7 @@ Similar structure to `inflow()` but:
 
 **Usage**: Outflow transaction initiation, fund token redeeming
 
-**Implementation**: See [contracts/manager.cash](../fund-tokens-contracts/contracts/manager.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/manager.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/manager.cash) for full source code.
 
 ---
 
@@ -469,7 +469,7 @@ Collects fund tokens during outflow (redeeming) transaction.
 
 **Usage**: Outflow transaction, collect tokens
 
-**Implementation**: See [contracts/fund.cash](../fund-tokens-contracts/contracts/fund.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/fund.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/fund.cash) for full source code.
 
 ---
 
@@ -495,7 +495,7 @@ Releases held assets during outflow (redemption) transaction.
 
 **Usage**: Release token assets
 
-**Implementation**: See [contracts/asset.cash](../fund-tokens-contracts/contracts/asset.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/asset.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/asset.cash) for full source code.
 
 ---
 
@@ -538,7 +538,7 @@ Allows authorized user to burn remaining fee tokens.
 
 **Usage**: End dynamic fee
 
-**Implementation**: See [contracts/fee.cash](../fund-tokens-contracts/contracts/fee.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/fee.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/fee.cash) for full source code.
 
 ---
 

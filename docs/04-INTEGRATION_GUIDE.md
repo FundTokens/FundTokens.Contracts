@@ -1,455 +1,261 @@
 # Integration Guide & Examples
 
-This guide provides step-by-step instructions and working code examples for integrating FundTokens into applications.
+Step-by-step examples for integrating FundTokens into an application with
+`@fundtokens/builders`. For the full API, see the
+[Transaction Builder API Reference](03-TRANSACTION_BUILDER_API.md).
 
 ## Table of Contents
 
-1. [Setup & Initialization](#setup--initialization)
-2. [Fund Lifecycle](#fund-lifecycle)
-3. [User Operations](#user-operations)
-4. [Advanced Patterns](#advanced-patterns)
-5. [Error Handling](#error-handling)
-6. [Testing](#testing)
+1. [Setup](#setup)
+2. [Creating a Fund](#creating-a-fund)
+3. [Minting Fund Tokens](#minting-fund-tokens-inflow)
+4. [Redeeming Fund Tokens](#redeeming-fund-tokens-outflow)
+5. [Discovering Funds](#discovering-funds)
+6. [Error Handling](#error-handling)
+7. [Testing](#testing)
+8. [Best Practices](#best-practices)
 
 ---
 
-## Setup & Initialization
-
-### Prerequisites
+## Setup
 
 ```bash
-npm install @fundtokens/builders
+npm install @fundtokens/builders cashscript
 ```
 
-### Environment Configuration
+Every operation needs a network provider and the instance (the deployed system
+contracts) you are working with. The registry says which instance to use, and
+`FundTypeResolver` turns it into the fund type version that operates it, bound to your
+provider:
 
-```javascript
-import { Network, MockNetworkProvider } from 'cashscript';
-import { PublicFundTransactionBuilder, FundTokenTransactionBuilder } from '@fundtokens/builders';
+```ts
+import { ElectrumNetworkProvider, Network } from 'cashscript';
+import { FundTokensRegistry, FundTypeResolver, TokenBasket } from '@fundtokens/builders';
 
-// For development/testing
-const provider = new MockNetworkProvider({ updateUtxoSet: true });
-const network = Network.MOCKNET;
+const provider = new ElectrumNetworkProvider(Network.CHIPNET);
+const registry = new FundTokensRegistry({ network: 'chipnet' });
+const resolver = new FundTypeResolver({ provider });
 
-// For chipnet/mainnet
-// const provider = new ElectrumNetworkProvider({ url: 'wss://...' });
-// const network = Network.MAINNET;
+const tb = resolver.resolve(await registry.getCurrentInstance(TokenBasket));
+const { system } = tb; // parsed parameters; tb.contracts holds the system contracts
 ```
 
-## Fund Lifecycle
+`resolve` throws `UNSUPPORTED_FUND_TYPE` when this library has no version for the
+instance; upgrade the library in that case. The examples below use `tb`, the resolved
+instance.
 
-### Step 1: Create a Fund
+## Creating a Fund
 
-Create a new fund definition and broadcast it on-chain:
+A fund is defined by its token category (the txid of a genesis UTXO you control), how
+many fund tokens make up one whole unit, and what backs each unit:
 
-```javascript
-import { PublicFundTransactionBuilder } from '@fundtokens/builders';
+```ts
+async function createFund({ wallet, genesisUtxo, fundingUtxo }) {
+    const builder = tb.createPublicFundBuilder();
+    const unlock = wallet.signatureTemplate.unlockP2PKH();
 
-async function createFund({ provider, system, wallet, fundDefinition }) {
-    /**
-     * Fund Definition Example:
-     * A fund holding 1,000 satoshis + 2 XYZ tokens + 5 DEF tokens
-     */
-    const fund = {
-        // Use genesis txid as fund category
-        category: '7777777777777777777777777777777777777777777777777777777777777777',
-        
-        // Fund divisor: 1 fund token = 1/10th of fund
-        amount: 10n,
-        
-        // Bitcoin component: 1,000 satoshis per fund token
-        satoshis: 1000n,
-        
-        // Assets (MUST be sorted by category ascending)
-        assets: [
-            {
-                category: '8888888888888888888888888888888888888888888888888888888888888888',
-                amount: 2n  // 2 tokens per fund token
-            },
-            {
-                category: '9999999999999999999999999999999999999999999999999999999999999999',
-                amount: 5n  // 5 tokens per fund token
-            }
-        ]
-    };
+    // 1. The genesis input first: output 0 of a transaction, holding no tokens.
+    builder.addInput(genesisUtxo, unlock);
 
-    // Create transaction
-    const transaction = new PublicFundTransactionBuilder({
-        provider,
-        system,
-        logger: console
+    // 2. The contract side. Assets may be in any order; they are sorted for you.
+    await builder.addBroadcast({
+        fund: {
+            category: genesisUtxo.txid,
+            amount: 10n,        // 10 fund tokens = 1 unit
+            satoshis: 1000n,    // each unit is backed by 1,000 sats…
+            assets: [
+                { category: xyzCategory, amount: 2n }, // …2 XYZ…
+                { category: defCategory, amount: 5n }, // …and 5 DEF
+            ],
+        },
+        // payBy: someTokenCategory, // pay the create fee in a token (if a fee thread accepts it)
     });
 
-    // Add genesis input (from fund token category - first UTXO of that txid)
-    const genesisUtxo = {
-        txid: fund.category,
-        vout: 0,
-        satoshis: DustAmount,
-        tokenCategory: undefined  // No token on genesis
-    };
-    transaction.addInput(genesisUtxo, wallet.signatureTemplate.unlockP2PKH());
+    // 3. Pay the create fee and any change.
+    builder
+        .addInput(fundingUtxo, unlock)
+        .addBchChangeOutputIfNeeded({ to: wallet.address, feeRate: 1 });
 
-    // Broadcast fund with fee payment
-    await transaction.addBroadcast({
-        fund,
-        payBy: 'Bitcoin'  // Pay with Bitcoin
-    });
-
-    // Add fee UTXOs if needed
-    transaction.addInput(
-        { txid: 'any', vout: 0, satoshis: 50000n },
-        wallet.signatureTemplate.unlockP2PKH()
-    );
-
-    transaction.addBchChangeOutputIfNeeded({ to: wallet.address })
-
-    const { txid } = await transaction.send();
-    console.log('Fund created:', txid);
-
-    return { fund, fundTxid: txid };
+    const { txid } = await builder.send();
+    return txid;
 }
 ```
 
-**Output**: 
-- Fund token category established
-- Inflow/outflow threads created
-- Fund parameters broadcast on-chain
-- Fund prepared for all operations
+The transaction mints the fund's full token supply into its fund contract, mints its
+inflow and outflow threads, and publishes the fund definition on-chain. The registry
+indexes it once confirmed.
 
----
+## Minting Fund Tokens (Inflow)
 
-## User Operations
+A user deposits the backing for some number of units and receives
+`units × fund.amount` fund tokens:
 
-### Minting Fund Tokens (Inflow)
+```ts
+async function mint({ wallet, fund, units }) {
+    const builder = tb.createFundTokenBuilder(fund);
+    const unlock = wallet.signatureTemplate.unlockP2PKH();
 
-User deposits underlying assets to receive fund tokens:
+    // 1. The contract side: thread, fee, fund supply, and custody outputs.
+    await builder.addInflow({ units });
 
-```javascript
-import { FundTokenTransactionBuilder, BitcoinCategory } from '@fundtokens/builders';
-
-async function userMintFundTokens({
-    provider,
-    system,
-    wallet,
-    fund,
-    fundTokensToMint = 2n
-}) {
-    const transaction = new FundTokenTransactionBuilder({
-        provider,
-        system,
-        fund
-    });
-
-    // Add inflow transaction
-    await transaction.addInflow({
-        amount: fundTokensToMint,
-        //payBy defaults to Bitcoin or specify a token category
-    });
-
-    // Now user adds their inputs:
-    // 1. Bitcoin for fee
-    // 2. Assets to deposit
-
-    const satoshisNeeded = fund.satoshis * fundTokensToMint + 100000n; // fee + buffer
-    const bitcoinUtxo = await provider.getUtxos(wallet.address); // Any Bitcoin UTXO
-
-    transaction.addInput(
-        bitcoinUtxo[0],
-        wallet.signatureTemplate.unlockP2PKH()
-    );
-
-    // Add asset inputs (must match fund composition)
-    const xyz_needed = fund.assets[0].amount * fundTokensToMint;
-    const def_needed = fund.assets[1].amount * fundTokensToMint;
-
-    // Find XYZ tokens
-    const xyzUtxos = await provider.getUtxos(wallet.tokenAddress);
-    const xyzInput = xyzUtxos.find(u => u.token?.category === fund.assets[0].category);
-    transaction.addInput(
-        xyzInput,
-        wallet.signatureTemplate.unlockP2PKH()
-    );
-
-    // Find DEF tokens
-    const defUtxos = await provider.getUtxos(wallet.tokenAddress);
-    const defInput = defUtxos.find(u => u.token?.category === fund.assets[1].category);
-    transaction.addInput(
-        defInput,
-        wallet.signatureTemplate.unlockP2PKH()
-    );
-
-    // Add user outputs:
-    // Fund tokens go to user
-    transaction.addOutput({
-        to: wallet.address,
-        amount: DustAmount,
-        token: {
-            category: fund.category,
-            amount: fundTokensToMint,
+    // 2. The user's side: the assets being deposited and BCH for the fee and backing.
+    const { assets, satoshis, amount, category } = builder.fund; // normalised fund
+    const utxos = await provider.getUtxos(wallet.tokenAddress);
+    for (const asset of assets) {
+        const utxo = utxos.find(u => u.token?.category === asset.category && u.token.amount >= asset.amount * units);
+        if (!utxo) throw new Error(`Not enough ${asset.category}`);
+        builder.addInput(utxo, unlock);
+        const change = utxo.token!.amount - asset.amount * units;
+        if (change > 0n) {
+            builder.addOutput({ to: wallet.tokenAddress, amount: 1000n, token: { category: asset.category, amount: change } });
         }
-    });
+    }
+    const bch = utxos.find(u => !u.token && u.satoshis >= satoshis * units + system.fees.execute.value + 10_000n);
+    builder.addInput(bch!, unlock);
 
-    transaction.addBchChangeOutputIfNeeded({ to: wallet.address });
+    // 3. The minted fund tokens, then BCH change.
+    builder
+        .addOutput({ to: wallet.tokenAddress, amount: 1000n, token: { category, amount: units * amount } })
+        .addBchChangeOutputIfNeeded({ to: wallet.address, feeRate: 1 });
 
-    // Asset change (if over-deposited)
-
-    const { txid } = await transaction.send();
-    console.log('Minted fund tokens:', txid);
-    console.log(`Received ${fundTokensToMint} tokens representing:`);
-    console.log(`  - ${satoshisNeeded} satoshis`);
-    console.log(`  - ${xyz_needed} XYZ tokens`);
-    console.log(`  - ${def_needed} DEF tokens`);
-
-    return txid;
+    return (await builder.send()).txid;
 }
 ```
 
-### Redeeming Fund Tokens (Outflow)
+The contract side and the user side can be added in either order, as long as input
+and output counts are equal each time `addInflow` is called.
 
-User redeems fund tokens to withdraw underlying assets:
+## Redeeming Fund Tokens (Outflow)
 
-```javascript
-import { FundTokenTransactionBuilder, BitcoinCategory } from '@fundtokens/builders';
+A user returns `units × fund.amount` fund tokens and receives each unit's backing:
 
-async function userRedeemFundTokens({
-    provider,
-    system,
-    wallet,
-    fund,
-    fundTokensToRedeem = 1n
-}) {
-    const transaction = new FundTokenTransactionBuilder({
-        provider,
-        system,
-        fund
-    });
+```ts
+async function redeem({ wallet, fund, units }) {
+    const builder = tb.createFundTokenBuilder(fund);
+    const unlock = wallet.signatureTemplate.unlockP2PKH();
+    const { assets, satoshis, amount, category } = builder.fund;
 
-    // Add outflow (redemption) transaction
-    await transaction.addOutflow({
-        amount: fundTokensToRedeem,
-        payBy: BitcoinCategory
-    });
+    // 1. The contract side: thread, fee, fund collection, custody releases (+ change back to custody).
+    await builder.addOutflow({ units });
 
-    // User adds their inputs:
-    // 1. Fund tokens to redeem
-    // 2. Bitcoin for fee
+    // 2. The user's fund tokens and BCH for the fee.
+    const utxos = await provider.getUtxos(wallet.tokenAddress);
+    const tokens = utxos.find(u => u.token?.category === category && u.token.amount >= units * amount)!;
+    const bch = utxos.find(u => !u.token && u.satoshis >= system.fees.execute.value + 10_000n)!;
+    builder.addInputs([tokens, bch], unlock);
 
-    const fundTokenUtxos = await provider.getUtxos(wallet.tokenAddress);
-    const fundTokenInput = fundTokenUtxos.find(
-        u => u.token?.category === fund.category && u.token?.amount >= fundTokensToRedeem
-    );
+    // 3. What the user receives: each asset, the BCH backing, and fund token change.
+    builder.addOutputs(assets.map(a => ({
+        to: wallet.tokenAddress,
+        amount: 1000n,
+        token: { category: a.category, amount: a.amount * units },
+    })));
+    if (satoshis > 0n) {
+        builder.addOutput({ to: wallet.address, amount: satoshis * units });
+    }
+    const tokenChange = tokens.token!.amount - units * amount;
+    if (tokenChange > 0n) {
+        builder.addOutput({ to: wallet.tokenAddress, amount: 1000n, token: { category, amount: tokenChange } });
+    }
+    builder.addBchChangeOutputIfNeeded({ to: wallet.address, feeRate: 1 });
 
-    transaction.addInput(
-        fundTokenInput,
-        wallet.signatureTemplate.unlockP2PKH()
-    );
-
-    // Add Bitcoin for fee
-    const bitcoinUtxos = await provider.getUtxos(wallet.address);
-    const bitcoinInput = bitcoinUtxos.find(u => !u.token && u.satoshis > 150000n);
-
-    transaction.addInput(
-        bitcoinInput,
-        wallet.signatureTemplate.unlockP2PKH()
-    );
-
-    // Add outputs for redeemed assets
-
-    // User receives token assets
-    // Token assets
-    // Bitcoin redeemed + change
-
-    const { txid } = await transaction.send();
-    console.log('Redeemed fund tokens:', txid);
-    console.log(`Received:`);
-    console.log(`  - ${satoshisReceived} satoshis`);
-    console.log(`  - ${fund.assets[0].amount * fundTokensToRedeem} XYZ tokens`);
-    console.log(`  - ${fund.assets[1].amount * fundTokensToRedeem} DEF tokens`);
-
-    return txid;
+    return (await builder.send()).txid;
 }
 ```
 
----
+## Discovering Funds
 
-## Advanced Patterns
+Each fund record names the instance it belongs to; `resolveFund` resolves the two
+together, parsing the fund with the right version:
 
-### Fund with Complex Assets
+```ts
+const instances = await registry.getInstances();
 
-Create funds with many different assets:
+for await (const record of registry.iterateFunds()) {
+    const instance = instances.find(i => i.id === record.instanceId);
+    if (!instance || !FundTypeResolver.supports(instance)) continue; // e.g. an older contract version
 
-```javascript
-const complexFund = {
-    category: 'fund_id_hex',
-    amount: 100n,
-    satoshis: 5000n,
-    assets: [
-        { category: 'token_1', amount: 10n },
-        { category: 'token_2', amount: 20n },
-        { category: 'token_3', amount: 15n },
-        // ... up to ~30 assets (standard relay limits)
-        // For more assets, create separate funds or combine
-    ]
-};
+    const { fund, contracts, createBuilder } = resolver.resolveFund(record, instance);
+    console.log(record.category, fund.assets.length, 'assets', contracts.fundContract.tokenAddress);
+}
+
+const detail = await registry.getFund(category);                  // undefined if unknown
+console.log(detail?.identityHistory.at(-1)?.identity);            // latest BCMR identity
 ```
-
-**Note**: Maximum ~30 assets per fund due to standard relay limits.
-
----
 
 ## Error Handling
 
-### Common Errors and Solutions
+Every error is a `FundTokensError` with a stable `code`:
 
-#### Insufficient Assets
+```ts
+import { isFundTokensError } from '@fundtokens/builders';
 
-```javascript
 try {
-    await userMintFundTokens({
-        provider, system, wallet, fund,
-        fundTokensToMint: 100n  // Too many
-    });
+    await mint({ wallet, fund, units: 100n });
 } catch (error) {
-    if (error.message.includes('Missing required asset')) {
-        console.log('Insufficient assets. Required:');
-        console.log(`  - ${fund.satoshis * 100n} satoshis`);
-        fund.assets.forEach(a => {
-            console.log(`  - ${a.amount * 100n} of ${a.category}`);
-        });
-        // Deposit more assets or reduce mint
+    if (isFundTokensError(error, 'INVALID_ARGUMENT')) {
+        // A value was out of range, e.g. the BCH locked would be below dust; the message says the minimum
+    } else if (isFundTokensError(error, 'MISSING_UTXO')) {
+        // The fund isn't created (or confirmed) yet, or no fee thread accepts payBy: retry, or pay in BCH
+    } else if (isFundTokensError(error, 'INSUFFICIENT_FUNDS')) {
+        // Supply (mint) or custody (redeem) can't cover the units requested
+    } else if (isFundTokensError(error, 'INVALID_TRANSACTION_STATE')) {
+        // Inputs and outputs weren't equal when addInflow/addOutflow/addBroadcast ran
     }
+    throw error;
 }
 ```
 
-#### Fee Unavailable
+Fee options can be inspected before choosing `payBy`:
 
-```javascript
-try {
-    await builder.addInflow({ amount: 1n, payBy: 'custom_token' });
-} catch (error) {
-    if (error.message.includes('No acceptable fee UTXOs found')) {
-        console.log('Fee token not available. Options:');
-        console.log('1. Use Bitcoin');
-        console.log('2. Use available fee token');
-        console.log('3. Add Fee Manager UTXO for default fee');
-    }
-}
+```ts
+const { feeContract } = tb.getFundContracts(fund);
+const fees = await TokenBasket.v1.getAvailableFees({ feeContract, fee: tb.system.fees.execute });
+// { '<category>': { category, amount } }; the all-zero BitcoinCategory key means BCH
 ```
-
----
 
 ## Testing
 
-### Unit Testing with Vitest
+Parts of an integration that don't need a network can be unit tested directly:
 
-```javascript
-// test/fund.test.js
-import { describe, it, expect, beforeEach } from 'vitest';
-import { MockNetworkProvider, Network } from 'cashscript';
-import { FundTokenTransactionBuilder } from '@fundtokens/builders';
-import 'cashscript/vitest';
+```ts
+import { describe, expect, it } from 'vitest';
+import { MockNetworkProvider } from 'cashscript';
+import { FundTypeResolver } from '@fundtokens/builders';
 
-describe('FundTokens', () => {
-    let provider;
-    let system;
-    let wallet;
-
-    beforeEach(async () => {
-        provider = new MockNetworkProvider({ updateUtxoSet: true });
-
-        system = {
-            inflow: '1111111111111111111111111111111111111111111111111111111111111111',
-            outflow: '222...',
-            authorization: '333...',
-            fees: {
-                create: { nft: '444...', value: 10000n },
-                execute: { nft: '555...', value: 100000n }
-            }
-        };
-
-        wallet = generateWallet(Network.MOCKNET);
-    });
-
-    it('should mint fund tokens', async ({ expect }) => {
-        // Setup fund
-        const fund = {
-            category: '666...',
-            amount: 10n,
-            satoshis: 1000n,
-            assets: [{ category: '777...', amount: 2n }]
-        };
-
-        // Create transaction
-        const builder = new FundTokenTransactionBuilder({
-            provider,
-            system,
-            fund
-        });
-
-        await builder.addInflow({
-            amount: 1n,
-            // payBy - defaults to bitcoin
-        });
-
-        expect(builder).not.toFailRequire();
+describe('my fund', () => {
+    it('is valid and has stable contracts', () => {
+        const tb = new FundTypeResolver({ provider: new MockNetworkProvider() }).resolve(myInstance);
+        const { fundContract } = tb.getFundContracts(tb.parseFund(myFundDefinition));
+        expect(fundContract.tokenAddress).toMatchSnapshot();
     });
 });
 ```
 
-### Integration Testing
-
-```javascript
-async function integrationTest({ provider, system }) {
-    console.log('🚀 Starting integration test...');
-
-    // 1. Initialize system
-    console.log('1️⃣  Initializing system...');
-    const { wallet } = await initializeSystem({ provider, system });
-
-    // 2. Create fund
-    console.log('2️⃣  Creating fund...');
-    const { fund } = await createFund({
-        provider,
-        system,
-        wallet,
-        fundDefinition: {
-            satoshis: 1000n,
-            assets: [ /* ... */ ]
-        }
-    });
-
-    // 3. Mint tokens
-    console.log('3️⃣  Minting fund tokens...');
-    await userMintFundTokens({ provider, system, wallet, fund, fundTokensToMint: 5n });
-
-    // 4. Redeem tokens
-    console.log('4️⃣  Redeeming fund tokens...');
-    await userRedeemFundTokens({ provider, system, wallet, fund, fundTokensToRedeem: 2n });
-
-    console.log('✅ Integration test passed!');
-}
-```
-
----
+A full mint or redeem on a `MockNetworkProvider` needs an initialised instance: its
+control tokens, threads and fee UTXOs. The library repository's test fixtures show how
+to create one: `bootstrapInstance` and `createFund` in
+[tests/support/bootstrap.ts](../fund-tokens-contracts/src/fund-types/token-basket/v1/tests/support/bootstrap.ts).
+They aren't part of the published package. Otherwise, test against chipnet.
 
 ## Best Practices
 
-1. **Invoke Builder First**: Invoke the builder helper method first or as soon as possible
-1. **Always Sort Assets**: Assets must be in ascending category order
-2. **Validate Fund Amounts**: Ensure divisor > 0, satoshis valid range
-4. **Error Handling**: Wrap operations in try-catch, handle specific errors
-5. **Fee Management**: Monitor fee UTXOs
-6. **Dust Amount**: Always send at least 1,000-1,065 satoshis per UTXO
-7. **Test First**: Verify on testnet/chipnet before mainnet
+1. **Use the registry's version.** Resolve instances with `FundTypeResolver` rather than hard-coding a version, so a future `v2` instance isn't built with `v1` contracts.
+2. **Think in units.** `units` counts whole fund units; the fund tokens involved are `units × fund.amount`.
+3. **Keep inputs and outputs aligned.** Call `addInflow` / `addOutflow` / `addBroadcast` when input and output counts are equal.
+4. **Handle errors by `code`**, not by message.
+5. **Don't turn off validation** in production; `validate: false` exists to test that the contracts reject bad transactions.
+6. **Mind dust.** Give token outputs at least 1,000 satoshis. A fund with a small `satoshis` value needs enough units per mint for the locked BCH to clear dust; the builder says how many.
+7. **Test on chipnet** before mainnet.
 
 ---
 
 ## See Also
 
-- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design overview
-- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Contract details
-- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md) - Transaction API
-- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flow diagrams
-- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md) - System token specification
-- [07-FEE_TOKEN.md](07-FEE_TOKEN.md) - Fee token specification
-- [08-AUTHORIZATION_TOKEN.md](08-AUTHORIZATION_TOKEN.md) - Authorization token specification
+- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md): system design overview
+- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md): contract details
+- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md): API reference
+- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md): visual flow diagrams
+- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md): system token specification
+- [09-FEE_TOKENS.md](09-FEE_TOKENS.md): fee token specification
+- [11-AUTHORIZATION_TOKEN.md](11-AUTHORIZATION_TOKEN.md): authorization token specification

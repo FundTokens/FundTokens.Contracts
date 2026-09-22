@@ -1,613 +1,364 @@
 # Transaction Builder API Reference
 
-This document provides detailed API reference for the two transaction builders used to interact with FundTokens contracts.
+API reference for `@fundtokens/builders`, the TypeScript library for building FundTokens
+transactions and reading the FundTokens registry. For a guided walkthrough, see the
+[Integration Guide](04-INTEGRATION_GUIDE.md).
 
 ## Overview
 
-The FundTokens system provides two public transaction builder classes that extend CashScript's `TransactionBuilder`:
+| Import | Contents |
+| --- | --- |
+| `@fundtokens/builders` | Everything: registry client, fund type namespaces (`TokenBasket`, `WeightedBchUsd`), shared errors and helpers |
+| `@fundtokens/builders/registry` | `FundTokensRegistry` and registry types |
+| `@fundtokens/builders/token-basket` | Token basket descriptor, `resolve`, and every version |
+| `@fundtokens/builders/token-basket/v1` | Token basket v1: builders, encoding, fees, contract derivation, artifacts |
+| `@fundtokens/builders/token-basket/v1/artifacts/<name>.json` | Compiled v1 contract artifacts |
+| `@fundtokens/builders/weighted-bch-usd[/v1]` | Planned fund type (stub) |
 
-1. **PublicFundTransactionBuilder** - Fund creation and broadcasting
-1. **FundTokenTransactionBuilder** - Fund inflow/outflow (minting/redemption)
+**Versioning.** Each fund type has frozen contract versions (`v1`, later `v2`, …). A
+version bundles its own contracts, builders and encoding, and never changes once
+released. Use the version that matches the registry instance you are operating on:
 
-Each builder abstracts contract interactions and transaction composition.
+```ts
+import { FundTokensRegistry, FundTypeResolver, TokenBasket } from '@fundtokens/builders';
+
+const registry = new FundTokensRegistry({ network: 'chipnet' });
+const resolver = new FundTypeResolver({ provider });
+const tb = resolver.resolve(await registry.getCurrentInstance(TokenBasket)); // a TokenBasket.v1 instance
+const builder = tb.createFundTokenBuilder(fund);
+```
+
+Source: [fund-tokens-contracts/src](../fund-tokens-contracts/src)
 
 ---
 
-## PublicFundTransactionBuilder
+## FundTokensRegistry
 
-**Location**: [lib/PublicFundTransactionBuilder.js](../fund-tokens-contracts/lib/PublicFundTransactionBuilder.js)
+**Location**: [src/registry/FundTokensRegistry.ts](../fund-tokens-contracts/src/registry/FundTokensRegistry.ts)
 
-Handles fund creation and public broadcasting.
+A read-only client for the FundTokens registry service.
 
 ### Constructor
 
-```javascript
-new PublicFundTransactionBuilder({
-    provider,    // CashScript Provider instance
-    system,      // System configuration object
-    logger       // Optional: logger instance
+```ts
+new FundTokensRegistry({
+    network?: string,        // default 'chipnet'; URL becomes https://<network>-registry.fundtokens.cash/
+    url?: string,            // overrides network, e.g. 'http://localhost:3002'
+    fetch?: typeof fetch,    // default: global fetch
+    timeoutMs?: number,      // per request, default 10 000
+    cacheTtlMs?: number,     // instance listing cache, default 60 000; 0 disables
 })
 ```
 
-**System Configuration**:
+### Methods
 
-```javascript
-{
-    inflow: '00...',           // 32-bit hex string - inflow token category
-    outflow: '00...',          // 32-bit hex string - outflow token category
-    publicFund: '00...',       // 32-bit hex string - public fund token category
-    authorization: '00...',    // 32-bit hex string - authorization token category
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `getHealth()` | `RegistryHealth` | `{ ready, httpStatus, status, network, sync, registry, … }`. Never throws; an unreachable registry gives `ready: false` and `error` |
+| `isLive()` | `boolean` | Liveness only |
+| `getInstances({ type? })` | `RegistryInstance[]` | `type` may be a registry type (`'fixed-basket'`), a library key (`'token-basket'`) or a descriptor (`TokenBasket`) |
+| `getCurrentInstanceIds()` | `Record<type, id \| null>` | |
+| `getInstance(id)` | `RegistryInstance \| undefined` | |
+| `getCurrentInstance(type)` | `RegistryInstance` | Throws `REGISTRY_NOT_FOUND` when the type has no current instance |
+| `getFunds({ limit?, offset?, includeBurned? })` | `RegistryFundPage` | `limit` is clamped to 1..500 |
+| `iterateFunds({ pageSize?, includeBurned? })` | `AsyncGenerator<RegistryFund>` | Pages through every fund |
+| `getFund(category)` | `RegistryFundDetail \| undefined` | Includes `authchain` and `identityHistory` |
+| `getDocumentVersions()` | `RegistryDocumentVersion[]` | |
+| `getMetadataRegistry()` | BCMR document | `/.well-known/bitcoin-cash-metadata-registry.json` |
+| `clearCache()` | | Forces the next instance lookup to refetch |
+
+Instance listings are cached and concurrent requests share one fetch. Every result is
+a copy. Registry fund amounts are decimal strings: [`FundTypeResolver.resolveFund`](#fundtyperesolver)
+parses them with the instance's version.
+
+**`RegistryInstance`**: `{ id, name, network, type, status, version, txid, parameters, syncedHeight, createdAt, updatedAt }`.
+`status` is `'pre' | 'main' | 'dep' | 'vul'` (pre-release, main, deprecated, vulnerable).
+`parameters` is raw JSON; `FundTypeResolver.resolve(instance)` parses it with the matching version.
+
+---
+
+## Fund types
+
+**Location**: [src/fund-types](../fund-tokens-contracts/src/fund-types)
+
+| Export | Description |
+| --- | --- |
+| `TokenBasket` | `key: 'token-basket'`, `registryType: 'fixed-basket'`, `versions: { v1 }`, `latest: 'v1'`, `resolve(instance)` |
+| `WeightedBchUsd` | `key` and `registryType: 'weighted-bch-usd'`, `versions: { v1 }` (planned) |
+| `fundTypes` | Every known fund type descriptor |
+| `getFundType(keyOrRegistryType)` | Descriptor lookup, or `undefined` |
+
+**`resolve(instance)`** returns the version whose `id` equals `instance.version`, or whose
+`releases` lists it (library releases that deployed byte-identical contracts). It throws
+`UNSUPPORTED_FUND_TYPE` if the type differs, nothing matches, or the match is only
+`planned`.
+
+| Version | `id` | `releases` | Status |
+| --- | --- | --- | --- |
+| `TokenBasket.v1` | `v1` | `0.1.0-rc14`, `0.1.0-rc15` | supported |
+| `WeightedBchUsd.v1` | `v1` | none | planned; builders throw `NOT_IMPLEMENTED` |
+
+---
+
+## FundTypeResolver
+
+**Location**: [src/fund-types/FundTypeResolver.ts](../fund-tokens-contracts/src/fund-types/FundTypeResolver.ts)
+
+Turns registry data into the fund type version that operates it, bound to a network
+provider. `FundTokensRegistry` results feed in as-is; so does any object with the
+same fields (`{ type, version, parameters, id? }` for instances, `{ fund, instanceId? }` for funds).
+
+```ts
+new FundTypeResolver({ provider })
+```
+
+| Member | Returns | Notes |
+| --- | --- | --- |
+| `FundTypeResolver.supports(instance)` (static) | `boolean` | False for unknown types and unsupported or planned versions. Usable as a filter callback |
+| `resolve(instance)` | `ResolvedInstance` | Throws `UNSUPPORTED_FUND_TYPE`, or `INVALID_ARGUMENT` for malformed parameters |
+| `resolveFund(record, instance)` | `ResolvedFund` | `{ fund, contracts, createBuilder(options?), instance }`. Throws `INVALID_ARGUMENT` if `record.instanceId` names another instance, or the fund is invalid |
+
+`ResolvedInstance` is the union of every supported version's instance class. Today that
+is `TokenBasket.v1.TokenBasketInstance`:
+
+| Member | Description |
+| --- | --- |
+| `key`, `registryType`, `version` | `'token-basket'`, `'fixed-basket'`, `'v1'`: narrow on these when more types exist |
+| `provider`, `system`, `contracts` | The bound provider, parsed `SystemParameters`, and `SystemContracts` |
+| `PublicFundTransactionBuilder`, `FundTokenTransactionBuilder` | This version's builder classes |
+| `createPublicFundBuilder(options?)` | A `PublicFundTransactionBuilder` bound to the provider and parameters |
+| `createFundTokenBuilder(fund, options?)` | A `FundTokenTransactionBuilder` for `fund` |
+| `getFundContracts(fund)` | `FundContracts` for `fund` |
+| `parseFund(input)`, `decodeFundCommitment(hex)` | This version's fund parsing and on-chain decoding |
+| `forFund(input)` | `{ fund, contracts, createBuilder(options?) }` |
+
+Each supported version module also exports `createInstance({ provider, parameters })`,
+which is what the resolver calls. Planned versions throw `NOT_IMPLEMENTED` from it.
+
+---
+
+## Token basket v1
+
+**Location**: [src/fund-types/token-basket/v1](../fund-tokens-contracts/src/fund-types/token-basket/v1)
+
+### System parameters
+
+```ts
+interface SystemParameters {
+    inflow: string;          // 32-byte hex categories
+    outflow: string;
+    publicFund: string;
+    authorization: string;
     fees: {
-        create: {
-            nft: '00...',      // 32-bit hex string - create fee token category
-            value: 10000n      // bigint - create fee in satoshis
-        },
-        execute: {
-            nft: '00...',      // 32-bit hex string - execute fee token category
-            value: 100000n     // bigint - execute fee in satoshis
-        }
-    }
+        create:  { nft: string; value: bigint };  // value: default fee in satoshis
+        execute: { nft: string; value: bigint };
+    };
 }
 ```
 
-### Methods
+`parseSystemParameters(input)` validates and normalises registry JSON or an object you
+built: categories are lowercased, and fee values (number, bigint or decimal string)
+become bigint. It throws `INVALID_ARGUMENT` naming the bad field. The builders call it
+for you, so registry parameters can be passed straight in.
 
-#### `getContracts()`
+### Funds
 
-Returns fund creation contracts.
-
-**Returns**:
-```javascript
-{
-    startupContract: Contract,
-    mintInflowContract: Contract,
-    mintOutflowContract: Contract,
-    createFundFeeContract: Contract,
-    executeFundFeeContract: Contract,
-    publicFundContract: Contract,
-    feeVaultContract: Contract,
-    authHeadVaultContract: Contract,
-    publicFundVaultContract: Contract
+```ts
+interface Fund {
+    category: string;        // fund token category = genesis txid
+    amount: bigint;          // fund tokens per whole fund unit
+    satoshis: bigint;        // BCH backing per unit (0 = none)
+    assets: { category: string; amount: bigint }[]; // per unit; kept in ascending category order
 }
 ```
 
-#### `addBroadcast(options)`
+A **unit** is `amount` fund tokens, backed by `satoshis` BCH and each asset's `amount`.
+Minting and redeeming happen in whole units.
 
-Creates a new fund by broadcasting its parameters on-chain.
+| Function | Purpose |
+| --- | --- |
+| `parseFund(input)` | `normalizeFund` then `validateFund`: the usual way to accept a fund |
+| `normalizeFund(input)` | Shape only: bigint amounts (bigint, safe integer or decimal string), lowercase categories, assets sorted; `satoshis` defaults to 0, `assets` to `[]` |
+| `validateFund(fund)` | Value rules, listed below; throws `INVALID_ARGUMENT` |
 
-**Parameters**:
-```javascript
-{
-    fund: {
-        category: '0x...',      // 32-bit fund token category (genesis txid)
-        amount: 10n,            // Fund token divisor (e.g., 10 = each token = 1/10 of fund)
-        satoshis: 1000n,        // Bitcoin per fund token (0 if no Bitcoin component)
-        assets: [               // Array of assets (sorted by category)
-            {
-                category: '0x...',   // Token category
-                amount: 2n          // Token amount per fund token
-            },
-            {
-                category: '0x...',
-                amount: 5n
-            }
-        ]
-    },
-    payBy: '0x...'    // Optional: token category to pay fee with (default: Bitcoin)
-}
-```
+Validation rules, matching what the contracts enforce plus checks for unusable funds:
 
-**Preconditions**:
-- First input must be added before calling (genesis transaction)
-- First input must be a genesis UTXO (vout == 0, no tokens)
-- No outputs added yet
+- `amount` from 1 to 2⁶³−1
+- `satoshis` from 0 to 2,100,000,000,000,000 (21M BCH)
+- at least one of `satoshis > 0` or one asset
+- each asset `amount` from 1 to 2⁶³−1
+- no duplicate assets, no asset with the Bitcoin (all-zero) category, and no asset that is the fund's own token
 
-**Transaction structure**:
-- Inputs: Genesis UTXO, startup, inflow, outflow, publicFund, fee
-- Outputs: 
-  - Auth head output
-  - Startup UTXO (returned)
-  - Inflow/outflow tokens (minted)
-  - Fee output
-  - Manager, inflow/outflow, and fund contract instances
-  - Public fund data chunks (one per 128 bytes of fund data)
+### PublicFundTransactionBuilder
 
-**Fund Creation Validation** (performed by contract):
-1. Fund amount must be > 0
-2. Satoshis must be 0 or between 1,000 and 21,000,000 satoshis
-3. Assets must be sorted by category
-4. Each asset amount must be > 0
+Creates ("broadcasts") funds. Extends CashScript's `TransactionBuilder`.
 
-**Example**:
-```javascript
-const fund = {
-    category: '7777777777777777777777777777777777777777777777777777777777777777',
-    amount: 10n,
-    satoshis: 1000n,
-    assets: [
-        { category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 2n },
-        { category: '9999999999999999999999999999999999999999999999999999999999999999', amount: 3n }
-    ]
-};
-
-const transaction = new PublicFundTransactionBuilder({ provider, system });
-transaction.addInput(genesisUtxo, wallet.signatureTemplate.unlockP2PKH());
-await transaction.addBroadcast({ fund, payBy });
-
-await transaction.send();
-```
-
-**Output**: 
-- Returns transaction reference with inputs/outputs prepared
-- Fund token category committed in inflow/outflow NFTs
-- Fund details broadcast in `PublicFund` contract outputs
-
----
-
-## FundTokenTransactionBuilder
-
-**Location**: [lib/FundTokenTransactionBuilder.js](../fund-tokens-contracts/lib/FundTokenTransactionBuilder.js)
-
-Handles fund operations: minting (inflow) and redemption (outflow).
-
-### Constructor
-
-```javascript
-new FundTokenTransactionBuilder({
-    provider,   // CashScript Provider instance
-    system,     // System configuration object
-    logger,     // Optional: logger instance
-    fund        // Fund specification object
+```ts
+new PublicFundTransactionBuilder({
+    provider,               // CashScript NetworkProvider
+    system,                 // SystemParameters (or registry JSON)
+    logger?,                // { debug, info, warn, error }; silent by default
+    ...transactionBuilderOptions, // e.g. maximumFeeSatoshis, allowImplicitFungibleTokenBurn
 })
 ```
 
-**Fund Specification**:
-```javascript
-{
-    category: '0x...',          // Fund token category
-    amount: 10n,                // Fund token divisor
-    satoshis: 1000n,            // Bitcoin per fund token
-    assets: [                   // Asset array (sorted by category)
-        {
-            category: '0x...',
-            amount: 2n
-        }
-    ]
-}
+| Member | Description |
+| --- | --- |
+| `system` | The parsed system parameters |
+| `contracts` / `getContracts()` | `SystemContracts`: `feeVaultContract`, `createFundFeeContract`, `executeFundFeeContract`, `startupContract`, `mintInflowContract`, `mintOutflowContract`, `publicFundContract`, `authHeadVaultContract`, `publicFundVaultContract` |
+| `getFundContracts(fund)` | The `FundContracts` of a fund on this instance (no network access) |
+| `getAuthHeadOutput()` | The fund's identity output; must be output 0 |
+| `addBroadcast({ fund, payBy?, validate? })` | Adds the contract side of creating `fund`; resolves to the builder |
+
+**`addBroadcast` preconditions**
+
+- Input 0 is the genesis input: output index 0 of its transaction, with no tokens. Its txid is the fund's category (checked).
+- If outputs were added first, output 0 is `getAuthHeadOutput()`. Otherwise it is added for you.
+- Input and output counts are equal, counting the authhead output.
+
+Nothing is added unless every check and UTXO lookup succeeds.
+
+**Adds**
+
+- Inputs: startup, inflow minting, outflow minting, create-fee, public fund
+- Outputs: those UTXOs returned to their contracts, the fee payment, the fund's inflow and
+  outflow thread NFTs (to its manager), the fund's full token supply (2⁶³−1, to its fund
+  contract), then the fund commitment split into 128-byte NFT chunks at the public fund vault
+
+The caller adds BCH (or `payBy` tokens) for the create fee, and change.
+
+### FundTokenTransactionBuilder
+
+Mints (inflow) and redeems (outflow) a fund's tokens. Extends `TransactionBuilder`.
+
+```ts
+new FundTokenTransactionBuilder({
+    provider, system, fund,
+    logger?,
+    validate?,               // default true
+    ...transactionBuilderOptions,
+})
 ```
 
-### Methods
+| Member | Description |
+| --- | --- |
+| `system`, `fund` | Parsed parameters and fund (frozen) |
+| `contracts` / `getContracts()` | `FundContracts`: `managerContract` (TransactionManager), `fundContract` (FundManager), `assetContracts` (AssetManager per asset, ascending), `satoshiAssetContract` (only when `satoshis > 0`), `feeContract` (execute fee), `feeVaultContract` |
+| `addInflow({ units, payBy? })` | Adds the contract side of minting `units` whole units |
+| `addOutflow({ units, payBy? })` | Adds the contract side of redeeming `units` whole units |
 
-#### `getContracts()`
+Both need equal input and output counts when called. Add your own inputs and outputs
+before or after, in matching numbers.
 
-Returns fund-specific contract instances.
+**`addInflow`** adds the fund's inflow thread and an execute-fee UTXO, plus enough
+fund-supply UTXOs to cover `units × fund.amount`, chosen randomly to avoid collisions.
+It also adds outputs locking `units × satoshis` BCH and `units × asset.amount` of each
+asset into custody. The caller adds inputs supplying those assets and the fee's BCH,
+an output receiving `units × fund.amount` fund tokens, and change.
 
-**Returns**:
-```javascript
-{
-    managerContract: Contract,          // FundManager instance
-    fundContract: Contract,             // Fund instance
-    satoshiAssetContract: Contract,     // AssetManager for Bitcoin (if applicable)
-    assetContracts: [Contract],         // Array of AssetManager instances
-    feeContract: Contract,              // FeeManager instance
-    feeVaultContract: Contract          // SimpleVault for fees
-}
-```
+**`addOutflow`** adds the fund's outflow thread, an execute-fee UTXO, and a fund
+UTXO that collects the redeemed tokens. It releases custody UTXOs, largest first, to
+cover `units × satoshis` BCH and `units × asset.amount` of each asset, and returns
+change to custody. BCH change is never left below dust. The caller adds inputs
+supplying `units × fund.amount` fund tokens and the fee's BCH, outputs receiving the
+released BCH and assets, and change.
 
-#### `addInflow(options)`
+**Errors**: `INVALID_TRANSACTION_STATE` (misaligned inputs/outputs), `INVALID_ARGUMENT`
+(bad `units`, amounts overflowing 2⁶³−1, or BCH locked below dust, with the minimum
+units named), `MISSING_UTXO` (no thread: the fund isn't created; no fee thread for
+`payBy`), `INSUFFICIENT_FUNDS` (supply or custody can't cover the request).
 
-Mints fund tokens by depositing underlying assets.
+### Encoding
 
-**Parameters**:
-```javascript
-{
-    amount: 2n,         // Number of fund tokens to mint
-    payBy: '0x...'      // Optional: token category to pay fee with (default: Bitcoin)
-}
-```
+| Function | Description |
+| --- | --- |
+| `getFundHex(fund)` / `getFundBin(fund)` | Fund encoding: `category(32, reversed) · amount(8 LE) · satoshis(7 LE) · [asset category(32, reversed) · amount(8 LE)]…`, i.e. 47 bytes + 40 per asset. Assets are sorted first |
+| `hashFund(fund)` | hash256 of the encoding, as hex |
+| `getFundCommitment(fund)` | `02 · hash256(fund) · fund`, the published commitment |
+| `decodeFund(hex)` / `decodeFundCommitment(hex)` | Inverses; the latter verifies the hash. Throw `INVALID_ENCODING` |
+| `categoryAscending`, `sortAssets` | Contract asset ordering |
 
-**Preconditions**:
-- Transaction must have matching input/output counts
-- Calling code is responsible for adding outputs for:
-  - Bitcoin change
-  - Fund token recipient output
-  - Token change
+Encoding does not validate: out-of-range amounts are clamped. Validate first (the builders do).
 
-**Transaction structure**:
-- Inputs:
-  - Inflow manager token (signals thread)
-  - Fund token UTXO (holds minting supply)
-  - Fee UTXO
-- Outputs:
-  - Inflow manager (returned)
-  - Fund tokens (decreased, returned to contract)
-  - Fee outputs
-  - Satoshi outputs (if Bitcoin component)
-  - Token asset outputs (for each asset)
+### Fees
 
-**Validation** (performed by contracts):
-1. Inflow token present (verifies correct thread)
-2. Fund commitment matches
-3. Fund token reduction = amount × fund_amount
-4. Assets prepared for user receipt
-5. Fee validated and computed
+| Function | Description |
+| --- | --- |
+| `encodeFee({ category?, amount, destination? })` | Enforced-fee NFT commitment: `01 · category(32, reversed) · amount(8 LE) · [destination locking bytecode]`. `category` defaults to BCH |
+| `decodeFee({ hex, network? \| prefix? })` | Inverse; `network` picks the destination address prefix |
+| `getBestFee({ feeContract, feeVaultContract, fee, payBy? })` | The cheapest fee UTXO payable in `payBy` (default BCH). Ties are broken randomly. Returns the option plus its two outputs (fee UTXO returned, payment) |
+| `getAvailableFees({ feeContract, fee })` | Cheapest amount per payment category |
 
-**Example**:
-```javascript
-const builder = new FundTokenTransactionBuilder({
-    provider,
-    system,
-    fund: { category, amount: 10n, satoshis: 1000n, assets: [...] }
-});
+Plain fee UTXOs (no NFT) cost the default `fee.value` in BCH. Voluntary (`0x02`) and
+malformed fee NFTs are skipped.
 
-await builder.addInflow({
-    amount: 2n,
-    payBy: bitcoinCategory
-});
+### Contracts and artifacts
 
-// User must prepare inputs:
-// - Bitcoin to pay fee
-// - Assets to deposit (matched to fund)
+| Export | Description |
+| --- | --- |
+| `deriveSystemContracts(provider, system)` | `SystemContracts`, derived without network access |
+| `deriveFundContracts(provider, system, fund)` | `FundContracts` |
+| `artifacts` | Typed (`as const`) artifacts keyed by contract name: `transactionManager`, `fundManager`, `assetManager`, `feeManager`, `fundStartup`, `fundInflowMint`, `fundOutflowMint`, `publicFund`, `publicFundVault`, `authHeadVault`, `simpleVault`, `simpleMinter`, `feeMinter`, `instanceVault` |
 
-// User must add outputs:
-// - Recipient address for fund tokens
-// - Change outputs
-
-await transaction.send();
-```
-
-**Effect**:
-- Mints `amount` fund tokens for user
-- Consumes assets from user
-- Deducts fee
-- User receives 2 fund tokens + change
-
-#### `addOutflow(options)`
-
-Redeems fund tokens to withdraw underlying assets.
-
-**Parameters**:
-```javascript
-{
-    amount: 1n,         // Number of fund tokens to redeem
-    payBy: '0x...',     // Optional: token category for fee payment
-}
-```
-
-**Preconditions**:
-- Outflow tokens must be available
-- Fund UTXO must exist (even if empty)
-- Assets must be available in AssetManager contracts
-- Calling code responsible for:
-  - Adding fund token inputs
-  - Adding recipient outputs for assets
-  - Adding change outputs
-
-**Transaction structure**:
-- Inputs:
-  - Outflow manager token (signals thread)
-  - Fund token UTXO (holds current supply)
-  - Fee UTXO
-  - Satoshi asset inputs (if Bitcoin in fund)
-  - Token asset inputs (one per asset)
-- Outputs:
-  - Outflow manager (returned)
-  - Fund tokens (increased, returned)
-  - Fee outputs
-  - Satoshi change (if needed)
-  - Asset change (if needed)
-
-**Validation** (performed by contracts):
-1. Outflow token present (verifies thread)
-2. Fund tokens collected: increase in output = amount × fund_amount
-3. Assets released from managers
-4. Fee validated
-5. Satoshis computed: amount × satoshis_per_token
-6. Token amounts computed: amount × asset_amount_per_token
-
-**Asset Selection Logic**:
-- Selects statoshi/token UTXOs with largest amounts first
-- Continues until enough to cover redemption
-- Returns change if over-collateralized
-
-**Example**:
-```javascript
-const builder = new FundTokenTransactionBuilder({
-    provider,
-    system,
-    fund
-});
-
-await builder.addOutflow({
-    amount: 1n,
-    payBy: bitcoinCategory
-});
-
-// User must add inputs:
-// - Fund token UTXO(s) to redeem
-// - Bitcoin for fee
-
-// System automatically handles:
-// - Finding satoshi/asset UTXOs
-// - Computing required amounts
-// - Preparing asset release
-
-await transaction.send();
-```
-
-**Effect**:
-- Returns `amount` fund tokens
-- Releases corresponding assets
-- Deducts fee
-- User receives assets as specified by fund
+The contracts are typed by artifact (for example `TransactionManagerContract`), so
+constructor arguments and `unlock.*()` calls are type-checked.
 
 ---
 
-## Utility Functions
+## Shared exports
 
-**Location**: [lib/utils.js](../fund-tokens-contracts/lib/utils.js)
+**Location**: [src/core](../fund-tokens-contracts/src/core)
 
-### Fund Encoding/Decoding
+| Export | Description |
+| --- | --- |
+| `FundTokensError` | Every library error; has `code` |
+| `RegistryError` | Registry errors; adds `url` and `status` |
+| `isFundTokensError(error, code?)` | Type guard |
+| `BitcoinCategory` | 64 zeros; stands for BCH wherever a category is expected |
+| `MaxTokenAmount` | 2⁶³−1 |
+| `MaxSatoshis` | 21M BCH in satoshis |
+| `withDust({ to, token? })` | An output carrying exactly the dust minimum for its size |
+| `dustThreshold({ to, token? })` | That minimum |
+| `toBigInt`, `isCategory`, `isHex`, `lockingBytecodeOf`, `hashBytecode`, `getAddressPrefix` | Helpers |
 
-#### `getFundHex(fund): string`
+### Error codes
 
-Encodes fund specification to hex string.
-
-**Format** (little-endian int64 for amounts):
-```
-category (64 hex) | amount (16 hex) | satoshis (16 hex) | 
-[asset_category (64 hex) | asset_amount (16 hex)]...
-```
-
-**Example**:
-```javascript
-const fund = {
-    category: '7777777777777777777777777777777777777777777777777777777777777777',
-    amount: 10n,
-    satoshis: 1000n,
-    assets: [
-        { category: '8888888888888888888888888888888888888888888888888888888888888888', amount: 2n }
-    ]
-};
-
-const hex = getFundHex(fund);
-// Returns: '7777...0a00000000000000e803000000...0200000000000000'
-```
-
-#### `getFundBin(fund): Uint8Array`
-
-Encodes fund specification to binary.
-
-#### `decodeFund(hex): object`
-
-Decodes fund from hex string.
-
-**Return**:
-```javascript
-{
-    category: '0x...',
-    amount: 10n,
-    satoshis: 1000n,
-    assets: [...]
-}
-```
-
-#### `hashFund(fund): string`
-
-Returns SHA256 double-hash of fund specification (hex).
-
-#### `encodeFee(options): string`
-
-Encodes fee specification to NFT commitment hex.
-
-**Parameters**:
-```javascript
-{
-    category: '0x...',      // Token category (or undefined for default)
-    amount: 10000n,         // Fee amount
-    destination: 'bchtest:...' // Optional: address override
-}
-```
-
-**Format**:
-```
-category (64 hex) | amount (16 hex) | destination_locking_bytecode (0+ hex)
-```
-
-#### `decodeFee({ prefix, network, hex }): object`
-
-Decodes fee from NFT commitment hex and encodes the destination using the provided prefix or network.
-
-**Return**:
-```javascript
-{
-    category: '0x...',           // Fee category
-    amount: 10000n,              // Fee amount
-    destination: 'bchtest:...'   // Optional: destination address
-}
-```
-
-### Fee Selection
-
-#### `getBestFee(options): Promise<FeeInfo>`
-
-Selects the lowest-cost available fee UTXO.
-
-**Parameters**:
-```javascript
-{
-    feeVaultContract: Contract,     // Fee vault contract
-    feeContract: Contract,          // Fee manager contract
-    payBy: '0x...',                 // Optional: preferred token category
-    fee: { nft, value },            // Fee specification
-}
-```
-
-**Return**:
-```javascript
-{
-    isBitcoin: boolean,         // Fee paid in satoshis
-    amount: bigint,             // Fee amount
-    destination: 'bchtest:...', // Fee destination
-    utxo: UTXO,                 // Selected UTXO
-    outputs: [{ ... }]          // Pre-built fee outputs
-}
-```
-
-**Behavior**:
-1. Collects fee UTXOs (either Bitcoin or fee token NFTs)
-2. Filters by requested payment method
-3. Sorts by ascending amount (lowest first)
-4. Returns lowest-cost option
-5. Pre-generates output UTXOs for inclusion in transaction
-
-**Example**:
-```javascript
-const bestFee = await getBestFee({
-    feeVaultContract,
-    feeContract,
-    payBy: bitcoinCategory,
-    fee: { nft: feeTokenId, value: 10000n },
-});
-
-transaction.addInput(bestFee.utxo, contract.unlock.pay());
-transaction.addOutputs(bestFee.outputs);
-```
-
-### Constants
-
-Special constants and values used by the system
-
-**Location**: [lib/constants.js](../fund-tokens-contracts/lib/constants.js)
+| Code | Typical cause | What to do |
+| --- | --- | --- |
+| `INVALID_ARGUMENT` | Malformed category or amount, invalid fund, units out of range | Fix the named field |
+| `INVALID_ENCODING` | Corrupt fund/fee commitment | Check the source data |
+| `INVALID_TRANSACTION_STATE` | Unequal inputs/outputs; missing genesis input; wrong output 0 | Add inputs/outputs in matching numbers; genesis input first |
+| `MISSING_UTXO` | Fund not created yet; no thread; no fee thread for `payBy` | Create the fund; wait for threads; pay in BCH |
+| `INSUFFICIENT_FUNDS` | Unminted supply or custody can't cover the units | Use fewer units |
+| `UNSUPPORTED_FUND_TYPE` | Registry instance version unknown to this library | Upgrade the library, or pick a version explicitly |
+| `NOT_IMPLEMENTED` | Planned fund type | |
+| `REGISTRY_REQUEST_FAILED`, `REGISTRY_NOT_FOUND`, `REGISTRY_INVALID_RESPONSE` | Registry unreachable/erroring; unknown record; unexpected payload | Check `getHealth()` and the registry URL |
 
 ---
 
-## Common Patterns
+## Performance considerations
 
-### Minting Fund Tokens (Happy Path)
+1. **Thread randomization**: builders pick random inflow/outflow threads, supply UTXOs and equally cheap fee UTXOs to spread concurrent users.
+2. **Custody selection**: redemption spends custody UTXOs largest first, so a redemption needs few inputs.
+3. **Transaction size** grows with the number of assets (inputs and outputs per asset, plus 40 bytes of fund encoding per asset).
 
-```javascript
-// 1. Create builder for fund
-const builder = new FundTokenTransactionBuilder({
-    provider,
-    system,
-    fund: {
-        category: fundTokenId,
-        amount: 10n,
-        satoshis: 1000n,
-        assets: [...]
-    }
-});
+**Measured sizes** (from the test suite):
 
-// 2. Add transaction components
-await builder.addInflow({
-    amount: 2n,
-    payBy 'bitcoinCategory'
-});
-
-// 3. Add user inputs/outputs
-transaction
-    .addInput(bitcoinUtxo, wallet.unlock())
-    .addInputs(assetUtxos, wallet.unlock())
-    .addOutput(userAddress, dustAmount, fundTokens)
-    .addOutput(userAddress, change);
-
-// 4. Send
-const { txid } = await transaction.send();
-```
-
-### Redeeming Fund Tokens (Happy Path)
-
-```javascript
-// 1. Create builder
-const builder = new FundTokenTransactionBuilder({
-    provider,
-    system,
-    fund
-});
-
-// 2. Add redeem transaction
-await builder.addOutflow({
-    amount: 1n,
-    payBy: bitcoinCategory
-});
-
-// 3. Add fund token input(s)
-transaction
-    .addInput(fundTokenUtxo, wallet.unlock())
-    .addInput(bitcoinForFee, wallet.unlock())
-    .addOutput(userAddress, ...assets);
-
-// 4. Send
-const { txid } = await transaction.send();
-```
-
-### Creating a New Fund
-
-```javascript
-// 1. Create public fund builder
-const publicBuilder = new PublicFundTransactionBuilder({
-    provider,
-    system
-});
-
-// 2. Add genesis input
-const genesisUtxo = ...; // From first UTXO of fund token genesis
-transaction.addInput(genesisUtxo, wallet.unlock());
-
-// 3. Broadcast fund
-await publicBuilder.addBroadcast({
-    fund: {
-        category: genesisUtxo.txid,
-        amount: 10n,
-        satoshis: 1000n,
-        assets: [...]
-    },
-    payBy: bitcoinCategory
-});
-
-// 4. Send
-const { txid } = await transaction.send();
-```
-
----
-
-## Error Handling
-
-Common errors and solutions:
-
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "Missing required UTXO" | No matching thread token | Add new threads via `SystemTransactionBuilder` |
-| "No acceptable fee UTXOs found" | Fee token unavailable | Create fee tokens or provide Bitcoin |
-| "Asset sorting error" | Assets not in category order | Sort assets by category ascending |
-| "Fund amount mismatch" | Token quantity not multiple of fund_amount | Ensure amount × fund_amount matches |
-| "Asset amount insufficient" | Not enough assets held in contracts | Deposit more assets or reduce redemption |
-
----
-
-## Performance Considerations
-
-1. **Thread Randomization**: Builders select random available threads to distribute load
-2. **Satoshi Asset Selection**: Outflow uses first satoshi UTXO with sufficient amount (selects by descending amount)
-3. **Token Asset Selection**: Same as satoshi - picks largest first
-4. **Transaction Size**: Depends on:
-   - Number of assets in fund (adds ~45 bytes per asset for inputs/outputs)
-   - Fee token encoding length
-
-**Typical sizes**:
-- Inflow (2 assets): ~600 bytes
-- Outflow (2 assets): ~800 bytes
-- Fund creation: ~1200 bytes
+| Transaction | BCH + 3 assets | BCH + 38 assets |
+| --- | --- | --- |
+| Create fund | 6,202 bytes | 9,838 bytes |
+| Mint (inflow) | 3,731 bytes | 15,281 bytes |
+| Redeem (outflow) | 4,613 bytes | 21,413 bytes |
 
 ---
 
 ## See Also
 
-- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design overview
-- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md) - Contract details
-- [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md) - Integration examples
-- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md) - Visual flow diagrams
-- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md) - System token specification
-- [07-FEE_TOKEN.md](07-FEE_TOKEN.md) - Fee token specification
-- [08-AUTHORIZATION_TOKEN.md](08-AUTHORIZATION_TOKEN.md) - Authorization token specification
+- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md): system design overview
+- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md): contract details
+- [04-INTEGRATION_GUIDE.md](04-INTEGRATION_GUIDE.md): integration examples
+- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md): visual flow diagrams
+- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md): system token specification
+- [09-FEE_TOKENS.md](09-FEE_TOKENS.md): fee token specification
+- [11-AUTHORIZATION_TOKEN.md](11-AUTHORIZATION_TOKEN.md): authorization token specification
+- [Library README](../fund-tokens-contracts/README.md): installation, migration from 0.1.x, publishing

@@ -1,29 +1,81 @@
 {
-  "name": "@fundtokens/fund-tokens-contracts",
+  "name": "@fundtokens/builders",
+  "version": "0.2.0-rc1",
+  "description": "Transaction builders and registry client to create and interact with FundTokens.",
   "author": "Fun(d)Tokens",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
   "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "BitcoinCash",
+    "Bitcoin Cash",
+    "Bitcoin",
+    "CashTokens",
+    "DeFi",
+    "FundTokens"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./registry": {
+      "types": "./dist/registry/index.d.ts",
+      "default": "./dist/registry/index.js"
+    },
+    "./token-basket": {
+      "types": "./dist/fund-types/token-basket/index.d.ts",
+      "default": "./dist/fund-types/token-basket/index.js"
+    },
+    "./token-basket/v1": {
+      "types": "./dist/fund-types/token-basket/v1/index.d.ts",
+      "default": "./dist/fund-types/token-basket/v1/index.js"
+    },
+    "./token-basket/v1/artifacts/*.json": "./dist/fund-types/token-basket/v1/artifacts/*.json",
+    "./weighted-bch-usd": {
+      "types": "./dist/fund-types/weighted-bch-usd/index.d.ts",
+      "default": "./dist/fund-types/weighted-bch-usd/index.js"
+    },
+    "./weighted-bch-usd/v1": {
+      "types": "./dist/fund-types/weighted-bch-usd/v1/index.d.ts",
+      "default": "./dist/fund-types/weighted-bch-usd/v1/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/**/tests",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "yarn clean && tsc -p tsconfig.build.json && tsx scripts/copy-artifacts.ts",
+    "build:contracts": "tsx scripts/build-contracts.ts",
+    "check:contracts": "tsx scripts/build-contracts.ts --check",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.build.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "yarn check:contracts && yarn typecheck && yarn test && yarn build",
+    "metrics": "tsx metrics/analyzeContracts.ts",
+    "prepack": "yarn build",
+    "prepublishOnly": "yarn check:contracts && yarn typecheck && yarn test"
+  },
   "dependencies": {
     "@bitauth/libauth": "3.1.0-next.8",
-    "cashc": "0.13.0",
     "cashscript": "0.13.0"
   },
-  "scripts": {
-    "test": "vitest run",
-    "test:build": "yarn build && yarn test",
-    "test:watch": "vitest",
-    "build": "yarn build:fund && yarn build:startup && yarn build:vault && yarn build:system",
-    "build:fund": "cashc ./contracts/manager.cash --output ./lib/art/manager.json && cashc ./contracts/fund.cash --output ./lib/art/fund.json && cashc ./contracts/asset.cash --output ./lib/art/asset.json",
-    "build:startup": "cashc ./contracts/public.cash --output ./lib/art/public.json && cashc ./contracts/startup.cash --output ./lib/art/startup.json && cashc ./contracts/fee.cash --output ./lib/art/fee.json && cashc ./contracts/mint_inflow.cash --output ./lib/art/mint_inflow.json && cashc ./contracts/mint_outflow.cash --output ./lib/art/mint_outflow.json",
-    "build:vault": "cashc ./contracts/simple_vault.cash --output ./lib/art/simple_vault.json && cashc ./contracts/authhead_vault.cash --output ./lib/art/authhead_vault.json && cashc ./contracts/public_vault.cash --output ./lib/art/public_vault.json",
-    "build:system": "cashc ./contracts/fee_minter.cash --output ./lib/art/fee_minter.json && cashc ./contracts/simple_minter.cash --output ./lib/art/simple_minter.json && cashc ./contracts/instance_vault.cash --output ./lib/art/instance_vault.json",
-    "metrics": "node ./metrics/analyzeContracts.js",
-    "metrics:build": "yarn build && yarn metrics"
-  },
   "devDependencies": {
+    "@types/node": "^24",
+    "cashc": "0.13.0",
     "msw": "^2.15.0",
+    "tsx": "^4",
+    "typescript": "5.9.3",
     "vitest": "^4.0.18"
   }
 }

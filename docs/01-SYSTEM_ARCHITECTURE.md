@@ -274,7 +274,7 @@ Assets within a fund are **sorted by category in ascending hexadecimal order**. 
 - **Sorting Function**: `categoryAscending(a, b) => a.category.localeCompare(b.category)`
 - **Order**: Hex string comparison (0x00... < 0x01... < 0xFF...)
 - **Purpose**: Ensures deterministic asset sequence for commitment validation
-- **Implementation**: Used in `lib/utils.js getFundHex()` and validated in `startup.cash`
+- **Implementation**: Used in `TokenBasket.v1.getFundHex()` ([encoding.ts](../fund-tokens-contracts/src/fund-types/token-basket/v1/encoding.ts)) and validated in `startup.cash`
 
 **Example**:
 ```
