@@ -61,7 +61,7 @@ contract FundInflowMint(bytes32 startupContract, bytes32 inflowToken, bytes32 ou
         bytes fundContractParam = this.activeBytecode.slice(assetContractStop, fundContractStop);
 
         //
-        // Verify the mitned inflow token destination
+        // Verify the minted inflow token destination
         require(tx.outputs[inflowOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
         require(tx.outputs[inflowOutput].tokenCategory == inflowToken);
     }

@@ -105,5 +105,7 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         // This startup UTXO returns to itself
         // No tokens are required on this UTXO...dependent contract uses locking bytecode
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
     }
 }
