@@ -13,16 +13,13 @@ import {
     FundTokenTransactionBuilder,
     PublicFundTransactionBuilder,
     type Fund,
-    decodeFund,
     decodeFundCommitment,
     getFundCommitment,
-    getFundHex,
 } from '../index.js';
 
 const DustAmount = 1000n;
 
 describe('edge case test', () => {
-    const network = Network.MOCKNET;
     const genesisPartial = { vout: 0, satoshis: DustAmount };
 
     ///
@@ -50,7 +47,7 @@ describe('edge case test', () => {
         },
     };
 
-    it('should initialize control tokens', async ({ expect }) => {
+    it('should initialize control tokens', async () => {
         const inflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.inflow });
         const outflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.outflow });
         const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
@@ -85,7 +82,7 @@ describe('edge case test', () => {
         console.log('initialize system tx size', response.hex.length / 2);
     });
 
-    it('should create new system threads', async ({ expect }) => {
+    it('should create new system threads', async () => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemFixture({ provider, system });
@@ -114,7 +111,7 @@ describe('edge case test', () => {
         assets: [],
     };
 
-    it('should test new funds', async ({ expect }) => {
+    it('should test new funds', async () => {
         const userWallet = generateWallet();
         const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
         const feeUtxo = randomUtxo({ satoshis: 100000n });
@@ -130,7 +127,7 @@ describe('edge case test', () => {
         console.log('broadcast new fund tx size', response.hex.length / 2);
     });
 
-    it('should reconstruct broadcast fund', async ({ expect }) => {
+    it('should reconstruct broadcast fund', async () => {
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         const { publicFundVaultContract } = transaction.getContracts();
 
@@ -152,7 +149,7 @@ describe('edge case test', () => {
         expect(decodedFund.assets.length).to.equal(0);
     });
 
-    it('should complete an inflow tx', async ({ expect }) => {
+    it('should complete an inflow tx', async () => {
         const userWallet = generateWallet();
         const feeUtxo = randomUtxo({ satoshis: 210000n });
 
@@ -177,7 +174,7 @@ describe('edge case test', () => {
         console.log('inflow tx size', response.hex.length / 2);
     });
 
-    it('should complete an outflow tx', async ({ expect }) => {
+    it('should complete an outflow tx', async () => {
         const userWallet = generateWallet();
         const feeUtxo = randomUtxo({ satoshis: 1000000n });
         const outflowAmount = 1n;
