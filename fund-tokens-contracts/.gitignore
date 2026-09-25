@@ -6,3 +6,6 @@
 !.yarn/sdks
 !.yarn/versions
 .pnp.*
+
+# Contract snapshots saved by yarn metrics:compare --save
+metrics/snapshots/

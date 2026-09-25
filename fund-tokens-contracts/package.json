@@ -56,6 +56,7 @@
   "scripts": {
     "build": "yarn clean && tsc -p tsconfig.build.json && tsx scripts/copy-artifacts.ts",
     "build:contracts": "tsx scripts/build-contracts.ts",
+    "build:contracts:force": "tsx scripts/build-contracts.ts --force",
     "check:contracts": "tsx scripts/build-contracts.ts --check",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.build.json --noEmit",
@@ -63,6 +64,7 @@
     "test:watch": "vitest",
     "verify": "yarn check:contracts && yarn typecheck && yarn test && yarn build",
     "metrics": "tsx metrics/analyzeContracts.ts",
+    "metrics:compare": "tsx metrics/compareContracts.ts",
     "prepack": "yarn build",
     "prepublishOnly": "yarn check:contracts && yarn typecheck && yarn test"
   },

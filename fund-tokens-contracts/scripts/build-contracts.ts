@@ -13,6 +13,7 @@
  * Usage:
  *   tsx scripts/build-contracts.ts            compile and write artifacts
  *   tsx scripts/build-contracts.ts --check    fail if any committed artifact is stale
+ *   tsx scripts/build-contracts.ts --force    recompile and rewrite every artifact
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -24,21 +25,19 @@ type Artifact = ReturnType<typeof compileFile>;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fundTypesDir = path.join(root, 'src', 'fund-types');
 const check = process.argv.includes('--check');
+const force = process.argv.includes('--force');
 
 const directories = (dir: string): string[] =>
     existsSync(dir)
         ? readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)
         : [];
 
-/** Everything that affects how a contract behaves or is called; excludes timestamps. */
-const fingerprint = (artifact: Artifact): string => JSON.stringify({
-    contractName: artifact.contractName,
-    constructorInputs: artifact.constructorInputs,
-    abi: artifact.abi,
-    bytecode: artifact.bytecode,
-    debugBytecode: artifact.debug?.bytecode,
-    compiler: artifact.compiler.version,
-});
+/**
+ * The whole artifact except its timestamp. Debug info (logs, requires, source map)
+ * and source must be included: a console.log or require message changes them
+ * without changing the bytecode.
+ */
+const fingerprint = ({ updatedAt: _, ...artifact }: Artifact): string => JSON.stringify(artifact);
 
 const relative = (file: string): string => path.relative(root, file).replaceAll('\\', '/');
 
@@ -74,7 +73,7 @@ for (const type of directories(fundTypesDir)) {
                 ? JSON.parse(readFileSync(jsonFile, 'utf8'))
                 : undefined;
 
-            const upToDate = committed !== undefined && fingerprint(committed) === fingerprint(fresh);
+            const upToDate = !force && committed !== undefined && fingerprint(committed) === fingerprint(fresh);
             const artifact = upToDate ? committed : fresh;
             const typed = utils.formatArtifact(artifact, 'ts');
             const typedUpToDate = existsSync(tsFile) && readFileSync(tsFile, 'utf8') === typed;
