@@ -281,9 +281,10 @@ with Node) runs that version whenever you type `yarn`; run `corepack enable` onc
 | `yarn build:contracts` | Compiles every version's `.cash` into JSON and typed artifacts plus an index. Committed JSON is kept when its bytecode is unchanged |
 | `yarn check:contracts` | Fails if any committed artifact doesn't match its source |
 | `yarn typecheck` | Type-checks tests, scripts and metrics, then the library under stricter settings |
-| `yarn test` | Runs all tests (vitest) |
+| `yarn test` | Runs the tests (vitest), skipping the long-running ones listed in `vitest.config.ts` |
+| `yarn test:all` | Runs every test, long-running ones included (same as `yarn test --mode all`) |
 | `yarn build` | Compiles the library to `dist/` and copies the JSON artifacts |
-| `yarn verify` | All of the above, in the order CI should run them |
+| `yarn verify` | All of the above (with `test:all`), in the order CI should run them |
 | `yarn metrics` | Prints each contract's estimated VM operation cost |
 
 Tests that need distinct token categories should use `randomCategory()` from

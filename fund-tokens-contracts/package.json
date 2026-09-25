@@ -61,12 +61,13 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.build.json --noEmit",
     "test": "vitest run",
+    "test:all": "vitest run --mode all",
     "test:watch": "vitest",
-    "verify": "yarn check:contracts && yarn typecheck && yarn test && yarn build",
+    "verify": "yarn check:contracts && yarn typecheck && yarn test:all && yarn build",
     "metrics": "tsx metrics/analyzeContracts.ts",
     "metrics:compare": "tsx metrics/compareContracts.ts",
     "prepack": "yarn build",
-    "prepublishOnly": "yarn check:contracts && yarn typecheck && yarn test"
+    "prepublishOnly": "yarn check:contracts && yarn typecheck && yarn test:all"
   },
   "dependencies": {
     "@bitauth/libauth": "3.1.0-next.8",
