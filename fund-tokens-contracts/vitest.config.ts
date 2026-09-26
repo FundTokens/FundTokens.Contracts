@@ -10,6 +10,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
  */
 const longRunning = [
     'src/fund-types/token-basket/v1/tests/stress.test.ts',
+    'src/fund-types/token-basket/v1/tests/audit.vmDensity.test.ts',
 ];
 
 const filters = process.argv.slice(2).filter(arg => !arg.startsWith('-'));
