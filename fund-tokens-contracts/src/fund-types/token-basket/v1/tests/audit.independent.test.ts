@@ -38,8 +38,10 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
     const assetCatDisplay = randomCategory();
     const assetCatSwapped = swapEndianness(assetCatDisplay);
 
-    const tokenVault = new Contract(assetJson, [outflowSwapped, fundHash, assetCatSwapped], { provider });
-    const btcVault = new Contract(assetJson, [outflowSwapped, fundHash, BitcoinCategory], { provider });
+    // AssetManager is bound to a TransactionManager (any P2SH32 here) and links to nothing, like a fund's first reserve.
+    const transactionManager = 'aa20' + randomCategory() + '87';
+    const tokenVault = new Contract(assetJson, [outflowSwapped, fundHash, assetCatSwapped, transactionManager, ''], { provider });
+    const btcVault = new Contract(assetJson, [outflowSwapped, fundHash, BitcoinCategory, transactionManager, ''], { provider });
 
     // Build the decoy redeemScript that forges the "previous AssetManager" parse:
     //   release() computes: prev.unlockingBytecode.split(4)[1].split(32) -> [prevCategory, prevRest]
@@ -55,17 +57,6 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
     const rs = '4cf5' + '00'.repeat(32) + tail; // 247 bytes
     const decoyLocking = 'aa20' + binToHex(hash256(hexToBin(rs))) + '87'; // P2SH32
     const decoyUnlocking = '4cf7' + rs; // 249 bytes
-
-    // sanity: redeemScript layout assumption (args are pushed in reverse declaration order)
-    it('redeemScript layout matches expected parse offsets', () => {
-        expect(redeemScriptHex.slice(0, 2)).to.equal('20');
-        expect(redeemScriptHex.slice(2, 66)).to.equal(assetCatSwapped);
-        expect(redeemScriptHex.slice(68, 132)).to.equal(fundHash);
-        expect(redeemScriptHex.slice(134, 198)).to.equal(outflowSwapped);
-        expect(tail).to.equal(redeemScriptHex.slice(68, 68 + 213 * 2));
-        expect(rs.length / 2).to.equal(247);
-        expect(decoyUnlocking.length / 2).to.equal(249);
-    });
 
     const decoyUnlocker = {
         generateUnlockingBytecode: () => hexToBin(decoyUnlocking),

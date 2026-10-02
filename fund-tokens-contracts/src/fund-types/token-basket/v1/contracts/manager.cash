@@ -109,6 +109,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + assetManagerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
             require(tx.outputs[assetOutputIndex].lockingBytecode == satoshiLockingBytecode);
             require(tx.outputs[assetOutputIndex].value == fundReleasedAmount * fundSats);
+            require(tx.outputs[assetOutputIndex].tokenCategory == 0x);
 
             assetOutputIndex = assetOutputIndex + 1;
             linkedAssetPush = 0x23 + satoshiLockingBytecode;
