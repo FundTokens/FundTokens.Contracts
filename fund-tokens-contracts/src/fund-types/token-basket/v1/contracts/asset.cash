@@ -2,29 +2,32 @@ pragma cashscript ~0.13.0;
 
 /**
  * AssetManager: Holds individual assets for funds
- * 
+ *
  * This contract gates asset access during redemption (outflow) transactions.
  * Amount verification is performed by the TransactionManager contract.
  * Each asset in a fund has a dedicated AssetManager contract instance.
- * 
+ *
  * Parameters:
  *   outflowToken: Token category that authorizes redemption
  *   fundHash: Hash of fund parameters (prevents spending wrong fund's assets)
  *   assetCategory: The specific asset category this contract holds
  *                  (0x00...00 = Bitcoin, else = token category)
+ *   transactionManager: Locking bytecode of this fund's TransactionManager (authenticates the outflow)
+ *   linkedAsset: Locking bytecode of the AssetManager redeemed just before this one
+ *                (satoshis first, then assets by ascending category), empty for the first
  */
-contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory) 
+contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCategory, bytes transactionManager, bytes linkedAssetManager)
 {
     /**
      * release(): Releases held assets when outflow is authorized
      *
      * AssetManager relies on TransactionManager for redeeming asset amount verification.
-     * To release, checking for outflow token or linking w/ this contract.
-     * 
+     * To release, checking for the TransactionManager's outflow or linking w/ a previous AssetManager.
+     *
      * Ensures:
-     * - Outflow token with matching fund hash is present (correct redemption)
      * - Asset type is verified (Bitcoin or tokens)
-     * - Outflow token at "expected" input or uses efficient linking to a previous AssetManager
+     * - Previous input spends from this contract or the linked AssetManager, which release() themselves
+     * - Otherwise, the outflow token is spent from this fund's TransactionManager (correct redemption)
      */
     function release() {
         //
@@ -35,23 +38,15 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
         } else {
             require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);
         }
-        
+
         //
-        // Check if the previous input is an AssetManager contract for this fund
-        int prevInput = this.activeInputIndex - 1;
-        bytes prevParamsAndBytecode = tx.inputs[prevInput].unlockingBytecode.split(4)[1];
-        bytes prevCategory, bytes prevUnlockingBytecode = prevParamsAndBytecode.split(32);
-        bytes thisUnlockingBytecode = tx.inputs[this.activeInputIndex].unlockingBytecode;
-        bool additionalAssetManager = thisUnlockingBytecode.slice(36, thisUnlockingBytecode.length) == prevUnlockingBytecode; // slice out the asset category
+        // Check if the previous input is this AssetManager or the linked AssetManager for this fund
+        bytes prevLockingBytecode = tx.inputs[this.activeInputIndex - 1].lockingBytecode;
+        bool linked = prevLockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode || (prevLockingBytecode == linkedAssetManager && linkedAssetManager != 0x);
 
         //
         // Must have redemption signal or previous AssetManager contract
-        if(additionalAssetManager) {
-            int iPrevious = int(prevCategory + 0x00);
-            int iCurrent = int(assetCategory + 0x00);
-
-            require(iPrevious < iCurrent || iPrevious == iCurrent);
-        } else {
+        if(!linked) {
             //
             // Tip of the asset chain
             // Find the transaction manager w/ outflow token
@@ -61,6 +56,7 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
             int inputIndex = this.activeInputIndex - 1;
             while(inputIndex >= 0 && !prevOutflow) {
                 if(tx.inputs[inputIndex].tokenCategory == outflowToken) {
+                    require(tx.inputs[inputIndex].lockingBytecode == transactionManager);
                     require(tx.inputs[inputIndex].nftCommitment.slice(33, 65) == fundHash); // type 0x02 + fund category 32 bytes + fund hash 32 bytes
                     prevOutflow = true;
                 } else if(prevFundManager == 0x) {

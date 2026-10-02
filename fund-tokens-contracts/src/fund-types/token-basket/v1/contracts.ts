@@ -139,12 +139,6 @@ export function deriveFundContracts(provider: NetworkProvider, system: SystemPar
     const category = swapEndianness(fund.category);
     const fundHash = hashFund(fund);
 
-    const assetContract = (assetCategory: string) =>
-        new Contract(assetArtifact, [outflow, fundHash, assetCategory], options(provider));
-
-    const satoshiAssetContract = fund.satoshis > 0n ? assetContract(BitcoinCategory) : undefined;
-    const assetContracts = Object.freeze(sortAssets(fund.assets).map(asset => assetContract(swapEndianness(asset.category))));
-
     const fundContract = new Contract(fundArtifact, [inflow, outflow, category, fundHash], options(provider));
 
     const feeVaultContract = deriveFeeVault(provider, system);
@@ -159,6 +153,19 @@ export function deriveFundContracts(provider: NetworkProvider, system: SystemPar
         hexToBin(fundArtifact.debug.bytecode),
         hexToBin(assetArtifact.debug.bytecode),
     ], options(provider));
+    const managerLockingBytecode = lockingBytecodeHexOf(managerContract.tokenAddress);
+
+    // Each AssetManager is bound to the manager and linked to the one redeemed before it
+    // (satoshis first, then assets by ascending category); the first links to nothing.
+    let linkedAsset = '';
+    const assetContract = (assetCategory: string) => {
+        const contract = new Contract(assetArtifact, [outflow, fundHash, assetCategory, managerLockingBytecode, linkedAsset], options(provider));
+        linkedAsset = lockingBytecodeHexOf(contract.tokenAddress);
+        return contract;
+    };
+
+    const satoshiAssetContract = fund.satoshis > 0n ? assetContract(BitcoinCategory) : undefined;
+    const assetContracts = Object.freeze(sortAssets(fund.assets).map(asset => assetContract(swapEndianness(asset.category))));
 
     return Object.freeze({
         managerContract,
