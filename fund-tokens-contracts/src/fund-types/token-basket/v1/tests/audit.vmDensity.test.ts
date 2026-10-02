@@ -103,20 +103,20 @@ describe('audit: large funds stay redeemable (V-1)', () => {
     it('39 assets: deposits and redeems (control)', async () => {
         const setup = await fundWithDeposits(39, [3n]);
         expect(setup).toBeDefined();
-        await expect(setup!.redeem(1n)).resolves.toBeDefined();
+        await expect(setup!.redeem(1n)).toBeAccepted();
     }, Timeout);
 
     it('40 assets: a fund that accepts a deposit can redeem it', async () => {
         const setup = await fundWithDeposits(40, [3n]);
         if (!setup) return;
-        await expect(setup.redeem(1n)).resolves.toBeDefined();
-        await expect(setup.redeem(2n)).resolves.toBeDefined();
+        await expect(setup.redeem(1n)).toBeAccepted();
+        await expect(setup.redeem(2n)).toBeAccepted();
     }, Timeout);
 
     it('40 assets without satoshi backing: a fund that accepts a deposit can redeem it', async () => {
         const setup = await fundWithDeposits(40, [3n], 0n);
         if (!setup) return;
-        await expect(setup.redeem(1n)).resolves.toBeDefined();
+        await expect(setup.redeem(1n)).toBeAccepted();
     }, Timeout);
 });
 
@@ -138,7 +138,7 @@ describe('audit: PublicFundVault.proof() is not a ceiling (negative result)', ()
             .addOutputs([head!, ...rest].map(u => ({ to: vault.tokenAddress, amount: u.satoshis, token: u.token! })))
             .addOutput({ to: user.tokenAddress, amount: 2000n });
 
-        await expect(proof.send()).resolves.toBeDefined();
+        await expect(proof).toBeAccepted();
     }, Timeout);
 });
 
@@ -146,19 +146,19 @@ describe('audit: redemptions spanning several reserve UTXOs (V-2)', () => {
     it('38 assets: redeems each reserve UTXO in turn (control)', async () => {
         const setup = await fundWithDeposits(38, [3n, 3n]);
         expect(setup).toBeDefined();
-        await expect(setup!.redeem(3n)).resolves.toBeDefined();
-        await expect(setup!.redeem(3n)).resolves.toBeDefined();
+        await expect(setup!.redeem(3n)).toBeAccepted();
+        await expect(setup!.redeem(3n)).toBeAccepted();
     }, Timeout);
 
     it('38 assets: a single redemption spanning two reserve UTXOs per asset', async () => {
         const setup = await fundWithDeposits(38, [3n, 3n]);
         if (!setup) return;
-        await expect(setup.redeem(4n)).resolves.toBeDefined();
+        await expect(setup.redeem(4n)).toBeAccepted();
     }, Timeout);
 
     it('30 assets: a 64-input redemption', async () => {
         const setup = await fundWithDeposits(30, [3n, 3n]);
         if (!setup) return;
-        await expect(setup.redeem(4n)).resolves.toBeDefined();
+        await expect(setup.redeem(4n)).toBeAccepted();
     }, Timeout);
 });

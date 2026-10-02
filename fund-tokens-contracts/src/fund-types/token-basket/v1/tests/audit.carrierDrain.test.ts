@@ -73,7 +73,7 @@ describe('audit: carrier value and immutable NFT drained by a zero-unit outflow'
             withDust({ to: attacker, token: nftToken(fund.assets[0]!.amount) }),
             { to: attacker, amount: 200_000n },
         ]);
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
     });
 
     it('rejects stripping the carrier value and immutable NFT while keeping every reserve unit', async () => {
@@ -83,7 +83,7 @@ describe('audit: carrier value and immutable NFT drained by a zero-unit outflow'
             { to, amount: 300_000n + CarrierValue },
         ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect(await contracts.assetContracts[0]!.getUtxos()).toContainEqual(reserve);
         expect((await instance.provider.getUtxos(attacker.tokenAddress)).filter(u => u.token)).toHaveLength(0);
     });

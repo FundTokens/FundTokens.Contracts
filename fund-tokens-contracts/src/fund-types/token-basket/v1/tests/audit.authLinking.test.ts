@@ -58,7 +58,7 @@ describe('audit: linked-input authorization at SimpleVault (AUD-027)', () => {
             .addOutput({ to: attacker.tokenAddress, amount: DustAmount, token: parked.token! })
             .addOutput({ to: attacker.tokenAddress, amount: 47_000n });
 
-        await expect(steal.send()).rejects.toThrow();
+        await expect(steal).toBeRejected();
         expect(await provider.getUtxos(attacker.tokenAddress)).toHaveLength(0);
         expect(await vault.getUtxos()).toHaveLength(2);
     });

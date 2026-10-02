@@ -38,16 +38,16 @@ describe('audit: fund-creation boundaries', () => {
     });
 
     it('accepts a fund backed by exactly the maximum satoshi supply (D-6)', async () => {
-        await expect(createFund(instance, { amount: 10n, satoshis: MaxSatoshis, assets: [] })).resolves.toBeDefined();
+        await expect(createFund(instance, { amount: 10n, satoshis: MaxSatoshis, assets: [] })).toBeAccepted();
     });
 
     it('rejects a fund backed by one satoshi more than the maximum supply (D-6)', async () => {
         const tx = await buildBroadcast(instance, { amount: 10n, satoshis: MaxSatoshis + 1n });
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
     });
 
     it('rejects a fund with no satoshi backing and no assets (D-7)', async () => {
         const tx = await buildBroadcast(instance, { amount: 10n, satoshis: 0n });
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
     });
 });

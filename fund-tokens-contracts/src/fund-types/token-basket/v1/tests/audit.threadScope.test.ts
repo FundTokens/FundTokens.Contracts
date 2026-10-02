@@ -58,7 +58,7 @@ describe('audit: a foreign fund thread cannot reach another fund\'s backing', ()
                 { to: attacker.tokenAddress, amount: 900_000n },
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect(await assetContract.getUtxos()).toContainEqual(reserve);
     });
 });

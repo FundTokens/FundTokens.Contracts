@@ -62,7 +62,7 @@ describe('audit: voluntary create fee in a fund creation', () => {
         });
         tx.addOutput({ to: creator.tokenAddress, amount: 500_000n });
 
-        await expect(tx.send()).resolves.toBeDefined();
+        await expect(tx).toBeAccepted();
     });
 
     it('rejects a fund creation whose voluntary fee slot pays a rogue outflow minting NFT', async () => {
@@ -79,7 +79,7 @@ describe('audit: voluntary create fee in a fund creation', () => {
         });
         tx.addOutput({ to: creator.tokenAddress, amount: 500_000n });
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect(await provider.getUtxos(attacker.tokenAddress)).toHaveLength(0);
     });
 });

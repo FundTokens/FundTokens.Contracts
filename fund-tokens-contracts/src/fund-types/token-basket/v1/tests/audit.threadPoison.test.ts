@@ -52,7 +52,7 @@ describe('audit: thread commitment unpinned on recreation', () => {
             .addOutput({ to: attacker.tokenAddress, amount: DustAmount, token: { category: fund.category, amount: fund.amount } })
             .addOutput({ to: attacker.tokenAddress, amount: 290_000n });
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         const threads = (await managerContract.getUtxos()).filter(u => u.token?.category === system.inflow);
         expect(threads.map(u => u.token!.nft!.commitment)).toEqual([threadBefore.token!.nft!.commitment]);
     });

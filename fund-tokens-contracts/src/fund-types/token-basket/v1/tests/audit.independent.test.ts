@@ -1,19 +1,18 @@
 /**
- * Independent audit findings (v0.1.0-rc2) on TransactionManager.inflow() accounting:
+ * Independent audit findings (v0.1.0-rc2):
  *
- *  F1: decoy prev-input bypass
- *  F2: foreign tokens paid to the FundManager address are counted as fund tokens, so a one-unit
- *      deposit can take the whole unminted supply, which then redeems honest holders' backing.
+ *  F1: AssetManager.release() accepts a forged "previous AssetManager" input, releasing custody
+ *      with no outflow thread in the transaction.
+ *  F2: TransactionManager.inflow() counts foreign tokens paid to the FundManager address as fund
+ *      tokens, so a one-unit deposit can take the whole unminted supply, which then redeems
+ *      honest holders' backing.
  *  F3: the satoshi custody output of an inflow accepts a token, and release() only spends
  *      tokenless satoshi UTXOs, so the deposit is locked in custody for good.
  *
- * The contracts must reject both inflows.
- *
- * F1 (AssetManager.release() accepting a forged previous input) remains in the original
- * independent_audit_poc.test.js.
+ * The contracts must reject each of these transactions.
  */
-import { randomUtxo, Network, MockNetworkProvider, randomToken, Contract, TransactionBuilder, type TokenDetails } from 'cashscript';
-import { swapEndianness, binToHex, hash256, hexToBin, createAuthenticationVirtualMachine, createInstructionSetBch2026, decodeTransactionUnsafe, verifyTransactionTokens, type Output } from '@bitauth/libauth';
+import { randomUtxo, Network, MockNetworkProvider, randomToken, Contract, TransactionBuilder } from 'cashscript';
+import { swapEndianness, binToHex, hash256, hexToBin } from '@bitauth/libauth';
 
 import { randomCategory } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
@@ -22,35 +21,21 @@ import { BitcoinCategory, MaxTokenAmount } from '../../../../core/constants.js';
 import { withDust } from '../../../../core/outputs.js';
 import { FundTokenTransactionBuilder, getFundBin, normalizeFund, type Fund } from '../index.js';
 import { bootstrapInstance, createFund, type TestInstance } from './support/bootstrap.js';
+import { verifyTransaction } from './support/consensus.js';
 
 import assetJson from '../artifacts/asset.js';
 
 const DustAmount = 1000n;
-
-// Full consensus-grade verification (script evaluation of every input + CashTokens validation)
-// using libauth's BCH 2026 instruction set (cashscript 0.13 default VM target).
-const vm2026 = createAuthenticationVirtualMachine(createInstructionSetBch2026());
-const verifyTx = (txHex: string, sourceOutputs: Output[]) => {
-    const transaction = decodeTransactionUnsafe(hexToBin(txHex));
-    const tokenResult = verifyTransactionTokens(transaction, sourceOutputs, { maximumTokenCommitmentLength: 128 });
-    if (tokenResult !== true) return tokenResult;
-    return vm2026.verify({ sourceOutputs, transaction });
-};
-const srcOut = (lockingHex: string, satoshis: bigint, token?: TokenDetails) => ({
-    lockingBytecode: hexToBin(lockingHex),
-    valueSatoshis: satoshis,
-    ...(token ? { token: { category: hexToBin(token.category), amount: token.amount, ...(token.nft ? { nft: { capability: token.nft.capability, commitment: hexToBin(token.nft.commitment) } } : {}) } } : {}),
-});
 
 describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
     const network = Network.MOCKNET;
     const provider = new MockNetworkProvider({ updateUtxoSet: true });
     const attacker = generateWallet(network);
 
-    const outflowSwapped = swapEndianness(randomToken().category);
+    const outflowSwapped = swapEndianness(randomCategory());
     const fundHash = 'ee'.repeat(32);
 
-    const assetCatDisplay = randomToken().category;
+    const assetCatDisplay = randomCategory();
     const assetCatSwapped = swapEndianness(assetCatDisplay);
 
     const tokenVault = new Contract(assetJson, [outflowSwapped, fundHash, assetCatSwapped], { provider });
@@ -103,11 +88,7 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
             .addInput(vaultUtxo, tokenVault.unlock.release())
             .addOutput({ to: attacker.tokenAddress, amount: 5000n, token: { category: assetCatDisplay, amount: 12345n } });
         const p2pkhLocking = '76a914' + attacker.pubKeyHashHex + '88ac';
-        const result = verifyTx(tx.build(), [
-            srcOut(p2pkhLocking, 10000n),
-            srcOut(tokenVault.lockingBytecode, 5000n, vaultUtxo.token),
-        ]);
-        expect(result).not.to.equal(true);
+        expect(verifyTransaction(tx, [p2pkhLocking, tokenVault.lockingBytecode])).not.to.equal(true);
     });
 
     it('prevent vault draining decoy prev input (no outflow token anywhere)', async ({ expect }) => {
@@ -119,16 +100,7 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
         tx.addInput(decoyUtxo, decoyUnlocker)
             .addInput(vaultUtxo, tokenVault.unlock.release())
             .addOutput({ to: attacker.tokenAddress, amount: 5000n, token: { category: assetCatDisplay, amount: 54321n } });
-        const result = verifyTx(tx.build(), [
-            srcOut(decoyLocking, decoyUtxo.satoshis),
-            srcOut(tokenVault.lockingBytecode, 5000n, vaultUtxo.token),
-        ]);
-        expect(result).to.equal(true);
-        
-        await tx.send();
-        // attacker holds the drained assets
-        const stolen = (await provider.getUtxos(attacker.tokenAddress)).filter(u => u.token?.amount === 54321n);
-        expect(stolen.length).to.equal(1);
+        expect(verifyTransaction(tx, [decoyLocking, tokenVault.lockingBytecode])).not.to.equal(true);
     });
 
     it('prevent Bitcoin (satoshi) vault draining', async ({ expect }) => {
@@ -140,13 +112,7 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
         tx.addInput(decoyUtxo, decoyUnlocker)
             .addInput(vaultUtxo, btcVault.unlock.release())
             .addOutput({ to: attacker.tokenAddress, amount: 776777n });
-        const result = verifyTx(tx.build(), [
-            srcOut(decoyLocking, decoyUtxo.satoshis),
-            srcOut(btcVault.lockingBytecode, 777777n),
-        ]);
-        expect(result).to.equal(true);
-        await tx.send();
-        expect((await btcVault.getUtxos()).length).to.equal(0);
+        expect(verifyTransaction(tx, [decoyLocking, btcVault.lockingBytecode])).not.to.equal(true);
     });
 });
 
@@ -213,7 +179,7 @@ describe('audit: TransactionManager.inflow() accounting (F2, F3)', () => {
             ];
         });
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect((await instance.provider.getUtxos(attacker.tokenAddress)).filter(u => u.token?.category === fund.category)).toHaveLength(0);
     });
 
@@ -225,7 +191,7 @@ describe('audit: TransactionManager.inflow() accounting (F2, F3)', () => {
             withDust({ to, token: { category: fund.category, amount: fund.amount } }),
         ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect((await contracts.satoshiAssetContract!.getUtxos()).filter(u => u.token)).toHaveLength(0);
     });
 });

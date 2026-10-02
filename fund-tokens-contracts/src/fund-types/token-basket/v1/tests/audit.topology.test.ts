@@ -57,7 +57,7 @@ describe('audit: topology probes', () => {
                 { to: user.tokenAddress, amount: 800_000n },
             ]);
 
-        await expect(tx.send()).resolves.toBeDefined();
+        await expect(tx).toBeAccepted();
     });
 
     it('rejects an outflow with the manager at input 0 that pays out assets no custody input released', async () => {
@@ -87,6 +87,6 @@ describe('audit: topology probes', () => {
                 { to: user.tokenAddress, amount: fund.satoshis + DustAmount },
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
     });
 });

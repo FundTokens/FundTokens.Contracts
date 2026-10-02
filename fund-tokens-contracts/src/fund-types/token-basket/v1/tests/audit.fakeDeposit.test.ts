@@ -79,7 +79,7 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
                 { to: attacker.tokenAddress, amount: 890_000n },
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         const attackerTokens = (await provider.getUtxos(attacker.tokenAddress)).filter(u => u.token?.category === fund.category);
         expect(attackerTokens).toHaveLength(0);
     });
@@ -111,6 +111,6 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
                 { to: user.tokenAddress, amount: 1_000_000n },
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
     });
 });

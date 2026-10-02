@@ -81,7 +81,7 @@ describe('audit: zero-unit outflow drain', () => {
                 { to: attacker.tokenAddress, amount: 800_000n },                                                   // 5 change
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
 
         const remaining = (await assetContract.getUtxos())
             .filter(u => u.token?.category === asset.category)
@@ -148,7 +148,7 @@ describe('audit: zero-unit outflow drain (satoshi backing)', () => {
                 { to: attacker.tokenAddress, amount: backing + 890_000n },                                         // 4 all backing + change
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
 
         const remaining = (await satoshiContract.getUtxos())
             .filter(u => !u.token)

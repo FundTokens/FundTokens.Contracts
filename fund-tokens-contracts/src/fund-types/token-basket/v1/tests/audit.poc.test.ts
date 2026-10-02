@@ -82,7 +82,7 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
                 { to: attacker.tokenAddress, amount: 800_000n },
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect((await provider.getUtxos(attacker.tokenAddress)).filter(u => u.token?.category === fund.category)).toHaveLength(0);
     });
 
@@ -113,7 +113,7 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
                 { to: attacker.tokenAddress, amount: 800_000n },
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
     });
 
     it('rejects a broadcast that leaves a publicFund minting NFT on the startup return (PoC 2)', async () => {
@@ -139,7 +139,7 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
             token: { category: system.publicFund, amount: 0n, nft: { capability: 'minting', commitment: '02' + hashFund(newFund) } },
         };
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect((await startupContract.getUtxos()).filter(u => u.token?.category === system.publicFund)).toHaveLength(0);
     });
 
@@ -180,7 +180,7 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
                 withDust({ to: publicFundVaultContract.tokenAddress, token: parked.token }),
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect(await startupContract.getUtxos()).toContainEqual(parked);
     });
 });

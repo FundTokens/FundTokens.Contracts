@@ -47,7 +47,7 @@ describe('audit: fund-category minting NFT smuggled through a broadcast', () => 
     it('rejects a broadcast that leaves a fund-category minting NFT on the startup return', async () => {
         const { tx, fund, startupContract } = await buildSmuggledBroadcast(await bootstrapInstance());
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect((await startupContract.getUtxos()).filter(isMinterOf(fund))).toHaveLength(0);
     });
 
@@ -56,7 +56,7 @@ describe('audit: fund-category minting NFT smuggled through a broadcast', () => 
         const { tx } = await buildSmuggledBroadcast(instance);
         await tx.send().catch(() => undefined);
 
-        await expect(createFund(instance, sameFund)).resolves.toBeDefined();
+        await expect(createFund(instance, sameFund)).toBeAccepted();
     });
 
     it('does not let start() move tokens out of the startup contract', async () => {
@@ -117,6 +117,6 @@ describe('audit: fund-category minting NFT smuggled through a broadcast', () => 
                 { to: attacker.tokenAddress, amount: DustAmount, token: { category: fund.category, amount: 123_456_789n } },
             ]);
 
-        await expect(mint.send()).rejects.toThrow(/fungible tokens in the transaction outputs exceed that of the transaction inputs/);
+        await expect(mint).toBeRejected(/fungible tokens in the transaction outputs exceed that of the transaction inputs/);
     });
 });

@@ -99,7 +99,7 @@ describe('audit: thread creation co-located with a live outflow', () => {
                 { to: redeemer.tokenAddress, amount: 880_000n },                                                           // 11
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         const threads = (await managerContract.getUtxos()).filter(u => u.token?.category === system.inflow);
         expect(threads).toHaveLength(1);
     });

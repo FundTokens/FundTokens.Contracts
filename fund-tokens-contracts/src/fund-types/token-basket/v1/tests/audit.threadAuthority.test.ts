@@ -76,7 +76,7 @@ describe('audit: FundManager authorizes on thread-token presence (A, A2)', () =>
             .addOutput({ to: attacker.tokenAddress, amount: DustAmount, token: { category: fund.category, amount: supply.token!.amount } })
             .addOutput({ to: attacker.tokenAddress, amount: 4_900_000n });
 
-        await expect(steal.send()).rejects.toThrow();
+        await expect(steal).toBeRejected();
         expect(await fundContract.getUtxos()).toContainEqual(supply);
     });
 
@@ -122,7 +122,7 @@ describe('audit: FundManager authorizes on thread-token presence (A, A2)', () =>
             .addOutput({ to: attacker.tokenAddress, amount: DustAmount, token: { category: asset.category, amount: reserveTotal } })
             .addOutput({ to: attacker.tokenAddress, amount: 4_900_000n });
 
-        await expect(steal.send()).rejects.toThrow();
+        await expect(steal).toBeRejected();
         const remaining = (await assetContract.getUtxos()).reduce((sum, u) => sum + (u.token?.amount ?? 0n), 0n);
         expect(remaining).toBe(reserveTotal);
     });

@@ -58,7 +58,7 @@ describe('audit: InstanceVault.update() state change without authorization', () 
                 { to: instanceVault.tokenAddress, amount: 1000n, token: dataToken },
             ]);
 
-        await expect(update.send()).rejects.toThrow();
+        await expect(update).toBeRejected();
         const main = (await instanceVault.getUtxos()).find(u => u.token?.nft?.capability === 'mutable')!;
         expect(main.token!.nft!.commitment).toBe(binToHex(mainCommitment));
     });

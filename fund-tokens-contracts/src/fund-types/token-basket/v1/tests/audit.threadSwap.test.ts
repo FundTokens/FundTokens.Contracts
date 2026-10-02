@@ -85,7 +85,7 @@ describe('audit: thread commitments swapped between funds', () => {
         const capabilities = [...tx.inputs, ...tx.outputs].flatMap(x => (x.token?.nft ? [x.token.nft.capability] : []));
         expect(capabilities.every(c => c === 'none')).toBe(true);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect((await cA.managerContract.getUtxos()).find(u => u.token?.category === system.inflow)!.token!.nft!.commitment).toBe(commitA);
         expect((await cB.managerContract.getUtxos()).find(u => u.token?.category === system.inflow)!.token!.nft!.commitment).toBe(commitB);
     });
@@ -125,7 +125,7 @@ describe('audit: thread commitments swapped between funds', () => {
                 { to: attacker.tokenAddress, amount: 600_000n },
             ]);
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect((await cA.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!.token!.nft!.commitment).toBe(commitA);
         expect((await cB.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!.token!.nft!.commitment).toBe(commitB);
     });

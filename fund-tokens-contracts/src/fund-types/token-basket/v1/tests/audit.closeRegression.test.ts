@@ -52,7 +52,7 @@ describe('audit: close() regression (R-1) and self-authorization (R-2)', () => {
             .addOutput({ to: owner.tokenAddress, amount: DustAmount, token: auth.token! })
             .addOutput({ to: creator.tokenAddress, amount: 500_000n });
 
-        await expect(tx.send()).rejects.toThrow();
+        await expect(tx).toBeRejected();
         expect(await provider.getUtxos(attacker.tokenAddress)).toHaveLength(0);
     });
 
@@ -81,7 +81,7 @@ describe('audit: close() regression (R-1) and self-authorization (R-2)', () => {
             .addOutput({ to: attacker.tokenAddress, amount: DustAmount, token: parked.token! })
             .addOutput({ to: attacker.tokenAddress, amount: 8000n });
 
-        await expect(steal.send()).rejects.toThrow();
+        await expect(steal).toBeRejected();
         expect(await feeVaultContract.getUtxos()).toContainEqual(parked);
     });
 });
