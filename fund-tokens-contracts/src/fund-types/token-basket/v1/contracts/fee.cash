@@ -99,8 +99,18 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
                     require(tx.outputs[feeOutput].tokenCategory == fee_category);
                     require(tx.outputs[feeOutput].tokenAmount == fee_amount);
                 }
+            } else {
+                //
+                // fee_type == 0x02
+                // default destination w/ a fungible token or an OP_RETURN w/ no BCH or tokens
+                if(tx.outputs[feeOutput].lockingBytecode == defaultDestination) {
+                    require(tx.outputs[feeOutput].tokenCategory != 0x || tx.outputs[feeOutput].value > 0);
+                } else {
+                    require(tx.outputs[feeOutput].lockingBytecode.slice(0, 1) == 0x6a);
+                    require(tx.outputs[feeOutput].tokenCategory == 0x);
+                    require(tx.outputs[feeOutput].value == 0);
+                }
             }
-            // fee_type == 0x02 has nothing to validate
         } else {
             //
             // Verify default route and at least default sats are paid
