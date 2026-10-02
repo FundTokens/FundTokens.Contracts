@@ -135,9 +135,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         //
         // Spend inflow token back to self
-        // Commitment preservation enforced w/ NFT capability
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
     /**
      * outflow(bytes fund): Verify outflow signal and operate core account for user withdrawals
@@ -284,8 +284,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         //
         // Preserve UTXO w/ token back to self preserving token
-        // Commitment preservation enforced w/ NFT capability
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
     }
 }

@@ -90,43 +90,90 @@ describe('audit: thread commitments swapped between funds', () => {
         expect((await cB.managerContract.getUtxos()).find(u => u.token?.category === system.inflow)!.token!.nft!.commitment).toBe(commitB);
     });
 
-    it('rejects two zero-unit outflows that swap the funds\' outflow thread commitments', async () => {
-        const { provider, system } = instance;
-        const cA = contractsOf(fundA);
-        const cB = contractsOf(fundB);
-        const outA = (await cA.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
-        const outB = (await cB.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
-        const feeUtxos = (await cA.feeContract.getUtxos()).filter(u => !u.token);
-        const commitA = outA.token!.nft!.commitment;
-        const commitB = outB.token!.nft!.commitment;
+    describe('two one-unit redemptions in one transaction', () => {
+        const holder = generateWallet();
 
-        const attacker = generateWallet();
-        const pads = [1, 2, 3].map(() => randomUtxo({ satoshis: 60_000n }));
-        const gas = [1, 2].map(() => randomUtxo({ satoshis: 400_000n }));
-        [...pads, ...gas].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        /** Deposits one unit into `fund`, so its reserve holds exactly one unit and the holder one unit of fund tokens. */
+        async function depositOneUnit(fund: Fund) {
+            const { provider, system } = instance;
+            const funding = randomUtxo({ satoshis: 400_000n });
+            const asset = randomUtxo({ token: { category: fund.assets[0]!.category, amount: fund.assets[0]!.amount } });
+            [funding, asset].forEach(u => provider.addUtxo(holder.tokenAddress, u));
+            const inflow = new FundTokenTransactionBuilder({ provider, system, fund });
+            await inflow.addInflow({ units: 1n });
+            await inflow
+                .addInputs([funding, asset], holder.signatureTemplate.unlockP2PKH())
+                .addOutput({ to: holder.tokenAddress, amount: DustAmount, token: { category: fund.category, amount: fund.amount } })
+                .send();
+        }
 
-        const tx = new TransactionBuilder({ provider })
-            .addInput(outA, cA.managerContract.unlock.outflow(getFundBin(fundA)))  // 0
-            .addInput(feeUtxos[0]!, cA.feeContract.unlock.pay())                   // 1
-            .addInputs(pads, attacker.signatureTemplate.unlockP2PKH())             // 2, 3, 4
-            .addInput(outB, cB.managerContract.unlock.outflow(getFundBin(fundB)))  // 5
-            .addInput(feeUtxos[1]!, cB.feeContract.unlock.pay())                   // 6
-            .addInputs(gas, attacker.signatureTemplate.unlockP2PKH())              // 7, 8
-            .addOutputs([
-                withDust({ to: cA.managerContract.tokenAddress, token: { category: system.outflow, amount: 0n, nft: { capability: 'none', commitment: commitB } } }),
-                withDust({ to: cA.feeContract.tokenAddress }),
-                { to: cA.feeVaultContract.tokenAddress, amount: system.fees.execute.value },
-                { to: attacker.tokenAddress, amount: 20_000n },
-                { to: attacker.tokenAddress, amount: 20_000n },
-                withDust({ to: cB.managerContract.tokenAddress, token: { category: system.outflow, amount: 0n, nft: { capability: 'none', commitment: commitA } } }),
-                withDust({ to: cB.feeContract.tokenAddress }),
-                { to: cB.feeVaultContract.tokenAddress, amount: system.fees.execute.value },
-                { to: attacker.tokenAddress, amount: 20_000n },
-                { to: attacker.tokenAddress, amount: 600_000n },
-            ]);
+        /**
+         * Redeems one unit of each fund, each operation laid out as the builder would (manager, fee, fund
+         * supply, the whole reserve), with each outflow thread returned with its own or the other's commitment.
+         */
+        async function buildRedemptions(threads: 'own' | 'swapped') {
+            const { provider, system } = instance;
+            await depositOneUnit(fundA);
+            await depositOneUnit(fundB);
 
-        await expect(tx).toBeRejected();
-        expect((await cA.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!.token!.nft!.commitment).toBe(commitA);
-        expect((await cB.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!.token!.nft!.commitment).toBe(commitB);
+            const feeUtxos = (await contractsOf(fundA).feeContract.getUtxos()).filter(u => !u.token);
+            const holderTokens = await provider.getUtxos(holder.tokenAddress);
+            const funding = randomUtxo({ satoshis: 1_000_000n });
+            provider.addUtxo(holder.tokenAddress, funding);
+
+            const tx = new TransactionBuilder({ provider });
+            const operations = await Promise.all([fundA, fundB].map(async (fund, i) => {
+                const contracts = contractsOf(fund);
+                return {
+                    fund,
+                    contracts,
+                    thread: (await contracts.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!,
+                    supply: (await contracts.fundContract.getUtxos()).find(u => u.token?.category === fund.category)!,
+                    reserve: (await contracts.assetContracts[0]!.getUtxos()).find(u => u.token?.category === fund.assets[0]!.category)!,
+                    fee: feeUtxos[i]!,
+                };
+            }));
+            const commitments = operations.map(op => op.thread.token!.nft!.commitment);
+            const returned = threads === 'own' ? commitments : [...commitments].reverse();
+
+            operations.forEach(({ fund, contracts, thread, supply, reserve, fee }, i) => {
+                tx
+                    .addInput(thread, contracts.managerContract.unlock.outflow(getFundBin(fund))) // a
+                    .addInput(fee, contracts.feeContract.unlock.pay())                            // a+1
+                    .addInput(supply, contracts.fundContract.unlock.redeem())                     // a+2
+                    .addInput(reserve, contracts.assetContracts[0]!.unlock.release())             // a+3
+                    .addOutputs([
+                        withDust({ to: contracts.managerContract.tokenAddress, token: { category: system.outflow, amount: 0n, nft: { capability: 'none', commitment: returned[i]! } } }),
+                        withDust({ to: contracts.feeContract.tokenAddress }),
+                        { to: contracts.feeVaultContract.tokenAddress, amount: system.fees.execute.value },
+                        withDust({ to: contracts.fundContract.tokenAddress, token: { category: fund.category, amount: supply.token!.amount + fund.amount } }),
+                    ]);
+            });
+            tx
+                .addInputs([...holderTokens.filter(u => u.token), funding], holder.signatureTemplate.unlockP2PKH())
+                .addOutputs(operations.map(({ reserve }) => withDust({ to: holder.tokenAddress, token: reserve.token! })))
+                .addOutput({ to: holder.tokenAddress, amount: 700_000n });
+
+            const threadsAfter = () => Promise.all(operations.map(async ({ contracts }) =>
+                (await contracts.managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!.token!.nft!.commitment));
+            return { tx, commitments, threadsAfter };
+        }
+
+        it('accepts them when each outflow thread returns unchanged (control)', async () => {
+            const { tx, commitments, threadsAfter } = await buildRedemptions('own');
+            await expect(tx).toBeAccepted();
+            expect(await threadsAfter()).toEqual(commitments);
+        });
+
+        it('rejects them when each fund\'s outflow thread returns with the other\'s commitment', async () => {
+            const { tx, commitments, threadsAfter } = await buildRedemptions('swapped');
+
+            // No minting or mutable NFT anywhere in the transaction.
+            const capabilities = [...tx.inputs, ...tx.outputs].flatMap(x => (x.token?.nft ? [x.token.nft.capability] : []));
+            expect(capabilities.every(c => c === 'none')).toBe(true);
+
+            await expect(tx).toBeRejected();
+            expect(await threadsAfter()).toEqual(commitments);
+        });
     });
 });
