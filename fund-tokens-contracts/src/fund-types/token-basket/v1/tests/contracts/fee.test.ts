@@ -2,7 +2,6 @@ import { test } from 'vitest';
 
 import {
     MockNetworkProvider,
-    Network,
     randomToken,
     randomUtxo,
     TransactionBuilder,
@@ -23,8 +22,6 @@ import systemUnderTestJson from '../../artifacts/fee.js';
 const DustAmount = 1000n;
 
 describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () => {
-    const network = Network.MOCKNET;
-
     const provider = new MockNetworkProvider({
         updateUtxoSet: true,
     });
@@ -260,7 +257,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    it('allows voluntary payment', async () => {
+    it('voluntary payments allow no payment (use OP_RETURN output)', async () => {
         const feeUtxo = randomUtxo();
         provider.addUtxo(userWallet.address, feeUtxo);
         const transaction = new TransactionBuilder({ provider });
@@ -272,6 +269,58 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     to: systemUnderTest.tokenAddress,
                     amount: voluntaryFeeUtxo.satoshis,
                     token: voluntaryFeeUtxo.token,
+                },
+            ])
+            .addOpReturnOutput([]);
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('allows voluntary BCH payment to default destination', async () => {
+        const feeUtxo = randomUtxo();
+        provider.addUtxo(userWallet.address, feeUtxo);
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(voluntaryFeeUtxo, systemUnderTest.unlock.pay())
+            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: voluntaryFeeUtxo.satoshis,
+                    token: voluntaryFeeUtxo.token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                },
+            ]);
+        expect(transaction).not.toFailRequire();
+    });
+
+    it('allows voluntary token payment to default destination', async () => {
+        const feeUtxo = randomUtxo({
+            token: {
+                category: payByToken.category,
+                amount: 1n,
+            },
+        });
+        provider.addUtxo(userWallet.address, feeUtxo);
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(voluntaryFeeUtxo, systemUnderTest.unlock.pay())
+            .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: voluntaryFeeUtxo.satoshis,
+                    token: voluntaryFeeUtxo.token,
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        category: payByToken.category,
+                        amount: 1n,
+                    }
                 },
             ]);
         expect(transaction).not.toFailRequire();

@@ -54,6 +54,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         bool break = false;
         while(tx.inputs.length > fundInputIndex && !break) {
             if(tx.inputs[fundInputIndex].lockingBytecode == fundManager) {
+                require(tx.inputs[fundInputIndex].tokenCategory == 0x || tx.inputs[fundInputIndex].tokenCategory == fundCategory);
                 fundInputAmount = fundInputAmount + tx.inputs[fundInputIndex].tokenAmount;
                 fundInputIndex = fundInputIndex + 1;
             } else {
@@ -66,6 +67,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         break = false;
         while(tx.outputs.length > fundOutputIndex && !break) {
             if(tx.outputs[fundOutputIndex].lockingBytecode == fundManager) {
+                require(tx.outputs[fundOutputIndex].tokenCategory == 0x || tx.outputs[fundOutputIndex].tokenCategory == fundCategory);
                 fundOutputAmount = fundOutputAmount + tx.outputs[fundOutputIndex].tokenAmount;
                 fundOutputIndex = fundOutputIndex + 1;
             } else {

@@ -40,7 +40,11 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
 
         //
         // Previous input must be the inflow token or another FundManager for this fund
-        bool prevFundManager = tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode;
+        int prevInput = this.activeInputIndex - 1;
+        bool prevFundManager = tx.inputs[prevInput].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode;
+        if(prevFundManager && tx.inputs[prevInput].tokenCategory != 0x) {
+            require(tx.inputs[prevInput].tokenCategory == fundCategory);
+        }
         require(prevInflow || prevFundManager);
     }
 
@@ -71,7 +75,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
         int prevInput = this.activeInputIndex - 1;
         bool prevFundManager = tx.inputs[prevInput].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode;
         if(prevFundManager && tx.inputs[prevInput].tokenCategory != 0x) {
-            require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory);
+            require(tx.inputs[prevInput].tokenCategory == fundCategory);
         }
         require(prevOutflow || prevFundManager);
     }
