@@ -12,8 +12,9 @@ pragma cashscript ~0.13.0;
  *   outflowToken: Outflow token category (signals redemption operation)
  *   fundCategory: Fund token category held in this contract
  *   fundHash: Hash of fund parameters (ensures correct fund)
+ *   transactionManager: Locking bytecode of this fund's TransactionManager (authenticates the inflow/outflow)
  */
-contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCategory, bytes fundHash)
+contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCategory, bytes fundHash, bytes transactionManager)
 {    
     /**
      * mint(): Release fund tokens during inflow (user deposit)
@@ -23,7 +24,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      * Ensure at least the leading contract is returned (i.e. at least one UTXO is returned for future redemptions).
      * 
      * Ensures:
-     * - Linked to a FundManager or inflow token at expected input
+     * - Linked to a FundManager or the TransactionManager's inflow token at expected input
      * - At least one output is returned (ready for redeem)
      * - If tokens are returned, then the token is the fund's
      */
@@ -31,7 +32,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
         //
         // Check for inflow and verify it's for this fund
         int prevInflowInput = this.activeInputIndex - 2;
-        bool prevInflow = tx.inputs[prevInflowInput].tokenCategory == inflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(0x02 + fundCategory + fundHash);
+        bool prevInflow = tx.inputs[prevInflowInput].lockingBytecode == transactionManager && tx.inputs[prevInflowInput].tokenCategory == inflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(0x02 + fundCategory + fundHash);
         if(prevInflow) {
             int nextOutput = this.activeInputIndex + 1;
             require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[nextOutput].lockingBytecode); // at least one UTXO is returned
@@ -55,7 +56,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
      * Look for the outflow token or another instance of this contract.
      *
      * Ensures:
-     * - Link to a FundManager or outflow token at expected input
+     * - Link to a FundManager or the TransactionManager's outflow token at expected input
      * - At least one output is returned
      * - Tokens returned are the fund's tokens
      */
@@ -63,7 +64,7 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
         //
         // Check for outflow and verify it's for this fund
         int prevInflowInput = this.activeInputIndex - 2;
-        bool prevOutflow = tx.inputs[prevInflowInput].tokenCategory == outflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(0x02 + fundCategory + fundHash);
+        bool prevOutflow = tx.inputs[prevInflowInput].lockingBytecode == transactionManager && tx.inputs[prevInflowInput].tokenCategory == outflowToken && tx.inputs[prevInflowInput].nftCommitment == bytes(0x02 + fundCategory + fundHash);
         if(prevOutflow) {
             int nextOutput = this.activeInputIndex + 1;
             require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[nextOutput].lockingBytecode);
@@ -79,4 +80,4 @@ contract FundManager(bytes32 inflowToken, bytes32 outflowToken, bytes fundCatego
         }
         require(prevOutflow || prevFundManager);
     }
-}
+}

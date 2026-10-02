@@ -47,7 +47,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         //
         // Calculate the final released tokens
-        bytes fundManager = new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract));
+        // This TransactionManager as pushed in FundManager and AssetManager parameters
+        bytes managerPush = 0x23 + tx.inputs[this.activeInputIndex].lockingBytecode;
+        bytes fundManager = new LockingBytecodeP2SH32(hash256(managerPush + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract));
 
         int fundInputAmount = 0;
         int fundInputIndex = this.activeInputIndex + 2;
@@ -91,7 +93,6 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         //
         // AssetManager parameters as pushed: linked AssetManager, this TransactionManager, asset category, fund hash, outflow token
         // Each AssetManager links to the one before it (satoshis first), the first links to nothing (empty push)
-        bytes assetManagerPush = 0x23 + tx.inputs[this.activeInputIndex].lockingBytecode;
         bytes assetTail = 0x20 + fundHash + 0x20 + outflowToken + assetContract;
 
         //
@@ -106,7 +107,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // If fund supports satoshi backing then verify locking asset destination and amounts
         // Fund amounts are > 0 (startup), so a whole multiple is a product
         if(fundSats > 0) {
-            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + assetManagerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
+            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
             require(tx.outputs[assetOutputIndex].lockingBytecode == satoshiLockingBytecode);
             require(tx.outputs[assetOutputIndex].value == fundReleasedAmount * fundSats);
             require(tx.outputs[assetOutputIndex].tokenCategory == 0x);
@@ -123,7 +124,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
             //
             // Verify the asset destination, category, and amounts
-            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + assetManagerPush + 0x20 + nft_assetCategory + assetTail));
+            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x20 + nft_assetCategory + assetTail));
             require(tx.outputs[assetOutputIndex].lockingBytecode == assetLockingBytecode);
             require(tx.outputs[assetOutputIndex].tokenCategory == nft_assetCategory);
             require(tx.outputs[assetOutputIndex].tokenAmount == fundReleasedAmount * int(nft_assetAmount));
@@ -167,7 +168,9 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         //
         // Calculate the final deposited tokens
-        bytes managerContract = new LockingBytecodeP2SH32(hash256(0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract));
+        // This TransactionManager as pushed in FundManager and AssetManager parameters
+        bytes managerPush = 0x23 + tx.inputs[this.activeInputIndex].lockingBytecode;
+        bytes managerContract = new LockingBytecodeP2SH32(hash256(managerPush + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + fundContract));
         
         int fundInputAmount = 0;
         int fundInputIndex = this.activeInputIndex + 2;
@@ -205,7 +208,6 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         //
         // AssetManager parameters as pushed: linked AssetManager, this TransactionManager, asset category, fund hash, outflow token
         // Each AssetManager links to the one before it (satoshis first), the first links to nothing (empty push)
-        bytes assetManagerPush = 0x23 + tx.inputs[this.activeInputIndex].lockingBytecode;
         bytes assetTail = 0x20 + fundHash + 0x20 + outflowToken + assetContract;
 
         //
@@ -220,7 +222,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         //
         // If fund support satoshi backing then verify releasing asset location and aggregate amounts
         if(fundSats > 0) {
-            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + assetManagerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
+            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
             linkedAssetPush = 0x23 + satoshiLockingBytecode;
             int satoshiReleaseAmount = 0;
             bool hasNext = true;
@@ -251,7 +253,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             // Calculate asset release amount w/ variable inputs and change
             bytes nft_assetCategory, bytes nft_assetAmount = nft_assetData.split(40)[0].split(32);
             nft_assetData = nft_assetData.split(40)[1];
-            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + assetManagerPush + 0x20 + nft_assetCategory + assetTail));
+            bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x20 + nft_assetCategory + assetTail));
             linkedAssetPush = 0x23 + assetLockingBytecode;
             int assetReleaseAmount = 0;
             bool hasNext = true;

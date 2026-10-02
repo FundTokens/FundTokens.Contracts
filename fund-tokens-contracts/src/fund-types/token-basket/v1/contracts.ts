@@ -139,8 +139,6 @@ export function deriveFundContracts(provider: NetworkProvider, system: SystemPar
     const category = swapEndianness(fund.category);
     const fundHash = hashFund(fund);
 
-    const fundContract = new Contract(fundArtifact, [inflow, outflow, category, fundHash], options(provider));
-
     const feeVaultContract = deriveFeeVault(provider, system);
     const feeContract = deriveFeeContract(provider, system, feeVaultContract, system.fees.execute);
 
@@ -154,6 +152,9 @@ export function deriveFundContracts(provider: NetworkProvider, system: SystemPar
         hexToBin(assetArtifact.debug.bytecode),
     ], options(provider));
     const managerLockingBytecode = lockingBytecodeHexOf(managerContract.tokenAddress);
+
+    // The FundManager and every AssetManager only act alongside this fund's TransactionManager.
+    const fundContract = new Contract(fundArtifact, [inflow, outflow, category, fundHash, managerLockingBytecode], options(provider));
 
     // Each AssetManager is bound to the manager and linked to the one redeemed before it
     // (satoshis first, then assets by ascending category); the first links to nothing.
