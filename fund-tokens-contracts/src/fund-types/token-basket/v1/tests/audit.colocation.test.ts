@@ -76,7 +76,7 @@ describe('audit: thread creation co-located with a live outflow', () => {
             .addInput(createFee, createFundFeeContract.unlock.pay())                     // 3  s+3
             .addInput(funding, redeemer.signatureTemplate.unlockP2PKH())                 // 4  s+4
             .addInput(fundTokens, holder.signatureTemplate.unlockP2PKH())                // 5  s+5
-            .addInput(outflowThread, managerContract.unlock.outflow(getFundBin(fund)))   // 6  a = s+6
+            .addInput(outflowThread, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))   // 6  a = s+6
             .addInput(executeFee, executeFundFeeContract.unlock.pay())                   // 7  a+1
             .addInput(supply, fundContract.unlock.redeem())                              // 8  a+2
             .addInput(reserve, assetContract.unlock.release())                           // 9  a+3

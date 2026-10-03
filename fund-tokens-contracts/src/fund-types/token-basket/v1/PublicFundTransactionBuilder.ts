@@ -6,7 +6,7 @@ import { silentLogger, type Logger } from '../../../core/logger.js';
 import { withDust } from '../../../core/outputs.js';
 import { pickRandom } from '../../../core/random.js';
 import { deriveFundContracts, deriveSystemContracts, type FundContracts, type SystemContracts } from './contracts.js';
-import { getFundCommitment, getFundHex, hashFund } from './encoding.js';
+import { getFundCommitment, getFundHex, getPadding, hashFund } from './encoding.js';
 import { getBestFee } from './fees.js';
 import { normalizeFund, validateFund } from './fund.js';
 import { parseSystemParameters } from './parameters.js';
@@ -34,6 +34,11 @@ export interface BroadcastOptions {
      * e.g. to prove the contracts reject them.
      */
     validate?: boolean | undefined;
+    /**
+     * Bytes of padding for PublicFund (default 0). Each byte raises its operation cost budget
+     * by 800: needed only by funds too large to broadcast within the default budget.
+     */
+    padding?: number | undefined;
 }
 
 /**
@@ -76,7 +81,7 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
      *
      * The caller adds BCH (or `payBy` tokens) for the create fee, and change.
      */
-    async addBroadcast({ fund, payBy, validate = true }: BroadcastOptions): Promise<this> {
+    async addBroadcast({ fund, payBy, validate = true, padding = 0 }: BroadcastOptions): Promise<this> {
         const {
             feeVaultContract,
             createFundFeeContract,
@@ -88,6 +93,7 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
             publicFundVaultContract,
         } = this.contracts;
 
+        const paddingBytes = getPadding(padding);
         const genesisUtxo = this.inputs[0];
         if (!genesisUtxo) {
             throw new FundTokensError('INVALID_TRANSACTION_STATE',
@@ -157,7 +163,7 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
             { ...inflowUtxo, unlocker: mintInflowContract.unlock.mint() },
             { ...outflowUtxo, unlocker: mintOutflowContract.unlock.mint() },
             { ...fee.utxo, unlocker: createFundFeeContract.unlock.pay() },
-            { ...publicFundUtxo, unlocker: publicFundContract.unlock.broadcast() },
+            { ...publicFundUtxo, unlocker: publicFundContract.unlock.broadcast(paddingBytes) },
         ]).addOutputs([
             { to: startupContract.tokenAddress, amount: startupUtxo.satoshis, ...(startupUtxo.token && { token: startupUtxo.token }) },
             { to: mintInflowContract.tokenAddress, amount: inflowUtxo.satoshis, ...(inflowUtxo.token && { token: inflowUtxo.token }) },

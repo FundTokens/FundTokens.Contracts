@@ -62,7 +62,7 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
         const minted = 5n * fund.amount;
 
         tx
-            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund)))  // 0
+            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))  // 0
             .addInput(feeUtxo, feeContract.unlock.pay())                              // 1
             .addInput(fundUtxo, fundContract.unlock.redeem())                         // 2 accounted supply
             .addInput(gapUtxo, attacker.signatureTemplate.unlockP2PKH())              // 3 ends the walk
@@ -94,7 +94,7 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
         const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 2_000_000n }));
 
         tx
-            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund))) // 0
+            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund), new Uint8Array())) // 0
             .addInput(fundUtxo, fundContract.unlock.mint())                        // 1
             .addInput(feeUtxo, feeContract.unlock.pay())                           // 2
             .addInput(funding, user.signatureTemplate.unlockP2PKH())

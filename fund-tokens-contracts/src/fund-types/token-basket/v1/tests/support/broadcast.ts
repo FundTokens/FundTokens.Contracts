@@ -46,7 +46,7 @@ export async function buildManualBroadcast({ provider, system }: TestInstance, {
         .addInput(inflowMint, mintInflowContract.unlock.mint())                       // 2
         .addInput(outflowMint, mintOutflowContract.unlock.mint())                     // 3
         .addInput(fee.utxo, fee.unlocker)                                             // 4 create fee
-        .addInput(publicFundUtxo, publicFundContract.unlock.broadcast())              // 5 public fund
+        .addInput(publicFundUtxo, publicFundContract.unlock.broadcast(new Uint8Array()))              // 5 public fund
         .addOutputs([
             tx.getAuthHeadOutput(),                                                                              // 0 authhead
             { to: startupContract.tokenAddress, amount: startupUtxo.satoshis },                                   // 1 startup return

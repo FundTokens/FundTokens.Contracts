@@ -207,7 +207,7 @@ new PublicFundTransactionBuilder({
 | `contracts` / `getContracts()` | `SystemContracts`: `feeVaultContract`, `createFundFeeContract`, `executeFundFeeContract`, `startupContract`, `mintInflowContract`, `mintOutflowContract`, `publicFundContract`, `authHeadVaultContract`, `publicFundVaultContract` |
 | `getFundContracts(fund)` | The `FundContracts` of a fund on this instance (no network access) |
 | `getAuthHeadOutput()` | The fund's identity output; must be output 0 |
-| `addBroadcast({ fund, payBy?, validate? })` | Adds the contract side of creating `fund`; resolves to the builder |
+| `addBroadcast({ fund, payBy?, validate?, padding? })` | Adds the contract side of creating `fund`; resolves to the builder. `padding` (bytes, default 0) buys PublicFund more compute; see [Performance considerations](#performance-considerations) |
 
 **`addBroadcast` preconditions**
 
@@ -243,8 +243,11 @@ new FundTokenTransactionBuilder({
 | --- | --- |
 | `system`, `fund` | Parsed parameters and fund (frozen) |
 | `contracts` / `getContracts()` | `FundContracts`: `managerContract` (TransactionManager), `fundContract` (FundManager), `assetContracts` (AssetManager per asset, ascending), `satoshiAssetContract` (only when `satoshis > 0`), `feeContract` (execute fee), `feeVaultContract` |
-| `addInflow({ units, payBy? })` | Adds the contract side of minting `units` whole units |
-| `addOutflow({ units, payBy? })` | Adds the contract side of redeeming `units` whole units |
+| `addInflow({ units, payBy?, padding? })` | Adds the contract side of minting `units` whole units |
+| `addOutflow({ units, payBy?, padding? })` | Adds the contract side of redeeming `units` whole units |
+
+`padding` (bytes, default 0) buys the TransactionManager more compute; see
+[Performance considerations](#performance-considerations).
 
 Both need equal input and output counts when called. Add your own inputs and outputs
 before or after, in matching numbers.
@@ -340,6 +343,16 @@ constructor arguments and `unlock.*()` calls are type-checked.
 1. **Thread randomization**: builders pick random inflow/outflow threads, supply UTXOs and equally cheap fee UTXOs to spread concurrent users.
 2. **Custody selection**: redemption spends custody UTXOs largest first, so a redemption needs few inputs.
 3. **Transaction size** grows with the number of assets (inputs and outputs per asset, plus 40 bytes of fund encoding per asset).
+4. **Compute budget**: each input may spend (41 + its unlocking bytecode length) × 800 operation cost. Inputs whose work grows with the fund faster than their unlocking bytecode run out first:
+
+| Contract function | Largest fund without padding | Why |
+| --- | --- | --- |
+| PublicFund `broadcast()` | 78 assets | Its budget is fixed (about 563,000); each asset costs about 6,000 |
+| TransactionManager `outflow()` | 108 assets | Each asset costs about 48,000; the fund it is passed adds 32,000 of budget per asset |
+| TransactionManager `inflow()` | Not reached | Each asset costs about 30,000, under the 32,000 it adds (52% of budget at 109 assets) |
+| FundStartup `start()` | 144 assets | No padding: the largest fund that can be created |
+
+Pass `padding` (bytes) to `addBroadcast`, `addInflow` or `addOutflow` to buy more: each byte adds 800 to that input's budget, for about 1 satoshi of fee at 1 sat/byte. For example, an 80-asset broadcast with `padding: 100` uses 569,220 of its 644,000 budget. Redeeming from the largest fund (144 assets) takes about 1,000 bytes of `outflow` padding. A standard unlocking bytecode is at most 10,000 bytes, which the TransactionManager's fund encoding, padding and its own bytecode share.
 
 **Measured sizes** (from the test suite):
 

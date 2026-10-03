@@ -41,7 +41,9 @@ export {
     getFundBin,
     getFundCommitment,
     getFundHex,
+    getPadding,
     hashFund,
+    MaxPaddingBytes,
     sortAssets,
 } from './encoding.js';
 export { decodeFee, encodeFee, getAvailableFees, getBestFee } from './fees.js';

@@ -299,9 +299,9 @@ fund_category (32 bytes) | hash256(fund) (32 bytes)
 
 **Functions**:
 
-#### `broadcast(bytes fund)`
+#### `broadcast(bytes padding)`
 
-Broadcasts fund parameters in chunks via transaction outputs.
+Broadcasts fund parameters in chunks via transaction outputs. `padding` is ignored. An input's operation cost budget is (41 + its unlocking bytecode length) × 800, so each byte of padding buys 800 more: how a fund too large for the default budget pays for the compute it needs (see [Performance considerations](03-TRANSACTION_BUILDER_API.md#performance-considerations)).
 
 **Validation**:
 1. First input must have vout==0 and no token (genesis input)
@@ -414,9 +414,9 @@ The fund's FundManager and AssetManager addresses are derived at run time from t
 
 **Functions**:
 
-#### `inflow(bytes fund)`
+#### `inflow(bytes fund, bytes padding)`
 
-Validates an inflow (minting) transaction. The operation is laid out from this input (`a`): fee at `a + 1`, FundManager inputs from `a + 2`, FundManager outputs from `a + 3`, then the custody outputs.
+Validates an inflow (minting) transaction. The operation is laid out from this input (`a`): fee at `a + 1`, FundManager inputs from `a + 2`, FundManager outputs from `a + 3`, then the custody outputs. `padding` is ignored. An input's operation cost budget is (41 + its unlocking bytecode length) × 800, so each byte of padding buys 800 more: how a fund too large for the default budget pays for the compute it needs (see [Performance considerations](03-TRANSACTION_BUILDER_API.md#performance-considerations)).
 
 **Validation**:
 1. `hash256(fund)` matches `fundHash`; this input carries the inflow thread with the fund's commitment (`0x02 + fundCategory + fundHash`)
@@ -428,12 +428,12 @@ Validates an inflow (minting) transaction. The operation is laid out from this i
 
 **Usage**: Inflow transaction initiation, fund token minting
 
-#### `outflow(bytes fund)`
+#### `outflow(bytes fund, bytes padding)`
 
 Validates an outflow (redemption) transaction, laid out like `inflow()`.
 
 **Validation**:
-1. Same checks on `fund`, the outflow thread and the fee as `inflow()`
+1. Same checks on `fund`, the outflow thread and the fee as `inflow()`; `padding` is likewise ignored
 2. Each counted FundManager input and output holds only the fund token; fund tokens collected (`output - input`) must be a whole multiple of the fund amount and more than zero
 3. Reserve inputs must follow the FundManager inputs with no gap: satoshis first, then each asset in ascending category order, each as one contiguous run of that AssetManager's UTXOs (several UTXOs of one asset may be spent)
 4. Change may return to each AssetManager right after the FundManager outputs, in the same order; per reserve, released (`inputs - change`) must equal `units × amount`

@@ -6,7 +6,7 @@ import { dustThreshold, withDust } from '../../../core/outputs.js';
 import { pickRandom, shuffle } from '../../../core/random.js';
 import { assertInRange, toBigInt, type BigIntish } from '../../../core/validation.js';
 import { deriveFundContracts, type AssetManagerContract, type FundContracts } from './contracts.js';
-import { getFundBin } from './encoding.js';
+import { getFundBin, getPadding } from './encoding.js';
 import { getBestFee } from './fees.js';
 import { normalizeFund, validateFund } from './fund.js';
 import { parseSystemParameters } from './parameters.js';
@@ -33,6 +33,11 @@ export interface FundFlowOptions {
     units: BigIntish;
     /** Token category to pay the execute fee in; BCH when omitted. */
     payBy?: string | undefined;
+    /**
+     * Bytes of padding for the TransactionManager (default 0). Each byte raises its operation
+     * cost budget by 800: needed only by funds too large to process within the default budget.
+     */
+    padding?: number | undefined;
 }
 
 interface Selection<T> {
@@ -97,9 +102,10 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
      * The caller adds: inputs supplying those assets plus BCH for fees, an output
      * receiving `units × fund.amount` fund tokens, and change.
      */
-    async addInflow({ units, payBy }: FundFlowOptions): Promise<this> {
+    async addInflow({ units, payBy, padding = 0 }: FundFlowOptions): Promise<this> {
         this.#assertAligned('addInflow');
         const count = this.#units(units);
+        const paddingBytes = getPadding(padding);
         const { managerContract, fundContract, assetContracts, satoshiAssetContract, feeContract, feeVaultContract } = this.contracts;
         const mintAmount = this.fund.amount * count;
 
@@ -162,7 +168,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         });
 
         this.addInputs([
-            { ...inflowUtxo, unlocker: managerContract.unlock.inflow(getFundBin(this.fund)) },
+            { ...inflowUtxo, unlocker: managerContract.unlock.inflow(getFundBin(this.fund), paddingBytes) },
             { ...fee.utxo, unlocker: feeContract.unlock.pay() },
             ...supply.map((utxo): UnlockableUtxo => ({ ...utxo, unlocker: fundContract.unlock.mint() })),
         ]).addOutputs([
@@ -185,9 +191,10 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
      * The caller adds: inputs supplying `units × fund.amount` fund tokens plus BCH
      * for fees, outputs receiving the released BCH and assets, and change.
      */
-    async addOutflow({ units, payBy }: FundFlowOptions): Promise<this> {
+    async addOutflow({ units, payBy, padding = 0 }: FundFlowOptions): Promise<this> {
         this.#assertAligned('addOutflow');
         const count = this.#units(units);
+        const paddingBytes = getPadding(padding);
         const { managerContract, fundContract, assetContracts, satoshiAssetContract, feeContract, feeVaultContract } = this.contracts;
         const redeemAmount = this.fund.amount * count;
 
@@ -261,7 +268,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         });
 
         this.addInputs([
-            { ...outflowUtxo, unlocker: managerContract.unlock.outflow(getFundBin(this.fund)) },
+            { ...outflowUtxo, unlocker: managerContract.unlock.outflow(getFundBin(this.fund), paddingBytes) },
             { ...fee.utxo, unlocker: feeContract.unlock.pay() },
             { ...fundUtxo, unlocker: fundContract.unlock.redeem() },
             ...releaseInputs,

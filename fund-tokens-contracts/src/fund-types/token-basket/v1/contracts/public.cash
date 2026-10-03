@@ -19,7 +19,11 @@ pragma cashscript ^0.14.0;
 contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, bytes32 token, bytes32 startupContract, bytes fundContract, bytes32 inflowToken, bytes32 outflowToken)
 {   
     /**
-     * broadcast(): Verify new token safely created and broadcast fund parameters
+     * broadcast(bytes padding): Verify new token safely created and broadcast fund parameters
+     *
+     * Parameters:
+     *   padding: Ignored. Each byte raises this input's operation cost budget by 800 (the budget is
+     *     (41 + unlocking bytecode length) * 800), so larger funds can pay for the compute they need
      * 
      * Broadcasting encodes public fund details into a series of NFT commitments.
      * Verifies the user did not create additional system tokens or fund tokens.
@@ -35,7 +39,7 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
      * - Transaction manager contract properly calculated from fund parameters
      * - No unauthorized token minting
      */
-    function broadcast() {
+    function broadcast(bytes padding) {
         //
         // Verify genesis input (first input) is confirmed for fund creation
         require(tx.inputs[0].outpointIndex == 0);

@@ -58,6 +58,21 @@ export const getFundBin = (fund: Fund): Uint8Array => hexToBin(getFundHex(fund))
 /** hash256 of the fund encoding; what the contracts commit to. */
 export const hashFund = (fund: Fund): string => binToHex(hash256(getFundBin(fund)));
 
+/** The most padding one push can carry: a stack item is at most 10,000 bytes. */
+export const MaxPaddingBytes = 10_000;
+
+/**
+ * Padding for `broadcast()`, `inflow()` and `outflow()`, which ignore it. An input's operation
+ * cost budget is (41 + its unlocking bytecode length) × 800, so each byte of padding buys 800 more:
+ * how a fund too large to process within the default budget pays for the compute it needs.
+ */
+export function getPadding(bytes: number): Uint8Array {
+    if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > MaxPaddingBytes) {
+        throw new FundTokensError('INVALID_ARGUMENT', `padding must be a whole number of bytes from 0 to ${MaxPaddingBytes}; got ${bytes}`);
+    }
+    return new Uint8Array(bytes);
+}
+
 /** The full public fund commitment: type byte, fund hash, then the fund encoding. */
 export function getFundCommitment(fund: Fund): string {
     const fundHex = getFundHex(fund);

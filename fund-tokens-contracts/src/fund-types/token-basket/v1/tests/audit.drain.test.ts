@@ -65,7 +65,7 @@ describe('audit: zero-unit outflow drain', () => {
         const gapUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
-            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund)))           // 0
+            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))           // 0
             .addInput(feeUtxo, feeContract.unlock.pay())                                       // 1
             .addInput(fundUtxo, fundContract.unlock.redeem())                                  // 2
             .addInput(gapUtxo, attacker.signatureTemplate.unlockP2PKH())                       // 3
@@ -131,7 +131,7 @@ describe('audit: zero-unit outflow drain (satoshi backing)', () => {
         const gapUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
-            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund)))               // 0
+            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))               // 0
             .addInput(feeUtxo, feeContract.unlock.pay())                                           // 1
             .addInput(fundUtxo, fundContract.unlock.redeem())                                      // 2
             .addInput(gapUtxo, attacker.signatureTemplate.unlockP2PKH())                           // 3

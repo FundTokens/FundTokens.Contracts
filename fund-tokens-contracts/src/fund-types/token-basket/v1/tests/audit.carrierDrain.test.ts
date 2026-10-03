@@ -51,7 +51,7 @@ describe('audit: carrier value and immutable NFT drained by a zero-unit outflow'
         const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 400_000n }));
 
         tx
-            .addInput(outflowThread, managerContract.unlock.outflow(getFundBin(fund)))  // 0
+            .addInput(outflowThread, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))  // 0
             .addInput(feeUtxo, feeContract.unlock.pay())                                // 1
             .addInput(supply, fundContract.unlock.redeem())                             // 2
             .addInput(reserve, assetContracts[0]!.unlock.release())                     // 3 accounted reserve

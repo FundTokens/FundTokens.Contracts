@@ -41,7 +41,7 @@ describe('audit: topology probes', () => {
         const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
-            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund)))
+            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund), new Uint8Array()))
             .addInput(feeUtxo, feeContract.unlock.pay())
             .addInput(fundUtxo, fundContract.unlock.mint())
             .addInputs([funding, ...assetUtxos], user.signatureTemplate.unlockP2PKH())
@@ -72,7 +72,7 @@ describe('audit: topology probes', () => {
         const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
-            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund)))
+            .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))
             .addInput(feeUtxo, feeContract.unlock.pay())
             .addInput(fundUtxo, fundContract.unlock.redeem())
             .addInputs([funding, fundTokens], user.signatureTemplate.unlockP2PKH())
