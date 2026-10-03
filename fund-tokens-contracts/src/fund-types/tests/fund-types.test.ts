@@ -28,14 +28,9 @@ describe('TokenBasket.resolve', () => {
         expect(TokenBasket.resolve({ type: 'fixed-basket', version: 'v1' })).toBe(TokenBasket.v1);
     });
 
-    it('resolves releases whose contracts are identical to v1', () => {
-        expect(TokenBasket.resolve({ type: 'fixed-basket', version: '0.1.0-rc14' })).toBe(TokenBasket.v1);
-        expect(TokenBasket.resolve({ type: 'fixed-basket', version: '0.1.0-rc15' })).toBe(TokenBasket.v1);
-    });
-
-    it('rejects releases with different contracts', () => {
-        expect(() => TokenBasket.resolve({ type: 'fixed-basket', version: '0.1.0-rc12' }))
-            .toThrow(expect.objectContaining({ code: 'UNSUPPORTED_FUND_TYPE', message: expect.stringMatching(/0\.1\.0-rc12/) }));
+    it('rejects an npm package version in place of the contract version', () => {
+        expect(() => TokenBasket.resolve({ type: 'fixed-basket', version: '0.1.0-rc15' }))
+            .toThrow(expect.objectContaining({ code: 'UNSUPPORTED_FUND_TYPE', message: expect.stringMatching(/0\.1\.0-rc15/) }));
     });
 
     it('rejects instances of another type', () => {

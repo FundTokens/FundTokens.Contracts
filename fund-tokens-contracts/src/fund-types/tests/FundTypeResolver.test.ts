@@ -55,8 +55,8 @@ describe('FundTypeResolver', () => {
     describe('supports', () => {
         it.each([
             ['the contract version id', { type: 'fixed-basket', version: 'v1' }, true],
-            ['a release with identical contracts', { type: 'fixed-basket', version: '0.1.0-rc15' }, true],
-            ['a release with different contracts', { type: 'fixed-basket', version: '0.1.0-rc12' }, false],
+            ['an npm package version', { type: 'fixed-basket', version: '0.1.0-rc15' }, false],
+            ['an unknown contract version', { type: 'fixed-basket', version: 'v9' }, false],
             ['an unknown fund type', { type: 'mean-reversion', version: 'v1' }, false],
             ['a library key instead of the registry type', { type: 'token-basket', version: 'v1' }, false],
             ['a planned fund type', { type: 'weighted-bch-usd', version: 'v1' }, false],

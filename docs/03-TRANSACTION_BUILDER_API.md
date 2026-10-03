@@ -88,15 +88,14 @@ parses them with the instance's version.
 | `fundTypes` | Every known fund type descriptor |
 | `getFundType(keyOrRegistryType)` | Descriptor lookup, or `undefined` |
 
-**`resolve(instance)`** returns the version whose `id` equals `instance.version`, or whose
-`releases` lists it (library releases that deployed byte-identical contracts). It throws
+**`resolve(instance)`** returns the version whose `id` equals `instance.version`. It throws
 `UNSUPPORTED_FUND_TYPE` if the type differs, nothing matches, or the match is only
-`planned`.
+`planned`. The contract version id is independent of the npm package version.
 
-| Version | `id` | `releases` | Status |
-| --- | --- | --- | --- |
-| `TokenBasket.v1` | `v1` | `0.1.0-rc14`, `0.1.0-rc15` | supported |
-| `WeightedBchUsd.v1` | `v1` | none | planned; builders throw `NOT_IMPLEMENTED` |
+| Version | `id` | Status |
+| --- | --- | --- |
+| `TokenBasket.v1` | `v1` | supported |
+| `WeightedBchUsd.v1` | `v1` | planned; builders throw `NOT_IMPLEMENTED` |
 
 ---
 

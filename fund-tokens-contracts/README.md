@@ -222,11 +222,9 @@ new version with its own copy of the contracts, builders and tests, so funds on 
 older version keep working with the builders that match them.
 
 `FundTypeResolver` (and `TokenBasket.resolve`) match the registry instance's `version` against
-each version's `id` (`'v1'`), then against the library releases known to have
-deployed byte-identical contracts. v1 matches `0.1.0-rc14` and `0.1.0-rc15`.
-Contracts from `0.1.0-rc12` and earlier differ, so those instances resolve to
-nothing. **New instances should record the contract version id (`v1`) as their
-registry `version`.**
+each version's `id` (`'v1'`). The contract version is independent of the npm package
+version, so **instances should record the contract version id (`v1`) as their registry
+`version`.**
 
 ## Migrating from 0.1.x
 
@@ -301,7 +299,7 @@ FUNDTOKENS_REGISTRY_URL=http://localhost:3002 yarn test src/registry
 
 1. Copy the latest version directory (e.g. `token-basket/v1` to `token-basket/v2`), then change the contracts and builders there only.
 2. Run `yarn build:contracts`.
-3. Set `id` and `releases` in `v2/index.ts` and `version` in `v2/instance.ts`, register `v2` in `token-basket/index.ts` (`versions`, `latest`), and add `./token-basket/v2` exports to `package.json`. `FundTypeResolver` picks it up from there.
+3. Set `id` in `v2/index.ts` and `version` in `v2/instance.ts`, register `v2` in `token-basket/index.ts` (`versions`, `latest`), and add `./token-basket/v2` exports to `package.json`. `FundTypeResolver` picks it up from there.
 4. Keep `v1` untouched: its contracts, builders and tests go on serving existing funds.
 
 A new fund type follows the `weighted-bch-usd` stub: a directory with an `index.ts`

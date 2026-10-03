@@ -6,8 +6,6 @@
  */
 export const id = 'v1';
 export const status = 'supported';
-/** Library releases whose deployed contracts are byte-identical to v1 (0.1.0-rc14 and rc15). */
-export const releases: readonly string[] = Object.freeze(['0.1.0-rc14', '0.1.0-rc15']);
 
 export {
     createInstance,

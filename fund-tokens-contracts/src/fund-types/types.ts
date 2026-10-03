@@ -8,12 +8,6 @@ export interface FundTypeVersion {
     /** The contract version, e.g. 'v1'. Each version has its own frozen copy of contracts. */
     readonly id: string;
     readonly status: FundTypeVersionStatus;
-    /**
-     * Other registry `version` strings that denote this contract version: library
-     * releases whose deployed contracts are byte-identical to it. New instances
-     * should record `id` itself.
-     */
-    readonly releases: readonly string[];
     /** Binds an instance's parameters to a provider (see `FundTypeResolver`). Planned versions throw. */
     createInstance(options: { provider: NetworkProvider; parameters: unknown }): unknown;
 }

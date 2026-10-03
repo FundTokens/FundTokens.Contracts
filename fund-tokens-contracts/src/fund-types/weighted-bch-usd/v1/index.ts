@@ -15,7 +15,6 @@ import type { Logger } from '../../../core/logger.js';
 
 export const id = 'v1';
 export const status: 'supported' | 'planned' = 'planned';
-export const releases: readonly string[] = Object.freeze([]);
 
 /** Placeholder until the v1 contracts define the instance parameters. */
 export type SystemParameters = Readonly<Record<string, unknown>>;

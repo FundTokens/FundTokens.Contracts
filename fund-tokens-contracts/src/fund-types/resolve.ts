@@ -11,8 +11,8 @@ export function resolveVersion<T extends FundTypeDescriptor>(
             `Instance type '${instance.type}' is not ${fundType.name} ('${fundType.registryType}')`);
     }
 
-    const version = Object.values(fundType.versions).find((candidate: FundTypeVersion) =>
-        candidate.id === instance.version || candidate.releases.includes(instance.version));
+    // Registry instances record the contract version id, which is independent of the npm package version.
+    const version = Object.values(fundType.versions).find((candidate: FundTypeVersion) => candidate.id === instance.version);
 
     if (!version) {
         throw new FundTokensError('UNSUPPORTED_FUND_TYPE',
