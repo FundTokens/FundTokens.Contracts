@@ -330,7 +330,7 @@ describe('happy path', () => {
         console.log('outflow tx size', response.hex.length / 2);
     });
 
-    it('should allow closing public fund UTXO', async ({ expect }) => {
+    it('should allow delisting a public fund', async ({ expect }) => {
         const feeUtxo = randomUtxo({ satoshis: 10000n });
 
         provider.addUtxo(ownerWallet.tokenAddress, feeUtxo);

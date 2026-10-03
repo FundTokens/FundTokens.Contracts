@@ -42,7 +42,7 @@ Each bit in the permission flags represents a specific authorization capability.
 | 0x0020 | FeeManager | Close Fee | Authorize closing/archiving fee management structures (FeeManager `close()`). A close cannot send outputs back to the fee contract, so consolidating fees takes a separate transaction to pay a new default fee UTXO |
 | 0x0040 | InstanceVault | Update Instance State | Authorize InstanceVault `update()` to change an instance's lifecycle state (pre-release, main, deprecated, vulnerable) |
 | 0x0080 | InstanceVault | Burn Instance Tokens | Authorize burning on-chain instance encoded data |
-| 0x0100 | PublicFundVault | Close Public Fund | Authorize closing public fund data streams and preventing further proofs or UTXO discovery (i.e. tx lookup must be used) |
+| 0x0100 | PublicFundVault | Delist Public Fund | Authorize delisting public funds, ending their data streams and preventing further proofs or UTXO discovery (i.e. tx lookup must be used) |
 | 0xFE00 | — | RESERVED (MULTI) | Reserved for future usage |
 
 #### Where Authority Counts

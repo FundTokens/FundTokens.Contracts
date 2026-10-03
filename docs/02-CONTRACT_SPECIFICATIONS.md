@@ -182,7 +182,7 @@ Validates:
 
 ### 4. PublicFundVault
 
-**Purpose**: Public fund details vault w/ authorization token for closing
+**Purpose**: Public fund details vault w/ authorization token for delisting
 
 **Parameters**:
 - `publicFund` (bytes32) - The public fund token category
@@ -190,19 +190,19 @@ Validates:
 
 **Functions**:
 
-#### `close(bytes hash)`
+#### `burn()`
 
-Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x0100), and burning all tokens.
+Permanently delists a public fund by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x0100), and burning all tokens, ending its data stream.
 
 Validates:
 - All publicFund inputs are collected sequentially
 - Concatenated commitment data hashes to expected value
-- Authorization token with bit 0x0100 (fund closure permission) is present
+- Authorization token with bit 0x0100 (delist public fund permission) is present
 - No publicFund tokens remain in any output (enforced burn)
 
-**Usage**: Signal fund closure, allow rebalancing of commitment chains
+**Usage**: Delist a public fund, allow rebalancing of commitment chains
 
-#### `prove(bytes hash)`
+#### `proof()`
 
 Proves fund composition on-chain by validating that all consecutive publicFund UTXOs are forwarded without modification and aggregated commitment data matches expected hash. Establishes an immutable proof chain.
 
@@ -211,7 +211,7 @@ Validates:
 - Input/output locking bytecode and token categories match
 - NFT commitments are identical
 - Concatenated commitment data hashes to expected value
-- No other publicFund proofs exist in same transaction
+- The proof covers only the consecutive publicFund inputs starting at this input; publicFund inputs elsewhere in the transaction are not checked
 
 **Usage**: Transaction proofs, prove fund state at specific block height
 
