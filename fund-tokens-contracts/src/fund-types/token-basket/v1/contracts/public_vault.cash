@@ -33,7 +33,8 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         bool authorized = false;
         int inputIndex = 0;
         do {
-            if(tx.inputs[inputIndex].tokenCategory == authorization) {
+            // Authority held by this contract (this input or another UTXO at this address) does not count
+            if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
                 if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0008)) == 0x0008) {
                     authorized = true;
                 }
