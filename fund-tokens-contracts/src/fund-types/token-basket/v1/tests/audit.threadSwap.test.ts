@@ -56,11 +56,11 @@ describe('audit: thread commitments swapped between funds', () => {
         const gas = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         const tx = new TransactionBuilder({ provider })
-            .addInput(threadA, cA.managerContract.unlock.inflow(getFundBin(fundA), new Uint8Array()))  // 0 deposit into fund A
+            .addInput(threadA, cA.managerContract.unlock.inflow(getFundBin(fundA)))  // 0 deposit into fund A
             .addInput(feeUtxos[0]!, cA.feeContract.unlock.pay())                     // 1
             .addInput(supplyA, cA.fundContract.unlock.mint())                        // 2
             .addInputs(pads, attacker.signatureTemplate.unlockP2PKH())               // 3, 4
-            .addInput(threadB, cB.managerContract.unlock.inflow(getFundBin(fundB), new Uint8Array()))  // 5 deposit into fund B
+            .addInput(threadB, cB.managerContract.unlock.inflow(getFundBin(fundB)))  // 5 deposit into fund B
             .addInput(feeUtxos[1]!, cB.feeContract.unlock.pay())                     // 6
             .addInput(supplyB, cB.fundContract.unlock.mint())                        // 7
             .addInputs([assetA, assetB, gas], attacker.signatureTemplate.unlockP2PKH()) // 8, 9, 10

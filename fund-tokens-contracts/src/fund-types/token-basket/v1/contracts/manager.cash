@@ -18,12 +18,10 @@ pragma cashscript ^0.14.0;
 contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken, bytes32 fundCategory, bytes32 fundHash, bytes fundContract, bytes assetContract)
 {
     /**
-     * inflow(bytes fund, bytes padding): Verify inflow signal and operate core accounting for user deposits
+     * inflow(bytes fund): Verify inflow signal and operate core accounting for user deposits
      *
      * Parameters:
      *   fund: Encoded fund data
-     *   padding: Ignored. Each byte raises this input's operation cost budget by 800 (the budget is
-     *     (41 + unlocking bytecode length) * 800), so larger funds can pay for the compute they need
      * 
      * Validate inflow accounting of fund's token release and asset locking.
      * Use fund divisor to enable variable locking rates defined at fund creation.
@@ -33,7 +31,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
      * - Satoshi backing matches if configured
      * - Each asset release equals fund release amount
      */
-    function inflow(bytes fund, bytes padding) {
+    function inflow(bytes fund) {
         //
         // Verify inputs and data
         require(hash256(fund) == fundHash);

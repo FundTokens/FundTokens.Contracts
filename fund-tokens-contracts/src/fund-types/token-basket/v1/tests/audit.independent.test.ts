@@ -137,7 +137,7 @@ describe('audit: TransactionManager.inflow() accounting (F2, F3)', () => {
         const tokenUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: DustAmount, token: attackerToken }));
 
         tx
-            .addInput(inflowThread, managerContract.unlock.inflow(getFundBin(fund), new Uint8Array()))
+            .addInput(inflowThread, managerContract.unlock.inflow(getFundBin(fund)))
             .addInput(feeUtxo, feeContract.unlock.pay())
             .addInput(supply, fundContract.unlock.mint())
             .addInputs([funding, tokenUtxo], attacker.signatureTemplate.unlockP2PKH())
