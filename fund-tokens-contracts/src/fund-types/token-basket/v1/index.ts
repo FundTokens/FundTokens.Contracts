@@ -15,7 +15,7 @@ export {
     type PublicFundBuilderOptions,
     type TokenBasketFund,
 } from './instance.js';
-export { FundTokenTransactionBuilder, type FundFlowOptions, type FundTokenTransactionBuilderOptions, type OutflowOptions } from './FundTokenTransactionBuilder.js';
+export { FundTokenTransactionBuilder, type FundFlowOptions, type FundTokenTransactionBuilderOptions } from './FundTokenTransactionBuilder.js';
 export { PublicFundTransactionBuilder, type BroadcastOptions, type PublicFundTransactionBuilderOptions } from './PublicFundTransactionBuilder.js';
 export {
     deriveFundContracts,

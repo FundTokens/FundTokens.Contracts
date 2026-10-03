@@ -94,7 +94,7 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
         const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 2_000_000n }));
 
         tx
-            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund))) // 0
+            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund), new Uint8Array())) // 0
             .addInput(fundUtxo, fundContract.unlock.mint())                        // 1
             .addInput(feeUtxo, feeContract.unlock.pay())                           // 2
             .addInput(funding, user.signatureTemplate.unlockP2PKH())

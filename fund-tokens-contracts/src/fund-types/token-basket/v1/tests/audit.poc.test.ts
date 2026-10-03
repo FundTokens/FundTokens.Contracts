@@ -66,7 +66,7 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
         // The manager computes (supply in - supply out) = 100 - 90 = 10 tokens, one unit of deposits,
         // but 100 real fund tokens leave the fund contract.
         tx
-            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund)))
+            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund), new Uint8Array()))
             .addInput(feeUtxo, feeContract.unlock.pay())
             .addInput(fundUtxo, fundContract.unlock.mint())
             .addInputs([funding, foreignUtxo, ...assetUtxos], attacker.signatureTemplate.unlockP2PKH())
@@ -103,7 +103,7 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
         const nfts = noSats.assets.map(a => provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: DustAmount, token: assetNft(a.category) })));
 
         tx
-            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(noSats)))
+            .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(noSats), new Uint8Array()))
             .addInput(feeUtxo, feeContract.unlock.pay())
             .addInput(fundUtxo, fundContract.unlock.mint())
             .addInputs([funding, ...nfts], attacker.signatureTemplate.unlockP2PKH())
