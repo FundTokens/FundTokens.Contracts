@@ -90,7 +90,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['00F0', '0080'])('should allow authorized roles to release', role => {
+    test.each(['000F', '0002'])('should allow authorized roles to release', role => {
         const wallet = generateWallet();
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -123,7 +123,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['0040', '007F'])('should ensure authorized roles', role => {
+    test.each(['0001', '01FD'])('should ensure authorized roles', role => {
         const wallet = generateWallet();
         const utxo = randomUtxo({
             satoshis: 10000n,

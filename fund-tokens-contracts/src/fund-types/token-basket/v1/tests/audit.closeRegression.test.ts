@@ -5,7 +5,7 @@
  *   the fee contract, which kept the manager's "fee must not close" guard honest; 1e1fafd removed
  *   it. A fee UTXO can then be spent with close() inside a fund creation: startup's "sends back
  *   to self" check is met by a tokenless FeeManager output, no fee is paid, and the fee-payment
- *   slot (inside both anti-minting skip windows) is unconstrained. Only auth bit 0x0004 ("close
+ *   slot (inside both anti-minting skip windows) is unconstrained. Only auth bit 0x0020 ("close
  *   fees") is needed, not the fee-minting permission.
  *
  * R-2 (self-authorization): the authorization loops scan inputs from index 0, counting the

@@ -137,7 +137,7 @@ Validates:
 - This input is the proof token and the next input is the data token from this vault
 - The concatenated data hashes to the encoded hash
 - No output carries an instance token (complete burn)
-- An authorization token with bit 0x0040 (burn instance tokens) is present, not held by this vault
+- An authorization token with bit 0x0080 (burn instance tokens) is present, not held by this vault
 
 **Usage**: Signal that an instance is permanently closed
 
@@ -146,7 +146,7 @@ Validates:
 Changes the instance's lifecycle state, the system's public signal of whether to use the instance.
 
 Validates:
-- An authorization token with bit 0x0100 (update instance state) is present, not held by this vault
+- An authorization token with bit 0x0040 (update instance state) is present, not held by this vault
 - The new state is a defined lifecycle state: 0x01 pre-release, 0x02 main, 0x04 deprecated or 0x08 vulnerable
 - Type, library version, hash and data are unchanged, and the data hashes to the encoded hash
 - Both tokens return to this vault, the data token unchanged
@@ -192,12 +192,12 @@ Validates:
 
 #### `close(bytes hash)`
 
-Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x0008), and burning all tokens.
+Permanently closes a public fund data stream by aggregating all publicFund commitment data, verifying the hash, confirming authorization (requires bit 0x0100), and burning all tokens.
 
 Validates:
 - All publicFund inputs are collected sequentially
 - Concatenated commitment data hashes to expected value
-- Authorization token with bit 0x0008 (fund closure permission) is present
+- Authorization token with bit 0x0100 (fund closure permission) is present
 - No publicFund tokens remain in any output (enforced burn)
 
 **Usage**: Signal fund closure, allow rebalancing of commitment chains
@@ -547,7 +547,7 @@ Routes fee payment during transaction execution.
 Allows authorized user to close fee threads, burning any fee tokens.
 
 **Validation**:
-1. An input not held by this contract must have authToken with the close fee permission (0x0004)
+1. An input not held by this contract must have authToken with the close fee permission (0x0020)
 2. No output can have feeToken (burned)
 3. No output can return to this contract, so a FeeManager input that does return must have run `pay()` (FundStartup and the TransactionManager rely on this)
 

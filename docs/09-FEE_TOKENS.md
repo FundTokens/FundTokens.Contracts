@@ -8,7 +8,7 @@ The Fee Token is a multiple CashToken NFT that gates access to system functions 
 
 ## Fee Token Commitment Format
 
-Fee token commitments encode fee details into CashToken NFTs. The maintainer may create and close fees at will and without notice (excluding the use of tx timelocks). Closing (authorization bit 0x0004) burns the fee NFTs and cannot send anything back to the fee contract in the same transaction; to consolidate fee UTXOs, close them and pay a new default fee UTXO to the contract separately.
+Fee token commitments encode fee details into CashToken NFTs. The maintainer may create and close fees at will and without notice (excluding the use of tx timelocks). Closing (authorization bit 0x0020) burns the fee NFTs and cannot send anything back to the fee contract in the same transaction; to consolidate fee UTXOs, close them and pay a new default fee UTXO to the contract separately.
 
 ### Commitment Structure
 

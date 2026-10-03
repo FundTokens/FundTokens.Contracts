@@ -20,7 +20,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
      * Allows protocol steward to close the fees and cleanup stale UTXOs.
      * 
      * Ensures:
-     * - Transaction includes authToken with bit 0x0004 (fee close permission)
+     * - Transaction includes authToken with bit 0x0020 (fee close permission)
      * - All fee NFT tokens must be implicitly burned
      */
     function close() {
@@ -36,13 +36,13 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
 
         //
         // Check for authorization token in any input
-        // Bit 0x0004 in commitment indicates fee manager closure permission
+        // Bit 0x0020 in commitment indicates fee manager closure permission
         bool authorized = false;
         int inputIndex = 0;
         do {
             // Authority held by this contract (this input or another UTXO at this address) does not count
             if(tx.inputs[inputIndex].tokenCategory == authToken && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0004)) == 0x0004) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0020)) == 0x0020) {
                     authorized = true;
                 }
             }

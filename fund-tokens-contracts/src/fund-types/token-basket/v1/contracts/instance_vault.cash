@@ -16,16 +16,16 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      * burn(): Burn the tokens to signal this instance is no longer being used or maintained
      * 
      * Validates and aggregates all instance NFT commitment data, verifies the hash,
-     * confirms authorization (bit 0x0040), and burns all instance tokens from outputs.
+     * confirms authorization (bit 0x0080), and burns all instance tokens from outputs.
      * 
      * Notes:
      * - Instance parameters data can be recovered from transaction history even after burning
      * - Intended to signal for rare closure event only
-     * - Requires authorization token with bit 0x0040 (instance deprecation permission)
+     * - Requires authorization token with bit 0x0080 (instance deprecation permission)
      * 
      * Ensures:
      * - Both inputs must be processed sequentially
-     * - Authorization token (bit 0x0040) must be present somewhere in the transaction
+     * - Authorization token (bit 0x0080) must be present somewhere in the transaction
      * - No instance tokens allowed in any output (complete token burn)
      */
     function burn() {
@@ -58,7 +58,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         do {
             // Authority held by this contract (this input or another UTXO at this address) does not count
             if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0040)) == 0x0040) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0080)) == 0x0080) {
                     authorized = true;
                 }
             }
@@ -77,7 +77,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      * - Active input (this UTXO) must be preserved allowing for a state change
      * - The next input must be in matching criteria
      * - Commitment data has mutable limitations
-     * - Authorization token with bit 0x0100 (update instance state) is present
+     * - Authorization token with bit 0x0040 (update instance state) is present
      * - The new state is a defined lifecycle state (pre-release, main, deprecated or vulnerable)
      */
     function update() {
@@ -87,13 +87,13 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         require(tx.inputs[this.activeInputIndex].tokenCategory == (instance + 0x01));
 
         //
-        // Check for authorization: bit 0x0100 permits updating the instance state
+        // Check for authorization: bit 0x0040 permits updating the instance state
         bool authorized = false;
         int inputIndex = 0;
         do {
             // Authority held by this contract (this input or another UTXO at this address) does not count
             if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0100)) == 0x0100) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0040)) == 0x0040) {
                     authorized = true;
                 }
             }

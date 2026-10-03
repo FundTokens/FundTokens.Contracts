@@ -33,7 +33,7 @@ describe('audit: linked-input authorization at SimpleVault (AUD-027)', () => {
     let parked: Utxo;
 
     beforeAll(async () => {
-        // The steward parks an authorization NFT (all permissions, including bit 0x0080) and an ordinary UTXO at the vault.
+        // The steward parks an authorization NFT (all permissions, including bit 0x0002) and an ordinary UTXO at the vault.
         const genesis = randomUtxo({ vout: 0, satoshis: DustAmount, txid: authorization });
         const funding = randomUtxo({ satoshis: 100_000n });
         [genesis, funding].forEach(u => provider.addUtxo(owner.tokenAddress, u));

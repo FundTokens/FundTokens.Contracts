@@ -341,7 +341,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequireWith("unauthorized user");
     });
 
-    test.each(['00FF', '0004'])('allows the owner with the correct roles to close the fee thread', async role => {
+    test.each(['00FF', '0020'])('allows the owner with the correct roles to close the fee thread', async role => {
         const wallet = generateWallet();
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -369,7 +369,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequireWith("unauthorized user");
     });
 
-    test.each(['0008', '0002'])('ensures the authorization usuer has the correct role', async role => {
+    test.each(['0010', '0040'])('ensures the authorization usuer has the correct role', async role => {
         const wallet = generateWallet();
         const utxo = randomUtxo({
             satoshis: 10000n,

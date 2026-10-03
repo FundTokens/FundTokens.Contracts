@@ -49,7 +49,7 @@ The 235 byte structure is split across two CashTokens NFT w/ limit of 128bytes p
 | 0x04 | Deprecated | Retired instance that should no longer be used for new fund and existing funds may continue to be used |
 | 0x08 | Vulnerable | Instance retired for discovered vulnerability and liquidating assets should be prioritized |
 
-The state can only be set to one of these values, through InstanceVault `update()` with authorization bit 0x0100 (update instance state). The type, library version, hash and data never change.
+The state can only be set to one of these values, through InstanceVault `update()` with authorization bit 0x0040 (update instance state). The type, library version, hash and data never change.
 
 ## See Also
 

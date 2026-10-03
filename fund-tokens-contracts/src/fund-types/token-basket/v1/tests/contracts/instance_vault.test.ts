@@ -37,13 +37,13 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const authToken = randomToken({
         nft: {
             capability: 'none',
-            commitment: '01014001' // permissions 0x0140: update instance state (0x0100) and burn instance tokens (0x0040)
+            commitment: '0100C001' // permissions 0x00C0: update instance state (0x0040) and burn instance tokens (0x0080)
         }
     });
     const authUtxo = randomUtxo({ satoshis: 10000n, token: authToken });
     provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
-    // The same authorization category, but only permitted to burn (0x0040)
-    const burnOnlyAuthUtxo = randomUtxo({ satoshis: 10000n, token: { ...authToken, nft: { capability: 'none', commitment: '01004002' } } });
+    // The same authorization category, but only permitted to burn (0x0080)
+    const burnOnlyAuthUtxo = randomUtxo({ satoshis: 10000n, token: { ...authToken, nft: { capability: 'none', commitment: '01008002' } } });
     provider.addUtxo(ownerWallet.tokenAddress, burnOnlyAuthUtxo);
 
     const instanceCategory = randomCategory();

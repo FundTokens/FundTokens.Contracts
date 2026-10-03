@@ -34,7 +34,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         amount: 0n,
         nft: {
             capability: 'none',
-            commitment: '01000201', // authhead update role
+            commitment: '01000401', // authhead update role (0x0004)
         }
     });
 
@@ -43,7 +43,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         amount: 0n,
         nft: {
             capability: 'none',
-            commitment: '01002002', // authhead burn role
+            commitment: '01000802', // authhead burn role (0x0008)
         }
     });
 
@@ -80,7 +80,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
-    test.each(['00FF', '0002', '000F'])('should allow an authorized role to release', (role) => {
+    test.each(['00FF', '0004', '000F'])('should allow an authorized role to release', (role) => {
         const wallet = generateWallet();
         const utxo = randomUtxo({
             satoshis: 10000n,
@@ -128,7 +128,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).toFailRequireWith("unauthorized user");
     });
 
-    test.each(['0001', '0004'])('should ensure user has an authorized role', (role) => {
+    test.each(['0001', '0008'])('should ensure user has an authorized role', (role) => {
         const wallet = generateWallet();
         const utxo = randomUtxo({
             satoshis: 10000n,
