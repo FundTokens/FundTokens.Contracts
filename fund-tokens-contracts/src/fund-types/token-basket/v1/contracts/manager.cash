@@ -91,6 +91,10 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         fundReleasedAmount = fundReleasedAmount / fundAmount;
 
         //
+        // Something must be deposited, making the signal clear
+        require(fundReleasedAmount > 0);
+
+        //
         // AssetManager parameters as pushed: linked AssetManager, this TransactionManager, asset category, fund hash, outflow token
         // Each AssetManager links to the one before it (satoshis first), the first links to nothing (empty push)
         bytes assetTail = 0x20 + fundHash + 0x20 + outflowToken + assetContract;

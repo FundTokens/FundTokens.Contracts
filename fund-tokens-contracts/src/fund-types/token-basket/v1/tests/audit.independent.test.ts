@@ -21,7 +21,7 @@ import { BitcoinCategory, MaxTokenAmount } from '../../../../core/constants.js';
 import { withDust } from '../../../../core/outputs.js';
 import { FundTokenTransactionBuilder, getFundBin, normalizeFund, type Fund } from '../index.js';
 import { bootstrapInstance, createFund, type TestInstance } from './support/bootstrap.js';
-import { verifyTransaction } from './support/consensus.js';
+import { verifyTransaction } from '@test-utils/consensus.js';
 
 import assetJson from '../artifacts/asset.js';
 

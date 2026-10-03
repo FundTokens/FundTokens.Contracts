@@ -1,13 +1,18 @@
 /**
  * `await expect(tx).toBeAccepted()` / `await expect(tx).toBeRejected(reason?)`.
  *
- * `tx` is a TransactionBuilder (it is sent) or a promise of a send. Unlike
- * `expect(tx.send()).resolves / .rejects`, a failure reports one short line: the txid of a
- * transaction that should have been rejected, or the contract, line and reason of one that
- * should have been accepted. Not the whole transaction or a Bitauth IDE URI.
+ * `tx` is a TransactionBuilder or a promise of a send. Unlike `expect(tx.send()).resolves /
+ * .rejects`, a failure reports one short line: the txid of a transaction that should have been
+ * rejected, or the contract, line and reason of one that should have been accepted. Not the whole
+ * transaction or a Bitauth IDE URI.
+ *
+ * A TransactionBuilder is judged as the network would judge it: by its serialized bytes, not
+ * cashscript's in-memory form (which can differ, e.g. a token with amount 0 and no NFT is dropped
+ * when encoded). If accepted, those bytes are what is broadcast to the mock network.
  */
 import type { TransactionBuilder } from 'cashscript';
 import { expect } from 'vitest';
+import { verifyTransaction } from './consensus.js';
 
 type Sendable = TransactionBuilder | Promise<unknown>;
 
@@ -24,9 +29,41 @@ export function summarizeError(error: unknown): string {
 
 type Outcome = { accepted: true; txid: string | undefined } | { accepted: false; reason: string };
 
-async function settle(actual: Sendable): Promise<Outcome> {
+/** Verifies the serialized transaction, then broadcasts exactly those bytes. */
+async function settleTransaction(tx: TransactionBuilder): Promise<Outcome> {
+    let hex: string;
     try {
-        const value = await ('send' in actual ? actual.send() : actual);
+        hex = tx.build();
+    } catch (error) {
+        return { accepted: false, reason: summarizeError(error) };
+    }
+
+    const verdict = verifyTransaction(tx);
+    if (verdict !== true) {
+        // cashscript names the failing contract, line and statement, when its in-memory check agrees.
+        try {
+            tx.debug();
+        } catch (error) {
+            if (!(error instanceof Error && error.message.startsWith('Cannot debug'))) {
+                return { accepted: false, reason: summarizeError(error) };
+            }
+        }
+        return { accepted: false, reason: `the serialized transaction is invalid (cashscript's in-memory check passes): ${verdict}` };
+    }
+
+    try {
+        return { accepted: true, txid: await tx.provider.sendRawTransaction(hex) };
+    } catch (error) {
+        return { accepted: false, reason: summarizeError(error) };
+    }
+}
+
+async function settle(actual: Sendable): Promise<Outcome> {
+    if ('send' in actual) {
+        return settleTransaction(actual);
+    }
+    try {
+        const value = await actual;
         const txid = typeof value === 'object' && value !== null && 'txid' in value ? String(value.txid) : undefined;
         return { accepted: true, txid };
     } catch (error) {

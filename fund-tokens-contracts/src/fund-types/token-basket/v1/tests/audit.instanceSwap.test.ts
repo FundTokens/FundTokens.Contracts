@@ -15,7 +15,7 @@ import { generateWallet } from '@test-utils/wallet.js';
 
 import { lockingBytecodeHexOf } from '../../../../core/outputs.js';
 import instanceVaultArtifact from '../artifacts/instance_vault.js';
-import { verifyTransaction } from './support/consensus.js';
+import { verifyTransaction } from '@test-utils/consensus.js';
 
 describe('audit: instance vault address substitution', () => {
     it('rejects proof() over instance NFTs held at an attacker address', async () => {
