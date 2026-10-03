@@ -42,7 +42,8 @@ Each bit in the permission flags byte represents a specific authorization capabi
 | 0x0010 | Fee Minting | Authorize FeeMinter to create new fee token NFTs with encoded fee parameters |
 | 0x0040 | Burn Instance Tokens | Authorize burning on-chain instance encoded data
 | 0x0080 | Release Vault Authorization | Authorize releasing funds from vault contracts and SimpleVault operations |
-| 0xFF00 | RESERVED (MULTI) | Reserved for future usage
+| 0x0100 | Update Instance State | Authorize InstanceVault `update()` to change an instance's lifecycle state (pre-release, main, deprecated, vulnerable) |
+| 0xFE00 | RESERVED (MULTI) | Reserved for future usage
 
 #### Where Authority Counts
 
@@ -57,7 +58,7 @@ Multiple permissions may be combined using bitwise OR operations:
 permissions = 0x0001 | 0x0080 = 0x0081
 
 // Example: All permissions
-permissions = 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 | 0x0080 = 0x00BF
+permissions = 0x0001 | 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0020 | 0x0040 | 0x0080 | 0x0100 = 0x01FF
 ```
 
 ### Serial Number

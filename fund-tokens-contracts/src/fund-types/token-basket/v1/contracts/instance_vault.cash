@@ -77,6 +77,8 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      * - Active input (this UTXO) must be preserved allowing for a state change
      * - The next input must be in matching criteria
      * - Commitment data has mutable limitations
+     * - Authorization token with bit 0x0100 (update instance state) is present
+     * - The new state is a defined lifecycle state (pre-release, main, deprecated or vulnerable)
      */
     function update() {
         //
@@ -85,13 +87,28 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         require(tx.inputs[this.activeInputIndex].tokenCategory == (instance + 0x01));
 
         //
+        // Check for authorization: bit 0x0100 permits updating the instance state
+        bool authorized = false;
+        int inputIndex = 0;
+        do {
+            // Authority held by this contract (this input or another UTXO at this address) does not count
+            if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
+                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0100)) == 0x0100) {
+                    authorized = true;
+                }
+            }
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length && !authorized);
+        require(authorized, "unauthorized user");
+
+        //
         // Start splitting the input token and validate against the mutable output
         bytes type, bytes stateAndRest = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
         bytes versionAndRest = stateAndRest.split(1)[1]; // No need to validate the input's type or state
         bytes o_type, bytes o_stateAndRest = tx.outputs[this.activeInputIndex].nftCommitment.split(1);
         require(o_type == type); // type cannot change
         bytes o_state, bytes o_versionAndRest = o_stateAndRest.split(1);
-        require(o_state != 0x00); // state can change
+        require(o_state == 0x01 || o_state == 0x02 || o_state == 0x04 || o_state == 0x08); // state can change, to a defined lifecycle state
         require(o_versionAndRest == versionAndRest); // library version, hash, and data cannot change
 
         //

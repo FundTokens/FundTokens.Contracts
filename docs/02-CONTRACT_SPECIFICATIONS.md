@@ -121,6 +121,8 @@ Authorizes spending when token present and maintains token identity
 
 **Purpose**: Public contract parameter vault w/ authorization token for maintenance/vulnerability signaling
 
+The instance is two NFTs created in one transaction: a mutable proof token (`instance` + mutable capability) whose commitment holds the type, lifecycle state, library version, hash and leading data, and an immutable data token holding the rest. See [07-INSTANCE_TOKEN.md](07-INSTANCE_TOKEN.md).
+
 **Parameters**:
 - `instance` (bytes32) - The instance token category
 - `authorization` (bytes32) - The authorization token category
@@ -129,41 +131,50 @@ Authorizes spending when token present and maintains token identity
 
 #### `burn()`
 
-Permanently closes a instance data stream by aggregating all commitment data, verifying the hash, confirming authorization, and burning all tokens.
+Permanently retires an instance by verifying its data and burning both instance tokens. The parameters stay recoverable from transaction history.
 
 Validates:
-- All publicFund inputs are collected sequentially
-- Concatenated commitment data hashes to expected value
-- Authorization token with bit 0x0008 (fund closure permission) is present
-- No publicFund tokens remain in any output (enforced burn)
+- This input is the proof token and the next input is the data token from this vault
+- The concatenated data hashes to the encoded hash
+- No output carries an instance token (complete burn)
+- An authorization token with bit 0x0040 (burn instance tokens) is present, not held by this vault
 
-**Usage**: Signal fund closure, allow rebalancing of commitment chains
+**Usage**: Signal that an instance is permanently closed
 
-#### `prove(bytes hash)`
+#### `update()`
 
-Proves fund composition on-chain by validating that all consecutive publicFund UTXOs are forwarded without modification and aggregated commitment data matches expected hash. Establishes an immutable proof chain.
+Changes the instance's lifecycle state, the system's public signal of whether to use the instance.
 
 Validates:
-- Each publicFund input returns to matching output (no tampering)
-- Input/output locking bytecode and token categories match
-- NFT commitments are identical
-- Concatenated commitment data hashes to expected value
-- No other publicFund proofs exist in same transaction
+- An authorization token with bit 0x0100 (update instance state) is present, not held by this vault
+- The new state is a defined lifecycle state: 0x01 pre-release, 0x02 main, 0x04 deprecated or 0x08 vulnerable
+- Type, library version, hash and data are unchanged, and the data hashes to the encoded hash
+- Both tokens return to this vault, the data token unchanged
 
-**Usage**: Transaction proofs, prove fund state at specific block height
+**Usage**: Mark an instance deprecated or vulnerable (or promote a pre-release)
+
+#### `proof()`
+
+Proves the instance parameters on-chain: both tokens are spent and returned unchanged, and the data hashes to the encoded hash.
+
+Validates:
+- This input is the proof token and the next input is the data token from this vault
+- Both tokens return to this vault with identical category and commitment
+- The concatenated data hashes to the encoded hash
+
+**Usage**: On-chain proof of the instance's parameters
 
 #### `data()`
 
-Validates commitment data continuity in the proof chain by ensuring this UTXO was created from the previous input and links proof UTXOs together.
+Links the data token to the proof token spent just before it.
 
 Validates:
-- This input has publicFund token
-- Previous input has identical locking bytecode
-- Previous input has identical token category
+- This input carries the (immutable) instance token
+- The previous input has the same locking bytecode and comes from the same transaction
 
-**Usage**: Appending data for transaction proof chains
+**Usage**: Spent alongside `burn()`, `update()` or `proof()`
 
-**Implementation**: See [token-basket/v1/contracts/public_vault.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/public_vault.cash) for full source code.
+**Implementation**: See [token-basket/v1/contracts/instance_vault.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/instance_vault.cash) for full source code.
 
 ---
 

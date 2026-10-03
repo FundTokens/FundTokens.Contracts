@@ -37,11 +37,14 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const authToken = randomToken({
         nft: {
             capability: 'none',
-            commitment: '01004001'
+            commitment: '01014001' // permissions 0x0140: update instance state (0x0100) and burn instance tokens (0x0040)
         }
     });
     const authUtxo = randomUtxo({ satoshis: 10000n, token: authToken });
     provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
+    // The same authorization category, but only permitted to burn (0x0040)
+    const burnOnlyAuthUtxo = randomUtxo({ satoshis: 10000n, token: { ...authToken, nft: { capability: 'none', commitment: '01004002' } } });
+    provider.addUtxo(ownerWallet.tokenAddress, burnOnlyAuthUtxo);
 
     const instanceCategory = randomCategory();
     const inflow = randomCategory();
@@ -204,7 +207,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         ...instanceUtxos[0].token!,
                         nft: {
                             ...instanceUtxos[0].token!.nft!,
-                            commitment: '0003' + instanceUtxos[0].token!.nft!.commitment.slice(4),
+                            commitment: '0008' + instanceUtxos[0].token!.nft!.commitment.slice(4), // main -> vulnerable
                         }
                     } 
                 },
@@ -222,6 +225,70 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).not.toFailRequire();
     });
 
+    it('Authorized user cannot set an undefined lifecycle state', async () => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.update())
+            .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
+            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH()) // contains auth and sats
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        ...instanceUtxos[0].token!,
+                        nft: {
+                            ...instanceUtxos[0].token!.nft!,
+                            commitment: '0003' + instanceUtxos[0].token!.nft!.commitment.slice(4),
+                        }
+                    } 
+                },
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: instanceUtxos[1].token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token: authUtxo.token,
+                }
+            ]);
+        expect(transaction).toFailRequire();
+    });
+
+    it('A burn-only authorization cannot update the lifecycle state', async () => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(instanceUtxos[0], systemUnderTest.unlock.update())
+            .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
+            .addInput(burnOnlyAuthUtxo, ownerWallet.signatureTemplate.unlockP2PKH()) // contains auth and sats
+            .addOutputs([
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: {
+                        ...instanceUtxos[0].token!,
+                        nft: {
+                            ...instanceUtxos[0].token!.nft!,
+                            commitment: '0008' + instanceUtxos[0].token!.nft!.commitment.slice(4),
+                        }
+                    } 
+                },
+                {
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: instanceUtxos[1].token,
+                },
+                {
+                    to: ownerWallet.address,
+                    amount: DustAmount,
+                    token: burnOnlyAuthUtxo.token,
+                }
+            ]);
+        expect(transaction).toFailRequireWith('unauthorized user');
+    });
+
     it('Authorized user cannot change token typing', async () => {
         const transaction = new TransactionBuilder({ provider });
         transaction
@@ -236,7 +303,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         ...instanceUtxos[0].token!,
                         nft: {
                             ...instanceUtxos[0].token!.nft!,
-                            commitment: '0103' + instanceUtxos[0].token!.nft!.commitment.slice(4),
+                            commitment: '0108' + instanceUtxos[0].token!.nft!.commitment.slice(4),
                         }
                     } 
                 },
@@ -268,7 +335,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                         ...instanceUtxos[0].token!,
                         nft: {
                             ...instanceUtxos[0].token!.nft!,
-                            commitment: '00030002' + instanceUtxos[0].token!.nft!.commitment.slice(8),
+                            commitment: '00080002' + instanceUtxos[0].token!.nft!.commitment.slice(8),
                         }
                     } 
                 },
