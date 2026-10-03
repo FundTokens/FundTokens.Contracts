@@ -15,10 +15,12 @@ pragma cashscript ^0.14.0;
 contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 {
     /**
-     * start(bytes fund): Validates fund parameters and mint protocol tokens
+     * start(bytes fund, bytes padding): Validates fund parameters and mint protocol tokens
      *
      * Parameters:
      *   fund: Encoded fund data
+     *   padding: Ignored. Each byte raises this input's operation cost budget by 800 (the budget is
+     *     (41 + unlocking bytecode length) * 800), so larger funds can pay for the compute they need
      *
      * Verify the fund structure and minted inflow/outflow tokens commitments
      * 
@@ -30,7 +32,7 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
      * - Minted inflow/outflow NFTs have fund commitment
      * - No live inflow/outflow thread is spent in the same transaction
      */
-    function start(bytes fund) {
+    function start(bytes fund, bytes padding) {
         //
         // Parse out the fund category and verify matches inflow/outflow commitments
         bytes nft_fundCategory, bytes nft_next1 = fund.split(32);

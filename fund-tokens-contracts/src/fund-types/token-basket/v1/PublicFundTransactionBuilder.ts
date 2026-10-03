@@ -39,6 +39,11 @@ export interface BroadcastOptions {
      * by 800: needed only by funds too large to broadcast within the default budget.
      */
     padding?: number | undefined;
+    /**
+     * Bytes of padding for FundStartup (default 0), which validates the whole fund: needed only by
+     * funds too large to start within its default budget. It is a separate input with its own budget.
+     */
+    startupPadding?: number | undefined;
 }
 
 /**
@@ -81,7 +86,7 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
      *
      * The caller adds BCH (or `payBy` tokens) for the create fee, and change.
      */
-    async addBroadcast({ fund, payBy, validate = true, padding = 0 }: BroadcastOptions): Promise<this> {
+    async addBroadcast({ fund, payBy, validate = true, padding = 0, startupPadding = 0 }: BroadcastOptions): Promise<this> {
         const {
             feeVaultContract,
             createFundFeeContract,
@@ -94,6 +99,7 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
         } = this.contracts;
 
         const paddingBytes = getPadding(padding);
+        const startupPaddingBytes = getPadding(startupPadding);
         const genesisUtxo = this.inputs[0];
         if (!genesisUtxo) {
             throw new FundTokensError('INVALID_TRANSACTION_STATE',
@@ -159,7 +165,7 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
             this.addOutput(this.getAuthHeadOutput());
         }
         this.addInputs([
-            { ...startupUtxo, unlocker: startupContract.unlock.start(getFundHex(definition)) },
+            { ...startupUtxo, unlocker: startupContract.unlock.start(getFundHex(definition), startupPaddingBytes) },
             { ...inflowUtxo, unlocker: mintInflowContract.unlock.mint() },
             { ...outflowUtxo, unlocker: mintOutflowContract.unlock.mint() },
             { ...fee.utxo, unlocker: createFundFeeContract.unlock.pay() },

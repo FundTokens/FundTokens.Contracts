@@ -164,7 +164,7 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
         const { managerContract } = new FundTokenTransactionBuilder({ provider, system, fund: newFund }).getContracts();
 
         const tx = new TransactionBuilder({ provider })
-            .addInput(parked, startupContract.unlock.start(getFundBin(newFund)))
+            .addInput(parked, startupContract.unlock.start(getFundBin(newFund), new Uint8Array()))
             .addInput(mintInflowUtxo, mintInflowContract.unlock.mint())
             .addInput(mintOutflowUtxo, mintOutflowContract.unlock.mint())
             .addInput(feeUtxo, createFundFeeContract.unlock.pay())

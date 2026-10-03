@@ -207,7 +207,7 @@ new PublicFundTransactionBuilder({
 | `contracts` / `getContracts()` | `SystemContracts`: `feeVaultContract`, `createFundFeeContract`, `executeFundFeeContract`, `startupContract`, `mintInflowContract`, `mintOutflowContract`, `publicFundContract`, `authHeadVaultContract`, `publicFundVaultContract` |
 | `getFundContracts(fund)` | The `FundContracts` of a fund on this instance (no network access) |
 | `getAuthHeadOutput()` | The fund's identity output; must be output 0 |
-| `addBroadcast({ fund, payBy?, validate?, padding? })` | Adds the contract side of creating `fund`; resolves to the builder. `padding` (bytes, default 0) buys PublicFund more compute; see [Performance considerations](#performance-considerations) |
+| `addBroadcast({ fund, payBy?, validate?, padding?, startupPadding? })` | Adds the contract side of creating `fund`; resolves to the builder. `padding` and `startupPadding` (bytes, default 0) buy PublicFund and FundStartup more compute; see [Performance considerations](#performance-considerations) |
 
 **`addBroadcast` preconditions**
 
@@ -350,9 +350,9 @@ constructor arguments and `unlock.*()` calls are type-checked.
 | PublicFund `broadcast()` | 78 assets | Its budget is fixed (about 563,000); each asset costs about 6,000 |
 | TransactionManager `outflow()` | 108 assets | Each asset costs about 48,000; the fund it is passed adds 32,000 of budget per asset |
 | TransactionManager `inflow()` | Not reached | Each asset costs about 30,000, under the 32,000 it adds (52% of budget at 109 assets) |
-| FundStartup `start()` | 144 assets | No padding: the largest fund that can be created |
+| FundStartup `start()` | 144 assets | Each asset costs about 60,000; the fund it is passed adds 32,000 of budget per asset |
 
-Pass `padding` (bytes) to `addBroadcast`, `addInflow` or `addOutflow` to buy more: each byte adds 800 to that input's budget, for about 1 satoshi of fee at 1 sat/byte. For example, an 80-asset broadcast with `padding: 100` uses 569,220 of its 644,000 budget. Redeeming from the largest fund (144 assets) takes about 1,000 bytes of `outflow` padding. A standard unlocking bytecode is at most 10,000 bytes, which the TransactionManager's fund encoding, padding and its own bytecode share.
+Pass `padding` (bytes) to `addBroadcast`, `addInflow` or `addOutflow`, or `startupPadding` to `addBroadcast`, to buy more: each byte adds 800 to that input's budget, for about 1 satoshi of fee at 1 sat/byte. For example, an 80-asset broadcast with `padding: 100` uses 569,220 of its 644,000 budget. Redeeming from a 144-asset fund takes about 1,000 bytes of `outflow` padding. A standard unlocking bytecode is at most 10,000 bytes, which the fund encoding, padding and the contract's own bytecode share in FundStartup and the TransactionManager. That caps fund creation at 189 assets: FundStartup then needs every byte of padding that fits.
 
 **Measured sizes** (from the test suite):
 

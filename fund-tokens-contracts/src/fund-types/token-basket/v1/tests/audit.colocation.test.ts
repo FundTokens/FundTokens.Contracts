@@ -70,7 +70,7 @@ describe('audit: thread creation co-located with a live outflow', () => {
         const reserveBefore = reserve.token!.amount;
 
         const tx = new TransactionBuilder({ provider })
-            .addInput(startupUtxo, startupContract.unlock.start(getFundHex(fund)))       // 0  s
+            .addInput(startupUtxo, startupContract.unlock.start(getFundHex(fund), new Uint8Array()))       // 0  s
             .addInput(inflowMint, mintInflowContract.unlock.mint())                      // 1  s+1
             .addInput(outflowMint, mintOutflowContract.unlock.mint())                    // 2  s+2
             .addInput(createFee, createFundFeeContract.unlock.pay())                     // 3  s+3

@@ -77,7 +77,7 @@ describe('audit: fund-category minting NFT smuggled through a broadcast', () => 
         const commitment = '02' + swapEndianness(fund.category) + hashFund(fund);
 
         const move = new TransactionBuilder({ provider })
-            .addInput(parked, startupContract.unlock.start(getFundBin(fund)))
+            .addInput(parked, startupContract.unlock.start(getFundBin(fund), new Uint8Array()))
             .addInput(mintInflowUtxo, mintInflowContract.unlock.mint())
             .addInput(mintOutflowUtxo, mintOutflowContract.unlock.mint())
             .addInput(feeUtxo, createFundFeeContract.unlock.pay())

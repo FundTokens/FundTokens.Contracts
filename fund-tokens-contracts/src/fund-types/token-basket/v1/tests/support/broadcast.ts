@@ -42,7 +42,7 @@ export async function buildManualBroadcast({ provider, system }: TestInstance, {
 
     tx
         .addInput(genesis, creator.signatureTemplate.unlockP2PKH())                   // 0 genesis
-        .addInput(startupUtxo, startupContract.unlock.start(getFundHex(fund)))        // 1 startup (s)
+        .addInput(startupUtxo, startupContract.unlock.start(getFundHex(fund), new Uint8Array()))        // 1 startup (s)
         .addInput(inflowMint, mintInflowContract.unlock.mint())                       // 2
         .addInput(outflowMint, mintOutflowContract.unlock.mint())                     // 3
         .addInput(fee.utxo, fee.unlocker)                                             // 4 create fee

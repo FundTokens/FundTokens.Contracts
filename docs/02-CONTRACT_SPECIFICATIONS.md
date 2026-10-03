@@ -241,9 +241,9 @@ Validates:
 
 **Functions**:
 
-#### `start(bytes fund)`
+#### `start(bytes fund, bytes padding)`
 
-Initializes a fund by validating parameters and minting thread tokens.
+Initializes a fund by validating parameters and minting thread tokens. `padding` is ignored. An input's operation cost budget is (41 + its unlocking bytecode length) × 800, so each byte of padding buys 800 more: how a fund too large for the default budget pays for the compute it needs (see [Performance considerations](03-TRANSACTION_BUILDER_API.md#performance-considerations)).
 
 **Fund Parameter Format** (passed as bytes):
 ```
