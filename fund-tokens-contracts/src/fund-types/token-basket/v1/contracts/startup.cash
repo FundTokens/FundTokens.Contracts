@@ -28,6 +28,7 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
      * - Assets are sorted by category ascending
      * - Each asset amount > 0
      * - Minted inflow/outflow NFTs have fund commitment
+     * - No live inflow/outflow thread is spent in the same transaction
      */
     function start(bytes fund) {
         //
@@ -100,6 +101,16 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+
+        //
+        // Ensure no live inflow/outflow thread shares this transaction (e.g. a TransactionManager operation)
+        // Only the minting tokens (category + 0x02) may be spent, so every thread created here is a new one
+        int inputIndex = 0;
+        do {
+            bytes inputCategory = tx.inputs[inputIndex].tokenCategory;
+            require(inputCategory != inflowToken && inputCategory != outflowToken);
+            inputIndex = inputIndex + 1;
+        } while(inputIndex < tx.inputs.length);
 
         //
         // This startup UTXO returns to itself
