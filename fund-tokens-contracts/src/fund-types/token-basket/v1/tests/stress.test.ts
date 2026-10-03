@@ -2,7 +2,6 @@ import {
     MockNetworkProvider,
     Network,
     randomToken,
-    randomUtxo,
 } from 'cashscript';
 
 import { bigIntToBinUint256BEClamped, binToHex } from '@bitauth/libauth'
@@ -14,7 +13,7 @@ import {
     FundTokenTransactionBuilder,
     PublicFundTransactionBuilder,
 } from '../index.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 const DustAmount = 1065n;
 

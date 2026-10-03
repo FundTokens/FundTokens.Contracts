@@ -2,7 +2,6 @@ import {
     MockNetworkProvider,
     Network,
     randomToken,
-    randomUtxo,
 } from 'cashscript';
 
 import { bigIntToBinUint256BEClamped, binToHex } from '@bitauth/libauth'
@@ -14,7 +13,7 @@ import {
     FundTokenTransactionBuilder,
     PublicFundTransactionBuilder,
 } from '../index.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 const DustAmount = 1065n;
 
@@ -54,7 +53,7 @@ describe('happy path', () => {
         const executeFundFeeGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft }));
         const authGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.authorization }));
         const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
-        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ txid: randomCategory(), satoshis: 10000n }));
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
 
         const transaction = new SystemFixture({ provider, system });
         transaction
@@ -82,7 +81,7 @@ describe('happy path', () => {
     });
 
     it('should create new system threads', async ({ expect }) => {
-        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ txid: randomCategory(), satoshis: 10000n }));
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemFixture({ provider, system });
 
@@ -118,7 +117,7 @@ describe('happy path', () => {
     it(`should broadcast a new fund of ${numberOfFundAssets} assets by buying more compute`, async ({ expect }) => {
         const userWallet = generateWallet();
         const fundGenesisUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: fund.category }));
-        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ txid: randomCategory(), satoshis: 100000n }));
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const broadcast = async (padding: number) => {
             const transaction = new PublicFundTransactionBuilder({ provider, system });
@@ -146,9 +145,9 @@ describe('happy path', () => {
 
     it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet();
-        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ txid: randomCategory(), satoshis: 110000n }));
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 110000n }));
         const inflowAmount = 3n;
-        const assetUtxos = fund.assets.map(a => provider.addUtxo(userWallet.tokenAddress, randomUtxo({ txid: randomCategory(), token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) })));
+        const assetUtxos = fund.assets.map(a => provider.addUtxo(userWallet.tokenAddress, randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) })));
 
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ units: inflowAmount });
@@ -183,9 +182,9 @@ describe('happy path', () => {
 
     it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet();
-        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ txid: randomCategory(), satoshis: 1000000n }));
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 1000000n }));
         const outflowAmount = 2n;
-        const fundTokenUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ txid: randomCategory(),
+        const fundTokenUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({
             token: randomToken({
                 category: fund.category,
                 amount: (outflowAmount * fund.amount) + 1n,
@@ -224,7 +223,7 @@ describe('happy path', () => {
     }, 300_000);
 
     it('should allow closing fee threads', async () => {
-        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ txid: randomCategory(), satoshis: 10000n }));
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemFixture({ provider, system, allowImplicitFungibleTokenBurn: true });
 
