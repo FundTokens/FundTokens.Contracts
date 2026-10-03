@@ -37,12 +37,16 @@ Each bit in the permission flags byte represents a specific authorization capabi
 | 0x0001 | Token Minters | Authorize SimpleMinter to mint system tokens (inflow, outflow, public fund tokens) |
 | 0x0002 | Update AuthHead | Authorize updating BCMR (BitcoinCash Metadata Registry) metadata via AuthHeadVault |
 | 0x0020 | Burn AuthHead Identity | Authorize burning authhead identities to signal permanent identity closure or rotation |
-| 0x0004 | Close Fee | Authorize closing/archiving fee management structures and consolidating fees |
+| 0x0004 | Close Fee | Authorize closing/archiving fee management structures (FeeManager `close()`). A close cannot send outputs back to the fee contract, so consolidating fees takes a separate transaction to pay a new default fee UTXO |
 | 0x0008 | Close Public Fund | Authorize closing public fund data streams and preventing further proofs or UTXO discovery (i.e. tx lookup must be used) |
 | 0x0010 | Fee Minting | Authorize FeeMinter to create new fee token NFTs with encoded fee parameters |
 | 0x0040 | Burn Instance Tokens | Authorize burning on-chain instance encoded data
 | 0x0080 | Release Vault Authorization | Authorize releasing funds from vault contracts and SimpleVault operations |
 | 0xFF00 | RESERVED (MULTI) | Reserved for future usage
+
+#### Where Authority Counts
+
+A contract gated by the authorization token accepts it from any input except one locked by the contract's own address: neither the contract's own input nor another UTXO at that address counts. An authorization token sent to an auth-gated contract (e.g. a SimpleVault) therefore cannot authorize its own release; keep authorization tokens outside the contracts they authorize.
 
 #### Combining Permissions
 

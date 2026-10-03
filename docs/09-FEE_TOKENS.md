@@ -8,7 +8,7 @@ The Fee Token is a multiple CashToken NFT that gates access to system functions 
 
 ## Fee Token Commitment Format
 
-Fee token commitments encode fee details into CashToken NFTs. The maintainer may create and close fees at will and without notice (excluding the use of tx timelocks).
+Fee token commitments encode fee details into CashToken NFTs. The maintainer may create and close fees at will and without notice (excluding the use of tx timelocks). Closing (authorization bit 0x0004) burns the fee NFTs and cannot send anything back to the fee contract in the same transaction; to consolidate fee UTXOs, close them and pay a new default fee UTXO to the contract separately.
 
 ### Commitment Structure
 
@@ -28,7 +28,7 @@ Fee token commitments encode fee details into CashToken NFTs. The maintainer may
 |-----|------------|-----------|---------|
 | 0x00 | Minting | Fee Thread Creation | Mint new fee threads as needed |
 | 0x01 | None | Dynamic Fee NFT | Used by the smart contract to support dynamic fee payments |
-| 0x02 | None | Voluntary Fee NFT | Used by the smart contract to allow voluntary fee payments |
+| 0x02 | None | Voluntary Fee NFT | Allows a voluntary payment: BCH or a token to the default destination, or an empty OP_RETURN (no payment) |
 
 ### Serial Number
 
