@@ -1,4 +1,4 @@
-pragma cashscript ~0.13.0;
+pragma cashscript ^0.14.0;
 
 /**
  * FundManager (Fund): Maintains a fund's tokens for minting and redemptions

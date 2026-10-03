@@ -63,8 +63,7 @@ describe('audit: close() regression (R-1) and self-authorization (R-2)', () => {
         const auth = (await provider.getUtxos(owner.tokenAddress)).find(u => u.token?.category === system.authorization)!;
 
         // The steward mistakenly parks the authorization NFT at the fee vault.
-        const parkFunding = randomUtxo({ satoshis: 10_000n });
-        provider.addUtxo(owner.tokenAddress, parkFunding);
+        const parkFunding = provider.addUtxo(owner.tokenAddress, randomUtxo({ satoshis: 10_000n }));
         await new SystemFixture({ provider, system })
             .addInput(auth, owner.signatureTemplate.unlockP2PKH())
             .addInput(parkFunding, owner.signatureTemplate.unlockP2PKH())
@@ -73,8 +72,7 @@ describe('audit: close() regression (R-1) and self-authorization (R-2)', () => {
             .send();
         const parked = (await feeVaultContract.getUtxos()).find(u => u.token?.category === system.authorization)!;
 
-        const funding = randomUtxo({ satoshis: 10_000n });
-        provider.addUtxo(attacker.tokenAddress, funding);
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 10_000n }));
         const steal = new SystemFixture({ provider, system })
             .addInput(parked, feeVaultContract.unlock.release())
             .addInput(funding, attacker.signatureTemplate.unlockP2PKH())

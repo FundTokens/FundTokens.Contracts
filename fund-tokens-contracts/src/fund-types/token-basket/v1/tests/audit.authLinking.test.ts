@@ -13,7 +13,7 @@
  * The contracts must reject this transaction.
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { Contract, MockNetworkProvider, TransactionBuilder, randomUtxo, type Utxo } from 'cashscript';
+import { Contract, MockNetworkProvider, TransactionBuilder, randomUtxo, type SpendableUtxo } from 'cashscript';
 
 import { randomCategory } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
@@ -29,14 +29,13 @@ describe('audit: linked-input authorization at SimpleVault (AUD-027)', () => {
     const authorization = randomCategory();
     const vault = new Contract(simpleVaultArtifact, [swapEndianness(authorization)], { provider });
 
-    let ordinary: Utxo;
-    let parked: Utxo;
+    let ordinary: SpendableUtxo;
+    let parked: SpendableUtxo;
 
     beforeAll(async () => {
         // The steward parks an authorization NFT (all permissions, including bit 0x0002) and an ordinary UTXO at the vault.
-        const genesis = randomUtxo({ vout: 0, satoshis: DustAmount, txid: authorization });
-        const funding = randomUtxo({ satoshis: 100_000n });
-        [genesis, funding].forEach(u => provider.addUtxo(owner.tokenAddress, u));
+        const genesis = provider.addUtxo(owner.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount, txid: authorization }));
+        const funding = provider.addUtxo(owner.tokenAddress, randomUtxo({ satoshis: 100_000n }));
 
         await new TransactionBuilder({ provider })
             .addInput(genesis, owner.signatureTemplate.unlockP2PKH())

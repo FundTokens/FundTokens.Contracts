@@ -47,17 +47,13 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         }
     });
 
-    const utxoUnderTest = randomUtxo({ satoshis: 10000n, vout: 0 });
-    const updateAuthUtxo = randomUtxo({ satoshis: DustAmount, token: updateAuthToken });
-    const burnAuthUtxo = randomUtxo({ satoshis: DustAmount, token: burnAuthToken });
-    const bitcoinUtxo = randomUtxo({ satoshis: 10000n });
+    const updateAuthUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: DustAmount, token: updateAuthToken }));
+    const burnAuthUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: DustAmount, token: burnAuthToken }));
+    const bitcoinUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
 
     const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(updateAuthToken.category)], { provider });
 
-    provider.addUtxo(systemUnderTest.tokenAddress, utxoUnderTest);
-    provider.addUtxo(ownerWallet.tokenAddress, updateAuthUtxo);
-    provider.addUtxo(ownerWallet.tokenAddress, burnAuthUtxo);
-    provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
+    const utxoUnderTest = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({ satoshis: 10000n, vout: 0 }));
 
     it('should allow authorized user to update as authhead', ({ expect }) => {
         const transaction = new TransactionBuilder({ provider });
@@ -82,7 +78,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     test.each(['00FF', '0004', '000F'])('should allow an authorized role to release', (role) => {
         const wallet = generateWallet();
-        const utxo = randomUtxo({
+        const utxo = provider.addUtxo(wallet.tokenAddress, randomUtxo({
             satoshis: 10000n,
             token: {
                 category: updateAuthToken.category,
@@ -92,8 +88,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: '01' + role
                 }
             }
-        });
-        provider.addUtxo(wallet.tokenAddress, utxo);
+        }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxoUnderTest, systemUnderTest.unlock.update())
@@ -130,7 +125,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     test.each(['0001', '0008'])('should ensure user has an authorized role', (role) => {
         const wallet = generateWallet();
-        const utxo = randomUtxo({
+        const utxo = provider.addUtxo(wallet.tokenAddress, randomUtxo({
             satoshis: 10000n,
             token: {
                 category: updateAuthToken.category,
@@ -140,8 +135,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: '01' + role
                 }
             }
-        });
-        provider.addUtxo(wallet.tokenAddress, utxo);
+        }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxoUnderTest, systemUnderTest.unlock.update())

@@ -1,4 +1,4 @@
-pragma cashscript ~0.13.0;
+pragma cashscript ^0.14.0;
 
 /**
  * FundOutflowMint: Creates per-fund contract instance outflow tokens via bytcode extraction and token commitment verification

@@ -30,9 +30,8 @@ const isValid = (tx: TransactionBuilder) => {
 async function broadcastChunked(instance: TestInstance, assetCount: number, chunkSize: number) {
     const { provider, system } = instance;
     const creator = generateWallet();
-    const genesis = randomUtxo({ vout: 0, satoshis: DustAmount });
-    const funding = randomUtxo({ satoshis: 2_000_000n });
-    [genesis, funding].forEach(u => provider.addUtxo(creator.tokenAddress, u));
+    const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount }));
+    const funding = provider.addUtxo(creator.tokenAddress, randomUtxo({ satoshis: 2_000_000n }));
     const fund = normalizeFund({
         category: genesis.txid,
         amount: 10n,
@@ -60,8 +59,7 @@ async function broadcastChunked(instance: TestInstance, assetCount: number, chun
 
 async function seriesTransactions({ provider, system, owner }: TestInstance) {
     const user = generateWallet();
-    const [proofFunding, burnFunding] = [randomUtxo({ satoshis: 100_000n }), randomUtxo({ satoshis: 100_000n })];
-    [proofFunding, burnFunding].forEach(u => provider.addUtxo(user.tokenAddress, u));
+    const [proofFunding, burnFunding] = [randomUtxo({ satoshis: 100_000n }), randomUtxo({ satoshis: 100_000n })].map(u => provider.addUtxo(user.tokenAddress, u));
     const { publicFundVaultContract: vault } = new PublicFundTransactionBuilder({ provider, system }).getContracts();
     const [head, ...rest] = await vault.getUtxos();
     const auth = (await provider.getUtxos(owner.tokenAddress)).find(u => u.token?.category === system.authorization)!;

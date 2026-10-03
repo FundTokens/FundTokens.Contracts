@@ -59,10 +59,9 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
 
         const foreign = randomCategory();
-        const foreignUtxo = randomUtxo({ token: { category: foreign, amount: 90n } });
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: { category: a.category, amount: a.amount } }));
-        [foreignUtxo, funding, ...assetUtxos].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        const foreignUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ token: { category: foreign, amount: 90n } }));
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
+        const assetUtxos = fund.assets.map(a => provider.addUtxo(attacker.tokenAddress, randomUtxo({ token: { category: a.category, amount: a.amount } })));
 
         // The manager computes (supply in - supply out) = 100 - 90 = 10 tokens, one unit of deposits,
         // but 100 real fund tokens leave the fund contract.
@@ -97,12 +96,11 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
         const inflowUtxo = (await managerContract.getUtxos()).find(u => u.token?.category === system.inflow)!;
         const fundUtxo = (await fundContract.getUtxos()).find(u => u.token?.category === noSats.category)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
-        const funding = randomUtxo({ satoshis: 1_000_000n });
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         // Each asset output must carry the asset's category. With nothing released, the only valid
         // encoding is an immutable NFT of that category (amount 0), which many token categories have.
         const assetNft = (category: string) => ({ category, amount: 0n, nft: { capability: 'none' as const, commitment: '' } });
-        const nfts = noSats.assets.map(a => randomUtxo({ satoshis: DustAmount, token: assetNft(a.category) }));
-        [funding, ...nfts].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        const nfts = noSats.assets.map(a => provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: DustAmount, token: assetNft(a.category) })));
 
         tx
             .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(noSats)))
@@ -124,9 +122,8 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
     it('rejects a broadcast that leaves a publicFund minting NFT on the startup return (PoC 2)', async () => {
         const { provider, system } = instance;
         const creator = generateWallet();
-        const genesis = randomUtxo({ vout: 0, satoshis: DustAmount });
-        const funding = randomUtxo({ satoshis: 100_000n });
-        [genesis, funding].forEach(u => provider.addUtxo(creator.tokenAddress, u));
+        const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount }));
+        const funding = provider.addUtxo(creator.tokenAddress, randomUtxo({ satoshis: 100_000n }));
         const newFund = normalizeFund({ category: genesis.txid, amount: 1n, satoshis: 1_000_000n, assets: [] });
 
         const tx = new PublicFundTransactionBuilder({ provider, system });
@@ -155,14 +152,12 @@ describe('audit PoCs (v0.1.0-rc2)', () => {
             new PublicFundTransactionBuilder({ provider, system }).getContracts();
 
         // However it got there (PoC 2, or anyone paying to the startup address), a publicFund NFT sits at startup.
-        const parked = randomUtxo({ satoshis: 10_000n, token: { category: system.publicFund, amount: 0n, nft: { capability: 'minting', commitment: '02' } } });
-        provider.addUtxo(startupContract.tokenAddress, parked);
+        const parked = provider.addUtxo(startupContract.tokenAddress, randomUtxo({ satoshis: 10_000n, token: { category: system.publicFund, amount: 0n, nft: { capability: 'minting', commitment: '02' } } }));
 
         const mintInflowUtxo = (await mintInflowContract.getUtxos()).find(u => u.token?.category === system.inflow)!;
         const mintOutflowUtxo = (await mintOutflowContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
         const feeUtxo = (await createFundFeeContract.getUtxos()).find(u => !u.token)!;
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(user.tokenAddress, funding);
+        const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         const newFund = normalizeFund({ category: randomCategory(), amount: 1n, satoshis: 5000n, assets: [] });
         const commitment = '02' + swapEndianness(newFund.category) + hashFund(newFund);

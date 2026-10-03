@@ -33,10 +33,9 @@ describe('fee selection', () => {
         const { executeFundFeeContract: feeContract, feeVaultContract } = deriveSystemContracts(provider, system);
         const fee = system.fees.execute;
         const add = (commitment?: string): Utxo => {
-            const utxo = randomUtxo(commitment === undefined ? {} : {
+            const utxo = provider.addUtxo(feeContract.tokenAddress, randomUtxo(commitment === undefined ? {} : {
                 token: { category: fee.nft, amount: 0n, nft: { capability: 'none', commitment } },
-            });
-            provider.addUtxo(feeContract.tokenAddress, utxo);
+            }));
             return utxo;
         };
         return { provider, feeContract, feeVaultContract, fee, add };

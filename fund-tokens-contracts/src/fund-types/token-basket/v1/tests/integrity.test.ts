@@ -3,11 +3,12 @@ import {
     Network,
     randomToken,
     randomUtxo,
-    type Utxo,
+    type SpendableUtxo,
 } from 'cashscript';
 
-import { generateWallet } from '@test-utils/wallet.js';
+import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
 
+import { lockingBytecodeHexOf } from '../../../../core/outputs.js';
 import { SystemFixture } from './support/system.js';
 import {
     FundTokenTransactionBuilder,
@@ -23,12 +24,15 @@ const DustAmount = 1000n;
 describe('testing transaction integrity', () => {
     const network = Network.MOCKNET;
     const genesisPartial = { vout: 0, satoshis: DustAmount };
+    // Every fund creation spends the same genesis outpoint (txid = fund.category). Transactions that are only checked,
+    // never broadcast, spend one that is not added to the mock, so the broadcast finds the genesis it adds.
+    const unbroadcastGenesis = (wallet: TestWallet): SpendableUtxo =>
+        ({ ...randomUtxo({ ...genesisPartial, txid: fund.category }), lockingBytecode: lockingBytecodeHexOf(wallet.tokenAddress) });
 
     ///
     const provider = new MockNetworkProvider({
         updateUtxoSet: true,
     });
-    const addUtxos = (address: string, utxos: Utxo[]) => utxos.forEach(u => provider.addUtxo(address, u));
 
     const ownerWallet = generateWallet();
 
@@ -50,16 +54,14 @@ describe('testing transaction integrity', () => {
     };
 
     it('should initialize control tokens', async ({ expect }) => {
-        const inflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.inflow });
-        const outflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.outflow });
-        const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
-        const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
-        const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
-        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.authorization });
+        const inflowGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.inflow }));
+        const outflowGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.outflow }));
+        const publicFundGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.publicFund }));
+        const createFundFeeGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.fees.create.nft }));
+        const executeFundFeeGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft }));
+        const authGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.authorization }));
         const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-
-        addUtxos(ownerWallet.tokenAddress, [feeUtxo, ...genesisInputs, authGenesisUtxo]);
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
 
         const transaction = new SystemFixture({ provider, system });
         transaction
@@ -85,11 +87,9 @@ describe('testing transaction integrity', () => {
     });
 
     it('should create new system threads', async ({ expect }) => {
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemFixture({ provider, system });
-
-        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
         await transaction.addSystemThreads();
         await transaction.addCreateFundFee();
@@ -128,10 +128,8 @@ describe('testing transaction integrity', () => {
 
     it('ensure unable to mint inflow token outside contract control', async ({ expect }) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -155,10 +153,8 @@ describe('testing transaction integrity', () => {
 
     it('ensure unable to mint outflow token outside contract control', async ({ expect }) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -182,10 +178,8 @@ describe('testing transaction integrity', () => {
 
     it('ensure unable to mint NFT fund tokens outside contract control', async ({ expect }) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -209,10 +203,8 @@ describe('testing transaction integrity', () => {
 
     it('ensure unable to mint fungible fund tokens outside contract control', async ({ expect }) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -232,10 +224,8 @@ describe('testing transaction integrity', () => {
 
     it('should ensure closing a fee does not work as replacement to paying for broadcast tx', async () => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -272,10 +262,8 @@ describe('testing transaction integrity', () => {
 
     it('should broadcast a new fund', async ({ expect }) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: fund.category }));
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -317,11 +305,9 @@ describe('testing transaction integrity', () => {
 
     it('should ensure closing a fee does not work as replacement to paying for inflow tx', async () => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 110000n });
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 110000n }));
         const inflowAmount = 3n;
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+        const assetUtxos = fund.assets.map(a => provider.addUtxo(userWallet.tokenAddress, randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) })));
 
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ units: inflowAmount });
@@ -374,11 +360,9 @@ describe('testing transaction integrity', () => {
 
     it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 110000n });
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 110000n }));
         const inflowAmount = 3n;
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) }));
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+        const assetUtxos = fund.assets.map(a => provider.addUtxo(userWallet.tokenAddress, randomUtxo({ token: randomToken({ ...a, amount: (a.amount * inflowAmount) + 1n }) })));
 
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addInflow({ units: inflowAmount });
@@ -407,16 +391,14 @@ describe('testing transaction integrity', () => {
 
     it('should ensure closing a fee does not work as replacement to paying for outflow tx', async () => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 1000000n });
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 1000000n }));
         const outflowAmount = 2n;
-        const fundTokenUtxo = randomUtxo({
+        const fundTokenUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({
             token: randomToken({
                 category: fund.category,
                 amount: (outflowAmount * fund.amount) + 1n,
             })
-        });
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
+        }));
 
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addOutflow({ units: outflowAmount });
@@ -469,16 +451,14 @@ describe('testing transaction integrity', () => {
 
     it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 1000000n });
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 1000000n }));
         const outflowAmount = 2n;
-        const fundTokenUtxo = randomUtxo({
+        const fundTokenUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({
             token: randomToken({
                 category: fund.category,
                 amount: (outflowAmount * fund.amount) + 1n,
             })
-        });
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
+        }));
 
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addOutflow({ units: outflowAmount });
@@ -506,11 +486,9 @@ describe('testing transaction integrity', () => {
     });
 
     it('should allow closing fee threads', async () => {
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemFixture({ provider, system, allowImplicitFungibleTokenBurn: true });
-
-        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
         await transaction.closeCreateFundFee();
         await transaction.closeExecuteFundFee();

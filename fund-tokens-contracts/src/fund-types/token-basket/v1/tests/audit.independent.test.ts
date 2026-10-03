@@ -63,16 +63,13 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
         generateLockingBytecode: () => hexToBin(decoyLocking),
     };
     const addDecoy = () => {
-        const u = randomUtxo({ satoshis: DustAmount });
-        provider.addUtxo(decoyLocking, u);
+        const u = provider.addUtxo(decoyLocking, randomUtxo({ satoshis: DustAmount }));
         return u;
     };
 
     it('control: release() fails without outflow token (plain prev input)', async ({ expect }) => {
-        const vaultUtxo = randomUtxo({ satoshis: 5000n, token: randomToken({ category: assetCatDisplay, amount: 12345n }) });
-        provider.addUtxo(tokenVault.tokenAddress, vaultUtxo);
-        const sats = randomUtxo({ satoshis: 10000n });
-        provider.addUtxo(attacker.tokenAddress, sats);
+        const vaultUtxo = provider.addUtxo(tokenVault.tokenAddress, randomUtxo({ satoshis: 5000n, token: randomToken({ category: assetCatDisplay, amount: 12345n }) }));
+        const sats = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 10000n }));
 
         const tx = new TransactionBuilder({ provider });
         tx.addInput(sats, attacker.signatureTemplate.unlockP2PKH())
@@ -83,8 +80,7 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
     });
 
     it('prevent vault draining decoy prev input (no outflow token anywhere)', async ({ expect }) => {
-        const vaultUtxo = randomUtxo({ satoshis: 5000n, token: randomToken({ category: assetCatDisplay, amount: 54321n }) });
-        provider.addUtxo(tokenVault.tokenAddress, vaultUtxo);
+        const vaultUtxo = provider.addUtxo(tokenVault.tokenAddress, randomUtxo({ satoshis: 5000n, token: randomToken({ category: assetCatDisplay, amount: 54321n }) }));
         const decoyUtxo = addDecoy();
 
         const tx = new TransactionBuilder({ provider });
@@ -95,8 +91,7 @@ describe('audit: AssetManager.release() decoy prev-input bypass (F1)', () => {
     });
 
     it('prevent Bitcoin (satoshi) vault draining', async ({ expect }) => {
-        const vaultUtxo = randomUtxo({ satoshis: 777777n });
-        provider.addUtxo(btcVault.tokenAddress, vaultUtxo);
+        const vaultUtxo = provider.addUtxo(btcVault.tokenAddress, randomUtxo({ satoshis: 777777n }));
         const decoyUtxo = addDecoy();
 
         const tx = new TransactionBuilder({ provider });
@@ -119,8 +114,7 @@ describe('audit: TransactionManager.inflow() accounting (F2, F3)', () => {
 
         // An honest holder deposits 10 units (50,000 sats of backing).
         const holder = generateWallet();
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(holder.tokenAddress, funding);
+        const funding = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         const inflow = new FundTokenTransactionBuilder({ provider, system, fund });
         await inflow.addInflow({ units: 10n });
         await inflow
@@ -139,9 +133,8 @@ describe('audit: TransactionManager.inflow() accounting (F2, F3)', () => {
         const inflowThread = (await managerContract.getUtxos()).find(u => u.token?.category === system.inflow)!;
         const supply = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
-        const funding = randomUtxo({ satoshis: 400_000n });
-        const tokenUtxo = randomUtxo({ satoshis: DustAmount, token: attackerToken });
-        [funding, tokenUtxo].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 400_000n }));
+        const tokenUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: DustAmount, token: attackerToken }));
 
         tx
             .addInput(inflowThread, managerContract.unlock.inflow(getFundBin(fund)))

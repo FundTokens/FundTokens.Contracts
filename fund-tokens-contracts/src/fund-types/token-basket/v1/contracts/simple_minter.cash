@@ -1,4 +1,4 @@
-pragma cashscript ~0.13.0;
+pragma cashscript ^0.14.0;
 
 /**
  * SimpleMinter: Token minting vault with token authorization using encoded permission bits

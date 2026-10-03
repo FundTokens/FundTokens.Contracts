@@ -36,9 +36,8 @@ const accepted = async (tx: TransactionBuilder) => {
 async function broadcastFund(instance: TestInstance, assetCount: number, satoshis = 1000n): Promise<Fund | undefined> {
     const { provider, system } = instance;
     const creator = generateWallet();
-    const genesis = randomUtxo({ vout: 0, satoshis: DustAmount });
-    const funding = randomUtxo({ satoshis: 100_000n });
-    [genesis, funding].forEach(u => provider.addUtxo(creator.tokenAddress, u));
+    const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount }));
+    const funding = provider.addUtxo(creator.tokenAddress, randomUtxo({ satoshis: 100_000n }));
     const fund = normalizeFund({
         category: genesis.txid,
         amount: 10n,
@@ -55,9 +54,8 @@ async function broadcastFund(instance: TestInstance, assetCount: number, satoshi
 
 /** Deposits `units` into `fund`, minting the fund tokens to `holder`; false if the contracts reject it. */
 async function deposit({ provider, system }: TestInstance, fund: Fund, holder: TestWallet, units: bigint) {
-    const funding = randomUtxo({ satoshis: 400_000n });
-    const assetUtxos = fund.assets.map(a => randomUtxo({ token: { category: a.category, amount: a.amount * units } }));
-    [funding, ...assetUtxos].forEach(u => provider.addUtxo(holder.tokenAddress, u));
+    const funding = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 400_000n }));
+    const assetUtxos = fund.assets.map(a => provider.addUtxo(holder.tokenAddress, randomUtxo({ token: { category: a.category, amount: a.amount * units } })));
     const tx = new FundTokenTransactionBuilder({ provider, system, fund });
     await tx.addInflow({ units });
     return accepted(tx
@@ -68,8 +66,7 @@ async function deposit({ provider, system }: TestInstance, fund: Fund, holder: T
 
 /** Redeems `units` of `fund` with the builder, spending `holder`'s fund tokens; resolves if the contracts accept it. */
 async function redeem({ provider, system }: TestInstance, fund: Fund, holder: TestWallet, units: bigint) {
-    const funding = randomUtxo({ satoshis: 1_000_000n });
-    provider.addUtxo(holder.tokenAddress, funding);
+    const funding = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
     const fundTokens = (await provider.getUtxos(holder.tokenAddress)).filter(u => u.token?.category === fund.category);
     const change = fundTokens.reduce((sum, u) => sum + u.token!.amount, 0n) - units * fund.amount;
 
@@ -127,8 +124,7 @@ describe('audit: PublicFundVault.proof() is not a ceiling (negative result)', ()
 
         const { provider, system } = instance;
         const user = generateWallet();
-        const funding = randomUtxo({ satoshis: 10_000n });
-        provider.addUtxo(user.tokenAddress, funding);
+        const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 20_000n }));
         const { publicFundVaultContract: vault } = new PublicFundTransactionBuilder({ provider, system }).getContracts();
         const [head, ...rest] = await vault.getUtxos();
         const proof = new TransactionBuilder({ provider })

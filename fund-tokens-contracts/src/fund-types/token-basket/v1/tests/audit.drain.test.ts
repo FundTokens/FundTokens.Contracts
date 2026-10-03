@@ -32,9 +32,8 @@ describe('audit: zero-unit outflow drain', () => {
         // Stock the asset contract with several reserve UTXOs through legitimate inflows.
         for (const units of [5n, 7n]) {
             const user = generateWallet();
-            const funding = randomUtxo({ satoshis: 200_000n });
-            const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ category: a.category, amount: a.amount * units }) }));
-            [funding, ...assetUtxos].forEach(u => instance.provider.addUtxo(user.tokenAddress, u));
+            const funding = instance.provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n }));
+            const assetUtxos = fund.assets.map(a => instance.provider.addUtxo(user.tokenAddress, randomUtxo({ token: randomToken({ category: a.category, amount: a.amount * units }) })));
 
             const inflow = new FundTokenTransactionBuilder({ provider: instance.provider, system: instance.system, fund });
             await inflow.addInflow({ units });
@@ -63,8 +62,7 @@ describe('audit: zero-unit outflow drain', () => {
         expect(assetUtxos.length).toBeGreaterThan(1);
 
         // Sits between the fund input and the asset inputs, ending the manager's asset walk early.
-        const gapUtxo = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(attacker.tokenAddress, gapUtxo);
+        const gapUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
             .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund)))           // 0
@@ -102,8 +100,7 @@ describe('audit: zero-unit outflow drain (satoshi backing)', () => {
         // Stock the satoshi contract with several backing UTXOs through legitimate inflows.
         for (const units of [5n, 7n]) {
             const user = generateWallet();
-            const funding = randomUtxo({ satoshis: 500_000n });
-            instance.provider.addUtxo(user.tokenAddress, funding);
+            const funding = instance.provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 500_000n }));
 
             const inflow = new FundTokenTransactionBuilder({ provider: instance.provider, system: instance.system, fund });
             await inflow.addInflow({ units });
@@ -131,8 +128,7 @@ describe('audit: zero-unit outflow drain (satoshi backing)', () => {
         expect(satoshiUtxos.length).toBeGreaterThan(1);
 
         // Sits between the fund input and the satoshi inputs, ending the manager's walk early.
-        const gapUtxo = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(attacker.tokenAddress, gapUtxo);
+        const gapUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
             .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund)))               // 0

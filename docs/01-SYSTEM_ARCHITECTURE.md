@@ -303,7 +303,7 @@ Failure to sort assets correctly will cause fund creation to fail.
 
 ## Implementation Technology
 
-- **Language**: CashScript ~0.13.0 for contract bytecode
+- **Language**: CashScript ^0.14.0 for contract bytecode
 - **Platform**: Bitcoin Cash (CHIPNET/MAINNET)
 - **Token Standard**: CashTokens (Bitcoin Cash Native Tokens)
 - **Transaction Building**: JavaScript/Node.js with libauth & cashscript

@@ -1,4 +1,4 @@
-import { TransactionBuilder, type NetworkProvider, type Output, type UnlockableUtxo, type Utxo } from 'cashscript';
+import { TransactionBuilder, type NetworkProvider, type Output, type UnlockableUtxo, type SpendableUtxo } from 'cashscript';
 import { MaxTokenAmount } from '../../../core/constants.js';
 import { FundTokensError } from '../../../core/errors.js';
 import { silentLogger, type Logger } from '../../../core/logger.js';
@@ -131,7 +131,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
 
         // Shuffled so concurrent mints tend to pick different supply UTXOs.
         const supplyUtxos = shuffle(fundUtxos.filter(u => u.token?.category === this.fund.category));
-        const supply: Utxo[] = [];
+        const supply: SpendableUtxo[] = [];
         let supplyTotal = 0n;
         for (const utxo of supplyUtxos) {
             supply.push(utxo);

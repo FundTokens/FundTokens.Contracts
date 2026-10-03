@@ -37,9 +37,8 @@ describe('audit: thread creation co-located with a live outflow', () => {
 
         // One honest deposit of 5 units: the reserve holds 20 asset tokens.
         holder = generateWallet();
-        const funding = randomUtxo({ satoshis: 400_000n });
-        const asset = randomUtxo({ token: { category: fund.assets[0]!.category, amount: 20n } });
-        [funding, asset].forEach(u => provider.addUtxo(holder.tokenAddress, u));
+        const funding = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 400_000n }));
+        const asset = provider.addUtxo(holder.tokenAddress, randomUtxo({ token: { category: fund.assets[0]!.category, amount: 20n } }));
         const inflow = new FundTokenTransactionBuilder({ provider, system, fund });
         await inflow.addInflow({ units: 5n });
         await inflow
@@ -67,8 +66,7 @@ describe('audit: thread creation co-located with a live outflow', () => {
         const fundTokens = (await provider.getUtxos(holder.tokenAddress)).find(u => u.token?.category === fund.category)!;
 
         const redeemer = generateWallet();
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(redeemer.tokenAddress, funding);
+        const funding = provider.addUtxo(redeemer.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         const reserveBefore = reserve.token!.amount;
 
         const tx = new TransactionBuilder({ provider })

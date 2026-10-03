@@ -31,8 +31,7 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
         // Two legitimate inflows stock the satoshi backing with separate UTXOs.
         for (const units of [5n, 7n]) {
             const user = generateWallet();
-            const funding = randomUtxo({ satoshis: 500_000n });
-            provider.addUtxo(user.tokenAddress, funding);
+            const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 500_000n }));
             const inflow = new FundTokenTransactionBuilder({ provider, system, fund });
             await inflow.addInflow({ units });
             await inflow
@@ -58,8 +57,7 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
         const backing = backingUtxos.reduce((sum, u) => sum + u.satoshis, 0n);
         expect(backing).toBe(12n * fund.satoshis);
 
-        const gapUtxo = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(attacker.tokenAddress, gapUtxo);
+        const gapUtxo = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         const reserve = backingUtxos[0]!;
         const minted = 5n * fund.amount;
 
@@ -93,8 +91,7 @@ describe('audit: fake-deposit mint (N-1 variant)', () => {
         const inflowUtxo = (await managerContract.getUtxos()).find(u => u.token?.category === system.inflow)!;
         const fundUtxo = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
-        const funding = randomUtxo({ satoshis: 2_000_000n });
-        provider.addUtxo(user.tokenAddress, funding);
+        const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 2_000_000n }));
 
         tx
             .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund))) // 0

@@ -50,11 +50,10 @@ describe('audit: thread commitments swapped between funds', () => {
         const commitB = threadB.token!.nft!.commitment;
 
         const attacker = generateWallet();
-        const pads = [randomUtxo({ satoshis: 50_000n }), randomUtxo({ satoshis: 50_000n })];
-        const assetA = randomUtxo({ token: { category: fundA.assets[0]!.category, amount: 4n } });
-        const assetB = randomUtxo({ token: { category: fundB.assets[0]!.category, amount: 4n } });
-        const gas = randomUtxo({ satoshis: 1_000_000n });
-        [...pads, assetA, assetB, gas].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        const pads = [provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 50_000n })), provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 50_000n }))];
+        const assetA = provider.addUtxo(attacker.tokenAddress, randomUtxo({ token: { category: fundA.assets[0]!.category, amount: 4n } }));
+        const assetB = provider.addUtxo(attacker.tokenAddress, randomUtxo({ token: { category: fundB.assets[0]!.category, amount: 4n } }));
+        const gas = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         const tx = new TransactionBuilder({ provider })
             .addInput(threadA, cA.managerContract.unlock.inflow(getFundBin(fundA)))  // 0 deposit into fund A
@@ -96,9 +95,8 @@ describe('audit: thread commitments swapped between funds', () => {
         /** Deposits one unit into `fund`, so its reserve holds exactly one unit and the holder one unit of fund tokens. */
         async function depositOneUnit(fund: Fund) {
             const { provider, system } = instance;
-            const funding = randomUtxo({ satoshis: 400_000n });
-            const asset = randomUtxo({ token: { category: fund.assets[0]!.category, amount: fund.assets[0]!.amount } });
-            [funding, asset].forEach(u => provider.addUtxo(holder.tokenAddress, u));
+            const funding = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 400_000n }));
+            const asset = provider.addUtxo(holder.tokenAddress, randomUtxo({ token: { category: fund.assets[0]!.category, amount: fund.assets[0]!.amount } }));
             const inflow = new FundTokenTransactionBuilder({ provider, system, fund });
             await inflow.addInflow({ units: 1n });
             await inflow
@@ -118,8 +116,7 @@ describe('audit: thread commitments swapped between funds', () => {
 
             const feeUtxos = (await contractsOf(fundA).feeContract.getUtxos()).filter(u => !u.token);
             const holderTokens = await provider.getUtxos(holder.tokenAddress);
-            const funding = randomUtxo({ satoshis: 1_000_000n });
-            provider.addUtxo(holder.tokenAddress, funding);
+            const funding = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
             const tx = new TransactionBuilder({ provider });
             const operations = await Promise.all([fundA, fundB].map(async (fund, i) => {

@@ -1,4 +1,4 @@
-pragma cashscript ~0.13.0;
+pragma cashscript ^0.14.0;
 
 /**
  * AuthHeadVault: Token identity vault with authorization requirements

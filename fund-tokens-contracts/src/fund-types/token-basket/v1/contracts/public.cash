@@ -1,4 +1,4 @@
-pragma cashscript ~0.13.0;
+pragma cashscript ^0.14.0;
 
 /**
  * PublicFund: Broadcasts and validates new public funds that are verified and created on-chain

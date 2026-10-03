@@ -1,6 +1,6 @@
 /** Hand-built fund creations, for tests that need to place or replace the fee inputs and outputs. */
 import { swapEndianness } from '@bitauth/libauth';
-import { randomUtxo, type Output, type Unlocker, type Utxo } from 'cashscript';
+import { randomUtxo, type Output, type Unlocker, type SpendableUtxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
 import { MaxTokenAmount } from '../../../../../core/constants.js';
 import { withDust } from '../../../../../core/outputs.js';
@@ -14,7 +14,7 @@ const DustAmount = 1000n;
 
 export interface ManualBroadcastOptions {
     /** The create-fee input, with its unlocker. */
-    fee: { utxo: Utxo; unlocker: Unlocker };
+    fee: { utxo: SpendableUtxo; unlocker: Unlocker };
     /** The fee outputs that follow the mint returns: the fee return, then what the fee slot pays. */
     feeOutputs: Output[];
 }
@@ -26,9 +26,8 @@ export interface ManualBroadcastOptions {
  */
 export async function buildManualBroadcast({ provider, system }: TestInstance, { fee, feeOutputs }: ManualBroadcastOptions) {
     const creator = generateWallet();
-    const genesis = randomUtxo({ vout: 0, satoshis: DustAmount });
-    const funding = randomUtxo({ satoshis: 1_000_000n });
-    [genesis, funding].forEach(u => provider.addUtxo(creator.tokenAddress, u));
+    const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount }));
+    const funding = provider.addUtxo(creator.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
     const fund = normalizeFund({ category: genesis.txid, amount: 1n, satoshis: 1000n, assets: [] });
 
     const tx = new PublicFundTransactionBuilder({ provider, system });

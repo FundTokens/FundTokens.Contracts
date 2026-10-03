@@ -31,10 +31,9 @@ describe('audit: thread commitment unpinned on recreation', () => {
     it('rejects an inflow that rewrites the thread commitment while a thread-category minting NFT is present', async () => {
         const { provider, system } = instance;
         const attacker = generateWallet();
-        const rogueMinter = randomUtxo({ satoshis: 5000n, token: { category: system.inflow, amount: 0n, nft: { capability: 'minting', commitment: '01' } } });
-        const funding = randomUtxo({ satoshis: 400_000n });
-        const asset = randomUtxo({ token: { category: fund.assets[0]!.category, amount: fund.assets[0]!.amount } });
-        [rogueMinter, funding, asset].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        const rogueMinter = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 5000n, token: { category: system.inflow, amount: 0n, nft: { capability: 'minting', commitment: '01' } } }));
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 400_000n }));
+        const asset = provider.addUtxo(attacker.tokenAddress, randomUtxo({ token: { category: fund.assets[0]!.category, amount: fund.assets[0]!.amount } }));
 
         const tx = new FundTokenTransactionBuilder({ provider, system, fund });
         const { managerContract } = tx.getContracts();

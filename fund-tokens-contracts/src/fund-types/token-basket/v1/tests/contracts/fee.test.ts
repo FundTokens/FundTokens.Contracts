@@ -38,7 +38,15 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const payByToken = randomToken();
     const payByTokenAmount = 1000n;
     const contractToken = randomToken();
-    const encodedTokenFeeUtxo = randomUtxo({
+    const encodedDestination = userWallet.address;
+    const defaultFeeAmount = 2000n;
+
+    const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category), binToHex(assertSuccess(cashAddressToLockingBytecode(ownerWallet.tokenAddress)).bytecode), swapEndianness(contractToken.category), defaultFeeAmount], { provider });
+
+    const authUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ token: authToken }));
+
+    const defaultFeeUtxo = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo());
+    const encodedTokenFeeUtxo = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
         token: {
             category: contractToken.category,
             amount: 0n,
@@ -47,19 +55,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 commitment: '01' + swapEndianness(payByToken.category) + binToHex(bigIntToBinUint64LEClamped(payByTokenAmount)),
             }
         }
-    });
-    const encodedBitcoinFeeUtxo = randomUtxo({
-        token: {
-            category: contractToken.category,
-            amount: 0n,
-            nft: {
-                capability: 'none',
-                commitment: '01' + swapEndianness('0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(4000n)),
-            }
-        }
-    });
-    const encodedDestination = userWallet.address;
-    const encodedTokenFeeWithDestinationUtxo = randomUtxo({
+    }));
+    const encodedTokenFeeWithDestinationUtxo = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
         token: {
             category: contractToken.category,
             amount: 0n,
@@ -68,11 +65,18 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 commitment: '01' + swapEndianness(payByToken.category) + binToHex(bigIntToBinUint64LEClamped(payByTokenAmount)) + binToHex(assertSuccess(cashAddressToLockingBytecode(encodedDestination)).bytecode),
             }
         }
-    });
-    const defaultFeeUtxo = randomUtxo();
-    const defaultFeeAmount = 2000n;
-
-    const voluntaryFeeUtxo = randomUtxo({
+    }));
+    const encodedBitcoinFeeUtxo = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
+        token: {
+            category: contractToken.category,
+            amount: 0n,
+            nft: {
+                capability: 'none',
+                commitment: '01' + swapEndianness('0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(4000n)),
+            }
+        }
+    }));
+    const voluntaryFeeUtxo = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
         token: {
             category: contractToken.category,
             amount: 0n,
@@ -81,22 +85,10 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 commitment: '02',
             }
         }
-    });
-
-    const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category), binToHex(assertSuccess(cashAddressToLockingBytecode(ownerWallet.tokenAddress)).bytecode), swapEndianness(contractToken.category), defaultFeeAmount], { provider });
-
-    const authUtxo = randomUtxo({ token: authToken });
-    provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
-
-    provider.addUtxo(systemUnderTest.tokenAddress, defaultFeeUtxo);
-    provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeUtxo);
-    provider.addUtxo(systemUnderTest.tokenAddress, encodedTokenFeeWithDestinationUtxo);
-    provider.addUtxo(systemUnderTest.tokenAddress, encodedBitcoinFeeUtxo);
-    provider.addUtxo(systemUnderTest.tokenAddress, voluntaryFeeUtxo);
+    }));
 
     it('pay with default fee', async ({ expect }) => {
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(defaultFeeUtxo, systemUnderTest.unlock.pay())
@@ -115,8 +107,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('should fail when fee is less than default', async ({ expect }) => {
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
 
         const testRange = [-2n, -1n, 1n];
 
@@ -141,13 +132,12 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('pay with encoded fee, no new destination', async ({ expect }) => {
-        const feeUtxo = randomUtxo({
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({
             token: {
                 category: payByToken.category,
                 amount: payByTokenAmount,
             },
-        });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(encodedTokenFeeUtxo, systemUnderTest.unlock.pay())
@@ -171,8 +161,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('pay with encoded Bitcoin fee, no new destination', async ({ expect }) => {
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(encodedBitcoinFeeUtxo, systemUnderTest.unlock.pay())
@@ -192,13 +181,12 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('should fail when encoded fee doesnt match', async ({ expect }) => {
-        const feeUtxo = randomUtxo({
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({
             token: {
                 category: payByToken.category,
                 amount: payByTokenAmount,
             },
-        });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        }));
 
         const testRange = [-1n, 1n];
 
@@ -228,13 +216,12 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('pay with encoded fee, use new destination', async ({ expect }) => {
-        const feeUtxo = randomUtxo({
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({
             token: {
                 category: payByToken.category,
                 amount: payByTokenAmount,
             },
-        });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(encodedTokenFeeWithDestinationUtxo, systemUnderTest.unlock.pay())
@@ -258,8 +245,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('voluntary payments allow no payment (use OP_RETURN output)', async () => {
-        const feeUtxo = randomUtxo();
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo());
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(voluntaryFeeUtxo, systemUnderTest.unlock.pay())
@@ -276,8 +262,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('allows voluntary BCH payment to default destination', async () => {
-        const feeUtxo = randomUtxo();
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo());
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(voluntaryFeeUtxo, systemUnderTest.unlock.pay())
@@ -297,13 +282,12 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('allows voluntary token payment to default destination', async () => {
-        const feeUtxo = randomUtxo({
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({
             token: {
                 category: payByToken.category,
                 amount: 1n,
             },
-        });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(voluntaryFeeUtxo, systemUnderTest.unlock.pay())
@@ -343,7 +327,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     test.each(['00FF', '0020'])('allows the owner with the correct roles to close the fee thread', async role => {
         const wallet = generateWallet();
-        const utxo = randomUtxo({
+        const utxo = provider.addUtxo(wallet.tokenAddress, randomUtxo({
             satoshis: 10000n,
             token: {
                 category: authToken.category,
@@ -353,8 +337,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: '01' + role
                 }
             }
-        });
-        provider.addUtxo(wallet.tokenAddress, utxo);
+        }));
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
             .addInput(defaultFeeUtxo, systemUnderTest.unlock.close())
@@ -371,7 +354,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     test.each(['0010', '0040'])('ensures the authorization usuer has the correct role', async role => {
         const wallet = generateWallet();
-        const utxo = randomUtxo({
+        const utxo = provider.addUtxo(wallet.tokenAddress, randomUtxo({
             satoshis: 10000n,
             token: {
                 category: authToken.category,
@@ -381,8 +364,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: '01' + role
                 }
             }
-        });
-        provider.addUtxo(wallet.tokenAddress, utxo);
+        }));
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
             .addInput(defaultFeeUtxo, systemUnderTest.unlock.close())
@@ -398,8 +380,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     });
 
     it('prevents the owner from moving a fee', async ({ expect }) => {
-        const feeUtxo = randomUtxo();
-        provider.addUtxo(ownerWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(ownerWallet.address, randomUtxo());
         const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
         transaction
             .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())

@@ -46,15 +46,12 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             commitment: '0001',
         }
     });
-    const utxoUnderTest = randomUtxo({ satoshis: DustAmount, token: tokenUnderTest });
-    const authUtxo = randomUtxo({ satoshis: DustAmount, token: authToken });
-    const bitcoinUtxo = randomUtxo({ satoshis: 10000n });
+    const authUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: DustAmount, token: authToken }));
+    const bitcoinUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
 
     const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(authToken.category), swapEndianness(tokenUnderTest.category), assertSuccess(cashAddressToLockingBytecode(destinationWallet.address)).bytecode], { provider });
 
-    provider.addUtxo(systemUnderTest.tokenAddress, utxoUnderTest);
-    provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
-    provider.addUtxo(ownerWallet.tokenAddress, bitcoinUtxo);
+    const utxoUnderTest = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({ satoshis: DustAmount, token: tokenUnderTest }));
 
     const newFeeToken = randomToken();
 
@@ -93,7 +90,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     test.each(['00FF', '00F0', '0010'])('should mint to destination', role => {
         const wallet = generateWallet();
-        const utxo = randomUtxo({
+        const utxo = provider.addUtxo(wallet.tokenAddress, randomUtxo({
             satoshis: 10000n,
             token: {
                 category: authToken.category,
@@ -103,8 +100,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: '01' + role
                 }
             }
-        });
-        provider.addUtxo(wallet.tokenAddress, utxo);
+        }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
@@ -235,7 +231,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     test.each(['0001', '000F'])('should ensure the correct role', role => {
         const wallet = generateWallet();
-        const utxo = randomUtxo({
+        const utxo = provider.addUtxo(wallet.tokenAddress, randomUtxo({
             satoshis: 10000n,
             token: {
                 category: authToken.category,
@@ -245,8 +241,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: '00' + role
                 }
             }
-        });
-        provider.addUtxo(wallet.tokenAddress, utxo);
+        }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(utxoUnderTest, systemUnderTest.unlock.mint())

@@ -4,11 +4,11 @@
  * outpoint transaction with the previous input, never the vault's own address.
  *
  * Consensus binds a UTXO to the script it is locked with, so the vault's unlockers cannot spend
- * NFTs held anywhere else. cashscript's mock cannot show this (it evaluates each input against
- * its unlocker's script), so the transaction is verified against where the UTXOs really are.
+ * NFTs held anywhere else. cashscript refuses to even build such a spend, so the vault's unlocking
+ * bytecode is passed as a custom unlocker and the transaction is verified against an assumed source.
  */
 import { binToHex, hash256, hexToBin, swapEndianness } from '@bitauth/libauth';
-import { Contract, MockNetworkProvider, TransactionBuilder, randomUtxo } from 'cashscript';
+import { Contract, MockNetworkProvider, TransactionBuilder, randomUtxo, type Unlocker } from 'cashscript';
 
 import { randomCategory } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
@@ -31,8 +31,7 @@ describe('audit: instance vault address substitution', () => {
         const dataToken = { category: instance, amount: 0n, nft: { capability: 'none' as const, commitment: binToHex(data2) } };
 
         // Both instance NFTs are minted straight to the attacker, in one transaction as data() expects.
-        const genesis = randomUtxo({ vout: 0, satoshis: 100_000n, txid: instance });
-        provider.addUtxo(attacker.tokenAddress, genesis);
+        const genesis = provider.addUtxo(attacker.tokenAddress, randomUtxo({ vout: 0, satoshis: 100_000n, txid: instance }));
         await new TransactionBuilder({ provider })
             .addInput(genesis, attacker.signatureTemplate.unlockP2PKH())
             .addOutputs([
@@ -45,21 +44,29 @@ describe('audit: instance vault address substitution', () => {
         const utxos = await provider.getUtxos(attacker.tokenAddress);
         const mainUtxo = utxos.find(u => u.token?.nft?.capability === 'mutable')!;
         const dataUtxo = utxos.find(u => u.token?.nft?.capability === 'none')!;
+        // The fee comes from an anyone-can-spend (OP_TRUE) input: nothing is signed, so the spend means
+        // the same whichever address the NFTs are taken to be spent from.
+        const anyoneCanSpend = '51';
+        const funding = provider.addUtxo(anyoneCanSpend, randomUtxo({ satoshis: 10_000n }));
 
-        // proof() returns both NFTs to the address they were spent from.
+        // proof() returns both NFTs to the address they were spent from. The unlockers carry no contract,
+        // so cashscript does not check them against where the UTXOs are.
+        const custom = ({ generateUnlockingBytecode }: Unlocker): Unlocker => ({ generateUnlockingBytecode });
         const proofAt = (address: string) => new TransactionBuilder({ provider })
-            .addInput(mainUtxo, instanceVault.unlock.proof())
-            .addInput(dataUtxo, instanceVault.unlock.data())
+            .addInput(mainUtxo, custom(instanceVault.unlock.proof()))
+            .addInput(dataUtxo, custom(instanceVault.unlock.data()))
+            .addInput(funding, { generateUnlockingBytecode: () => new Uint8Array() })
             .addOutputs([
                 { to: address, amount: 1000n, token: mainToken },
                 { to: address, amount: 1000n, token: dataToken },
+                { to: attacker.tokenAddress, amount: 8_000n },
             ]);
 
         // Control: the same spend is valid for NFTs held at the vault, so only the address differs.
         const vaultLockingBytecode = lockingBytecodeHexOf(instanceVault.tokenAddress);
-        expect(verifyTransaction(proofAt(instanceVault.tokenAddress), [vaultLockingBytecode, vaultLockingBytecode])).toBe(true);
+        expect(verifyTransaction(proofAt(instanceVault.tokenAddress), [vaultLockingBytecode, vaultLockingBytecode, anyoneCanSpend])).toBe(true);
 
-        const attackerLockingBytecode = lockingBytecodeHexOf(attacker.tokenAddress);
-        expect(verifyTransaction(proofAt(attacker.tokenAddress), [attackerLockingBytecode, attackerLockingBytecode])).not.toBe(true);
+        // Spent from where they really are, the attacker's address.
+        expect(verifyTransaction(proofAt(attacker.tokenAddress))).not.toBe(true);
     });
 });

@@ -174,19 +174,17 @@ describe('FundTypeResolver on a live instance', () => {
         const unlock = user.signatureTemplate.unlockP2PKH();
 
         // Create
-        const genesis = randomUtxo({ vout: 0, satoshis: 1000n });
-        const createFunding = randomUtxo({ satoshis: 100_000n });
+        const genesis = provider.addUtxo(user.tokenAddress, randomUtxo({ vout: 0, satoshis: 1000n }));
+        const createFunding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 100_000n }));
         const asset = randomCategory();
-        [genesis, createFunding].forEach(u => provider.addUtxo(user.tokenAddress, u));
         const broadcast = resolved.createPublicFundBuilder().addInput(genesis, unlock);
         await broadcast.addBroadcast({ fund: { category: genesis.txid, amount: 10n, satoshis: 1000n, assets: [{ category: asset, amount: 2n }] } });
         await broadcast.addInput(createFunding, unlock).send();
 
         // Mint 1 unit: 10 fund tokens for 1000 sats + 2 of the asset
         const { fund, createBuilder } = resolved.forFund({ category: genesis.txid, amount: '10', satoshis: '1000', assets: [{ category: asset, amount: '2' }] });
-        const deposit = randomUtxo({ token: { category: asset, amount: 2n } });
-        const mintFunding = randomUtxo({ satoshis: 200_000n });
-        [deposit, mintFunding].forEach(u => provider.addUtxo(user.tokenAddress, u));
+        const deposit = provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: asset, amount: 2n } }));
+        const mintFunding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n }));
         const mint = await createBuilder().addInflow({ units: 1n });
         await mint
             .addInputs([mintFunding, deposit], unlock)
@@ -195,8 +193,7 @@ describe('FundTypeResolver on a live instance', () => {
 
         // Redeem it
         const tokens = (await provider.getUtxos(user.tokenAddress)).find(u => u.token?.category === fund.category)!;
-        const redeemFunding = randomUtxo({ satoshis: 200_000n });
-        provider.addUtxo(user.tokenAddress, redeemFunding);
+        const redeemFunding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n }));
         const redeem = await createBuilder().addOutflow({ units: 1n });
         await redeem
             .addInputs([redeemFunding, tokens], unlock)

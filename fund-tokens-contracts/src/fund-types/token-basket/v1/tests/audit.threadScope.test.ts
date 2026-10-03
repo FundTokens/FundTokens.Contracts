@@ -25,9 +25,8 @@ describe('audit: a foreign fund thread cannot reach another fund\'s backing', ()
 
         // One honest inflow stocks the victim's reserves.
         const user = generateWallet();
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        const assetUtxos = victim.assets.map(a => randomUtxo({ token: { category: a.category, amount: a.amount } }));
-        [funding, ...assetUtxos].forEach(u => provider.addUtxo(user.tokenAddress, u));
+        const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
+        const assetUtxos = victim.assets.map(a => provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: a.category, amount: a.amount } })));
         const inflow = new FundTokenTransactionBuilder({ provider, system, fund: victim });
         await inflow.addInflow({ units: 1n });
         await inflow
@@ -44,9 +43,8 @@ describe('audit: a foreign fund thread cannot reach another fund\'s backing', ()
 
         const attackerFund = normalizeFund({ category: randomCategory(), amount: 1n, satoshis: 5000n, assets: [] });
         const commitment = '02' + swapEndianness(attackerFund.category) + hashFund(attackerFund);
-        const thread = randomUtxo({ satoshis: 2000n, token: { category: system.outflow, amount: 0n, nft: { capability: 'none', commitment } } });
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        [thread, funding].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        const thread = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 2000n, token: { category: system.outflow, amount: 0n, nft: { capability: 'none', commitment } } }));
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         const reserve = (await assetContract.getUtxos()).find(u => u.token?.category === victim.assets[0]!.category)!;
 
         const tx = new TransactionBuilder({ provider })

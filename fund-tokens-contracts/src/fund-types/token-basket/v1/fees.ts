@@ -7,7 +7,7 @@ import {
     lockingBytecodeToCashAddress,
     swapEndianness,
 } from '@bitauth/libauth';
-import type { Output, Utxo } from 'cashscript';
+import type { Output, SpendableUtxo } from 'cashscript';
 import { BitcoinCategory, MaxTokenAmount } from '../../../core/constants.js';
 import { FundTokensError } from '../../../core/errors.js';
 import { getAddressPrefix } from '../../../core/network.js';
@@ -70,7 +70,7 @@ export function decodeFee({ hex, network, prefix }: {
 }
 
 /** Decodes a fee UTXO into a payment option, or undefined for threads the builders can't use. */
-function toFeeOption(utxo: Utxo, fee: FeeParameters, network: string, defaultDestination: string): FeeOption | undefined {
+function toFeeOption(utxo: SpendableUtxo, fee: FeeParameters, network: string, defaultDestination: string): FeeOption | undefined {
     if (!utxo.token) {
         return { isBitcoin: true, category: BitcoinCategory, amount: fee.value, destination: defaultDestination, utxo };
     }

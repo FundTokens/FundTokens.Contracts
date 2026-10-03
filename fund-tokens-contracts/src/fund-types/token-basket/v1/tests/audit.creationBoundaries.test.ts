@@ -18,9 +18,8 @@ const DustAmount = 1000n;
 /** A broadcast built without the builder's validation, so the contracts alone decide. */
 async function buildBroadcast({ provider, system }: TestInstance, fund: { amount: bigint; satoshis: bigint }) {
     const creator = generateWallet();
-    const genesis = randomUtxo({ vout: 0, satoshis: DustAmount });
-    const funding = randomUtxo({ satoshis: 100_000n });
-    [genesis, funding].forEach(u => provider.addUtxo(creator.tokenAddress, u));
+    const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount }));
+    const funding = provider.addUtxo(creator.tokenAddress, randomUtxo({ satoshis: 100_000n }));
 
     const tx = new PublicFundTransactionBuilder({ provider, system });
     tx.addInput(genesis, creator.signatureTemplate.unlockP2PKH());

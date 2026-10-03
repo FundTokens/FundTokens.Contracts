@@ -1,4 +1,4 @@
-import type { Output, Utxo } from 'cashscript';
+import type { Output, SpendableUtxo } from 'cashscript';
 import type { BigIntish } from '../../../core/validation.js';
 
 /** One token held by a fund: `amount` units of `category` back each whole fund unit. */
@@ -78,7 +78,7 @@ export interface FeeOption {
     readonly category: string;
     readonly amount: bigint;
     readonly destination: string;
-    readonly utxo: Utxo;
+    readonly utxo: SpendableUtxo;
 }
 
 /** The chosen fee option plus the two outputs it requires: the fee UTXO returned, then the payment. */

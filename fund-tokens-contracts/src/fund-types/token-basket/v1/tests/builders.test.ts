@@ -63,7 +63,8 @@ describe('FundTokenTransactionBuilder', () => {
     describe('addInflow', () => {
         it('requires equal input and output counts', async () => {
             const b = builder();
-            b.addInput(randomUtxo(), generateWallet().signatureTemplate.unlockP2PKH());
+            const user = generateWallet();
+            b.addInput(instance.provider.addUtxo(user.tokenAddress, randomUtxo()), user.signatureTemplate.unlockP2PKH());
             await expect(b.addInflow({ units: 1n })).rejects.toMatchObject({ code: 'INVALID_TRANSACTION_STATE' });
         });
 
@@ -119,9 +120,8 @@ describe('FundTokenTransactionBuilder', () => {
             const user = generateWallet();
             const unlock = user.signatureTemplate.unlockP2PKH();
             const units = 3n;
-            const deposits = (fund.assets ?? []).map(a => randomUtxo({ token: { category: a.category, amount: BigInt(a.amount) * units } }));
-            const funding = randomUtxo({ satoshis: 200_000n });
-            [...deposits, funding].forEach(u => instance.provider.addUtxo(user.tokenAddress, u));
+            const deposits = (fund.assets ?? []).map(a => instance.provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: a.category, amount: BigInt(a.amount) * units } })));
+            const funding = instance.provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n }));
 
             const mint = await builder().addInflow({ units });
             await mint
@@ -130,8 +130,7 @@ describe('FundTokenTransactionBuilder', () => {
                 .send();
 
             const tokens = (await instance.provider.getUtxos(user.tokenAddress)).find(u => u.token?.category === fund.category)!;
-            const redeemFunding = randomUtxo({ satoshis: 200_000n });
-            instance.provider.addUtxo(user.tokenAddress, redeemFunding);
+            const redeemFunding = instance.provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n }));
 
             const redeem = await builder().addOutflow({ units: 1n });
             await redeem
@@ -156,8 +155,9 @@ describe('PublicFundTransactionBuilder', () => {
     });
 
     const builder = () => new PublicFundTransactionBuilder({ provider: instance.provider, system: instance.system });
-    const genesisFor = (overrides = {}) => randomUtxo({ vout: 0, satoshis: 1000n, ...overrides });
-    const unlock = () => generateWallet().signatureTemplate.unlockP2PKH();
+    const creator = generateWallet();
+    const genesisFor = (overrides = {}) => instance.provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: 1000n, ...overrides }));
+    const unlock = () => creator.signatureTemplate.unlockP2PKH();
 
     it('requires the genesis input first', async () => {
         await expect(builder().addBroadcast({ fund: { category: randomCategory(), amount: 1n, satoshis: 1000n } }))
@@ -183,7 +183,7 @@ describe('PublicFundTransactionBuilder', () => {
 
     it('requires equal input and output counts', async () => {
         const genesis = genesisFor();
-        const b = builder().addInput(genesis, unlock()).addInput(randomUtxo(), unlock());
+        const b = builder().addInput(genesis, unlock()).addInput(genesisFor({ vout: 1 }), unlock());
         await expect(b.addBroadcast({ fund: { category: genesis.txid, amount: 1n, satoshis: 1000n } }))
             .rejects.toMatchObject({ code: 'INVALID_TRANSACTION_STATE' });
     });

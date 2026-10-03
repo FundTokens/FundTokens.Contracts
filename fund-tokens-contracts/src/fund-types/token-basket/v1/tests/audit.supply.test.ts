@@ -25,9 +25,8 @@ const isMinterOf = (fund: Fund) => (u: Utxo) => u.token?.category === fund.categ
 /** A broadcast whose startup return (output 1) also carries a minting NFT of the new fund's category. */
 async function buildSmuggledBroadcast({ provider, system }: Awaited<ReturnType<typeof bootstrapInstance>>) {
     const creator = generateWallet();
-    const genesis = randomUtxo({ vout: 0, satoshis: DustAmount });
-    const funding = randomUtxo({ satoshis: 100_000n });
-    [genesis, funding].forEach(u => provider.addUtxo(creator.tokenAddress, u));
+    const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount }));
+    const funding = provider.addUtxo(creator.tokenAddress, randomUtxo({ satoshis: 100_000n }));
     const fund = normalizeFund({ ...sameFund, category: genesis.txid });
 
     const tx = new PublicFundTransactionBuilder({ provider, system });
@@ -68,15 +67,13 @@ describe('audit: fund-category minting NFT smuggled through a broadcast', () => 
         const { managerContract } = new FundTokenTransactionBuilder({ provider, system, fund }).getContracts();
 
         // Anyone can send tokens to the startup contract's address.
-        const parked = randomUtxo({ satoshis: 10_000n, token: mintingNft(fund.category) });
-        provider.addUtxo(startupContract.tokenAddress, parked);
+        const parked = provider.addUtxo(startupContract.tokenAddress, randomUtxo({ satoshis: 10_000n, token: mintingNft(fund.category) }));
 
         const attacker = generateWallet();
         const mintInflowUtxo = (await mintInflowContract.getUtxos()).find(u => u.token?.category === system.inflow)!;
         const mintOutflowUtxo = (await mintOutflowContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
         const feeUtxo = (await createFundFeeContract.getUtxos()).find(u => !u.token)!;
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        provider.addUtxo(attacker.tokenAddress, funding);
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         const commitment = '02' + swapEndianness(fund.category) + hashFund(fund);
 
         const move = new TransactionBuilder({ provider })
@@ -105,9 +102,8 @@ describe('audit: fund-category minting NFT smuggled through a broadcast', () => 
 
         // However one is obtained, minting NFTs mint NFTs only; fungible supply must fail consensus.
         const attacker = generateWallet();
-        const minter = randomUtxo({ satoshis: DustAmount, token: mintingNft(fund.category) });
-        const gas = randomUtxo({ satoshis: 50_000n });
-        [minter, gas].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+        const minter = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: DustAmount, token: mintingNft(fund.category) }));
+        const gas = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 50_000n }));
 
         const mint = new TransactionBuilder({ provider })
             .addInput(minter, attacker.signatureTemplate.unlockP2PKH())

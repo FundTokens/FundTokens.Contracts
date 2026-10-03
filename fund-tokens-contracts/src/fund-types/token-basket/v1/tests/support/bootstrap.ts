@@ -31,10 +31,9 @@ export async function bootstrapInstance(system: SystemParameters = randomSystem(
     const unlock = owner.signatureTemplate.unlockP2PKH();
 
     const genesis = [system.inflow, system.outflow, system.publicFund, system.fees.create.nft, system.fees.execute.nft]
-        .map(txid => randomUtxo({ vout: 0, satoshis: 1000n, txid }));
-    const authGenesis = randomUtxo({ vout: 0, satoshis: 1000n, txid: system.authorization });
-    const funding = [randomUtxo({ satoshis: 10_000n }), randomUtxo({ satoshis: 10_000n })];
-    [...genesis, authGenesis, ...funding].forEach(u => provider.addUtxo(owner.tokenAddress, u));
+        .map(txid => provider.addUtxo(owner.tokenAddress, randomUtxo({ vout: 0, satoshis: 1000n, txid })));
+    const authGenesis = provider.addUtxo(owner.tokenAddress, randomUtxo({ vout: 0, satoshis: 1000n, txid: system.authorization }));
+    const funding = [provider.addUtxo(owner.tokenAddress, randomUtxo({ satoshis: 10_000n })), provider.addUtxo(owner.tokenAddress, randomUtxo({ satoshis: 10_000n }))];
 
     const authToken = { category: system.authorization, amount: 0n, nft: { capability: 'none' as const, commitment: '01FFFF01' } };
     await new SystemFixture({ provider, system })
@@ -62,9 +61,8 @@ export async function bootstrapInstance(system: SystemParameters = randomSystem(
 /** Broadcasts `fund` (its category is replaced by a fresh genesis txid) and returns the fund as created. */
 export async function createFund({ provider, system }: TestInstance, fund: Omit<FundInput, 'category'>) {
     const creator = generateWallet();
-    const genesis = randomUtxo({ vout: 0, satoshis: 1000n });
-    const funding = randomUtxo({ satoshis: 100_000n });
-    [genesis, funding].forEach(u => provider.addUtxo(creator.tokenAddress, u));
+    const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: 1000n }));
+    const funding = provider.addUtxo(creator.tokenAddress, randomUtxo({ satoshis: 100_000n }));
 
     const definition = { ...fund, category: genesis.txid };
     const builder = new PublicFundTransactionBuilder({ provider, system });

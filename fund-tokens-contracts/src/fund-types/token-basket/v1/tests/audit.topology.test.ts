@@ -37,9 +37,8 @@ describe('audit: topology probes', () => {
         const inflowUtxo = (await managerContract.getUtxos()).find(u => u.token?.category === system.inflow)!;
         const fundUtxo = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: { category: a.category, amount: a.amount } }));
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        [...assetUtxos, funding].forEach(u => provider.addUtxo(user.tokenAddress, u));
+        const assetUtxos = fund.assets.map(a => provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: a.category, amount: a.amount } })));
+        const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
             .addInput(inflowUtxo, managerContract.unlock.inflow(getFundBin(fund)))
@@ -69,9 +68,8 @@ describe('audit: topology probes', () => {
         const outflowUtxo = (await managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
         const fundUtxo = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
-        const fundTokens = randomUtxo({ token: { category: fund.category, amount: fund.amount } });
-        const funding = randomUtxo({ satoshis: 1_000_000n });
-        [fundTokens, funding].forEach(u => provider.addUtxo(user.tokenAddress, u));
+        const fundTokens = provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: fund.category, amount: fund.amount } }));
+        const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
 
         tx
             .addInput(outflowUtxo, managerContract.unlock.outflow(getFundBin(fund)))

@@ -32,8 +32,7 @@ describe('audit: InstanceVault.update() state change without authorization', () 
         const dataToken = { category: instance, amount: 0n, nft: { capability: 'none' as const, commitment: binToHex(data2) } };
 
         // Both instance UTXOs come from one transaction, as data() requires.
-        const genesis = randomUtxo({ vout: 0, satoshis: 100_000n, txid: instance });
-        provider.addUtxo(owner.tokenAddress, genesis);
+        const genesis = provider.addUtxo(owner.tokenAddress, randomUtxo({ vout: 0, satoshis: 100_000n, txid: instance }));
         await new TransactionBuilder({ provider })
             .addInput(genesis, owner.signatureTemplate.unlockP2PKH())
             .addOutputs([

@@ -12,7 +12,7 @@
  * is in audit.chunkSize.)
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { TransactionBuilder, randomUtxo, type Utxo } from 'cashscript';
+import { TransactionBuilder, randomUtxo, type SpendableUtxo } from 'cashscript';
 
 import { randomCategory } from '@test-utils/random.js';
 import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
@@ -23,10 +23,9 @@ import { bootstrapInstance, createFund, type TestInstance } from './support/boot
 const DustAmount = 1000n;
 
 /** Mints a thread-shaped NFT (the fund's real commitment) to the attacker's P2PKH, using a rogue minting NFT. */
-async function forgeThread({ provider }: TestInstance, attacker: TestWallet, category: string, fund: Fund): Promise<Utxo> {
-    const rogueMinter = randomUtxo({ satoshis: 5000n, token: { category, amount: 0n, nft: { capability: 'minting', commitment: '01' } } });
-    const funding = randomUtxo({ satoshis: 100_000n });
-    [rogueMinter, funding].forEach(u => provider.addUtxo(attacker.tokenAddress, u));
+async function forgeThread({ provider }: TestInstance, attacker: TestWallet, category: string, fund: Fund): Promise<SpendableUtxo> {
+    const rogueMinter = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 5000n, token: { category, amount: 0n, nft: { capability: 'minting', commitment: '01' } } }));
+    const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 100_000n }));
     const commitment = '02' + swapEndianness(fund.category) + hashFund(fund);
 
     await new TransactionBuilder({ provider })
@@ -51,9 +50,8 @@ describe('audit: FundManager authorizes on thread-token presence (A, A2)', () =>
         const fund = normalizeFund(await createFund(instance, { amount: 10n, satoshis: 0n, assets: [{ category: randomCategory(), amount: 4n }] }));
         const asset = fund.assets[0]!;
         const user = generateWallet();
-        const userFunding = randomUtxo({ satoshis: 400_000n });
-        const userAsset = randomUtxo({ token: { category: asset.category, amount: asset.amount * 5n } });
-        [userFunding, userAsset].forEach(u => provider.addUtxo(user.tokenAddress, u));
+        const userFunding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 400_000n }));
+        const userAsset = provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: asset.category, amount: asset.amount * 5n } }));
         const inflow = new FundTokenTransactionBuilder({ provider, system, fund });
         await inflow.addInflow({ units: 5n });
         await inflow
@@ -75,8 +73,7 @@ describe('audit: FundManager authorizes on thread-token presence (A, A2)', () =>
         const attacker = generateWallet();
         const forged = await forgeThread(instance, attacker, system.inflow, fund);
         const supply = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
-        const funding = randomUtxo({ satoshis: 5_000_000n });
-        provider.addUtxo(attacker.tokenAddress, funding);
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 5_000_000n }));
 
         const steal = new TransactionBuilder({ provider })
             .addInput(forged, attacker.signatureTemplate.unlockP2PKH())  // 0 forged thread
@@ -98,8 +95,7 @@ describe('audit: FundManager authorizes on thread-token presence (A, A2)', () =>
         const { fund, fundContract, supply } = await fundWithReserve();
         const attacker = generateWallet();
         const forged = await forgeThread(instance, attacker, system.outflow, fund);
-        const funding = randomUtxo({ satoshis: 5_000_000n });
-        provider.addUtxo(attacker.tokenAddress, funding);
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 5_000_000n }));
 
         const steal = new TransactionBuilder({ provider })
             .addInput(forged, attacker.signatureTemplate.unlockP2PKH())  // 0 forged outflow thread
@@ -123,8 +119,7 @@ describe('audit: FundManager authorizes on thread-token presence (A, A2)', () =>
         const forged = await forgeThread(instance, attacker, system.outflow, fund);
         const reserve = (await assetContract.getUtxos()).filter(u => u.token?.category === asset.category);
         const reserveTotal = reserve.reduce((sum, u) => sum + u.token!.amount, 0n);
-        const funding = randomUtxo({ satoshis: 5_000_000n });
-        provider.addUtxo(attacker.tokenAddress, funding);
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 5_000_000n }));
 
         const steal = new TransactionBuilder({ provider })
             .addInput(forged, attacker.signatureTemplate.unlockP2PKH())                            // 0 forged outflow thread

@@ -3,7 +3,7 @@ import {
     Network,
     randomToken,
     randomUtxo,
-    type Utxo,
+    type SpendableUtxo,
 } from 'cashscript';
 import { it, expect, test } from 'vitest';
 
@@ -12,8 +12,9 @@ import {
     bigIntToBinUint256BEClamped,
 } from '@bitauth/libauth';
 
-import { generateWallet } from '@test-utils/wallet.js';
+import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
 
+import { lockingBytecodeHexOf } from '../../../../core/outputs.js';
 import { SystemFixture } from './support/system.js';
 import {
     FundTokenTransactionBuilder,
@@ -25,12 +26,15 @@ const DustAmount = 1000n;
 describe('edge case test', () => {
     const network = Network.MOCKNET;
     const genesisPartial = { vout: 0, satoshis: DustAmount };
+    // Every fund creation spends the same genesis outpoint (txid = fund.category). Transactions that are only checked,
+    // never broadcast, spend one that is not added to the mock, so the broadcast finds the genesis it adds.
+    const unbroadcastGenesis = (wallet: TestWallet): SpendableUtxo =>
+        ({ ...randomUtxo({ ...genesisPartial, txid: fund.category }), lockingBytecode: lockingBytecodeHexOf(wallet.tokenAddress) });
 
     ///
     const provider = new MockNetworkProvider({
         updateUtxoSet: true,
     });
-    const addUtxos = (address: string, utxos: Utxo[]) => utxos.forEach(u => provider.addUtxo(address, u));
 
     const ownerWallet = generateWallet();
 
@@ -52,16 +56,14 @@ describe('edge case test', () => {
     };
 
     it('should initialize control tokens', async ({ expect }) => {
-        const inflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.inflow });
-        const outflowGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.outflow });
-        const publicFundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.publicFund });
-        const createFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.create.nft });
-        const executeFundFeeGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft });
-        const authGenesisUtxo = randomUtxo({ ...genesisPartial, txid: system.authorization });
+        const inflowGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.inflow }));
+        const outflowGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.outflow }));
+        const publicFundGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.publicFund }));
+        const createFundFeeGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.fees.create.nft }));
+        const executeFundFeeGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.fees.execute.nft }));
+        const authGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.authorization }));
         const genesisInputs = [inflowGenesisUtxo, outflowGenesisUtxo, publicFundGenesisUtxo, createFundFeeGenesisUtxo, executeFundFeeGenesisUtxo];
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-
-        addUtxos(ownerWallet.tokenAddress, [feeUtxo, ...genesisInputs, authGenesisUtxo]);
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
 
         const transaction = new SystemFixture({ provider, system });
         transaction
@@ -87,11 +89,9 @@ describe('edge case test', () => {
     });
 
     it('should create new system threads', async ({ expect }) => {
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemFixture({ provider, system });
-
-        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
         await transaction.addSystemThreads();
         await transaction.addCreateFundFee();
@@ -162,10 +162,8 @@ describe('edge case test', () => {
     // Client-side validation is skipped so these reach the contracts, which must reject them.
     test.each(expectedToFailFunds)('should ensure funds fail', async (fundUnderTest) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -177,7 +175,7 @@ describe('edge case test', () => {
 
     test.each(expectedToFailFunds)('should reject invalid funds before building', async (fundUnderTest) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -214,10 +212,8 @@ describe('edge case test', () => {
 
     test.each(expectedToSucceedFunds)('should ensure funds succeed', async (fundUnderTest) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -253,10 +249,8 @@ describe('edge case test', () => {
 
     it('should ensure broadcast works with all IO added first', async () => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = unbroadcastGenesis(userWallet);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction
@@ -276,10 +270,8 @@ describe('edge case test', () => {
 
     it('should verify fund creates', async ({ expect }) => {
         const userWallet = generateWallet();
-        const fundGenesisUtxo = randomUtxo({ ...genesisPartial, txid: fund.category });
-        const feeUtxo = randomUtxo({ satoshis: 100000n });
-
-        addUtxos(userWallet.tokenAddress, [fundGenesisUtxo, feeUtxo]);
+        const fundGenesisUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: fund.category }));
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 100000n }));
 
         const transaction = new PublicFundTransactionBuilder({ provider, system });
         transaction.addInput(fundGenesisUtxo, userWallet.signatureTemplate.unlockP2PKH());
@@ -292,10 +284,8 @@ describe('edge case test', () => {
 
     it('should complete an inflow tx when all inputs and outputs added before inflow transaction', async () => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 110000n });
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: 9223372036854775807n }) }));
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 110000n }));
+        const assetUtxos = fund.assets.map(a => provider.addUtxo(userWallet.tokenAddress, randomUtxo({ token: randomToken({ ...a, amount: 9223372036854775807n }) })));
 
         const inflowAmount = 9223372036854775807n;
 
@@ -319,10 +309,8 @@ describe('edge case test', () => {
 
     it('should complete an inflow tx', async ({ expect }) => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 110000n });
-        const assetUtxos = fund.assets.map(a => randomUtxo({ token: randomToken({ ...a, amount: 9223372036854775807n }) }));
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, ...assetUtxos]);
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 110000n }));
+        const assetUtxos = fund.assets.map(a => provider.addUtxo(userWallet.tokenAddress, randomUtxo({ token: randomToken({ ...a, amount: 9223372036854775807n }) })));
 
         const inflowAmount = 9223372036854775807n;
 
@@ -345,17 +333,15 @@ describe('edge case test', () => {
 
     it('should complete an outflow tx when user adds all IO first', async ({ expect }) => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 1000000n });
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 1000000n }));
         const outflowAmount = 1n;
-        const fundTokenUtxo = randomUtxo({
+        const fundTokenUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({
             token: randomToken({
                 category: fund.category,
                 amount: outflowAmount * fund.amount,
             })
-        });
-        const paddingInputs = Array(fund.assets.length).fill(1).map(() => randomUtxo());
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo, ...paddingInputs]);
+        }));
+        const paddingInputs = Array(fund.assets.length).fill(1).map(() => provider.addUtxo(userWallet.tokenAddress, randomUtxo()));
 
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         transaction
@@ -384,16 +370,14 @@ describe('edge case test', () => {
 
     it('should complete an outflow tx', async ({ expect }) => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 1000000n });
+        const feeUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({ satoshis: 1000000n }));
         const outflowAmount = 1n;
-        const fundTokenUtxo = randomUtxo({
+        const fundTokenUtxo = provider.addUtxo(userWallet.tokenAddress, randomUtxo({
             token: randomToken({
                 category: fund.category,
                 amount: outflowAmount * fund.amount,
             })
-        });
-
-        addUtxos(userWallet.tokenAddress, [feeUtxo, fundTokenUtxo]);
+        }));
 
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
         await transaction.addOutflow({ units: outflowAmount });
@@ -417,11 +401,9 @@ describe('edge case test', () => {
     });
 
     it('should allow closing fee threads', async () => {
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
+        const feeUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
         const authUtxo = (await provider.getUtxos(ownerWallet.tokenAddress))[0];
         const transaction = new SystemFixture({ provider, system, allowImplicitFungibleTokenBurn: true });
-
-        addUtxos(ownerWallet.tokenAddress, [feeUtxo]);
 
         await transaction.closeCreateFundFee();
         await transaction.closeExecuteFundFee();

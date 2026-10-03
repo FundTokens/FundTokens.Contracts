@@ -40,11 +40,9 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             commitment: '0100C001' // permissions 0x00C0: update instance state (0x0040) and burn instance tokens (0x0080)
         }
     });
-    const authUtxo = randomUtxo({ satoshis: 10000n, token: authToken });
-    provider.addUtxo(ownerWallet.tokenAddress, authUtxo);
+    const authUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n, token: authToken }));
     // The same authorization category, but only permitted to burn (0x0080)
-    const burnOnlyAuthUtxo = randomUtxo({ satoshis: 10000n, token: { ...authToken, nft: { capability: 'none', commitment: '01008002' } } });
-    provider.addUtxo(ownerWallet.tokenAddress, burnOnlyAuthUtxo);
+    const burnOnlyAuthUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n, token: { ...authToken, nft: { capability: 'none', commitment: '01008002' } } }));
 
     const instanceCategory = randomCategory();
     const inflow = randomCategory();
@@ -65,8 +63,10 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     const instanceCommitment = '00020001' + instanceHash + instanceHex;
 
     const instanceTxId = randomUtxo().txid;
+
+    const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(instanceCategory), swapEndianness(authToken.category)], { provider });
     const instanceUtxos = [
-        randomUtxo({
+        provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
             txid: instanceTxId,
             vout: 0,
             satoshis: 3000n,
@@ -78,8 +78,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: instanceCommitment.slice(0, 256)
                 }
             }
-        }),
-        randomUtxo({
+        })),
+        provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
             txid: instanceTxId,
             vout: 1,
             satoshis: 3000n,
@@ -91,16 +91,12 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     commitment: instanceCommitment.slice(256)
                 }
             }
-        })
+        }))
     ];
-
-    const systemUnderTest = new Contract(systemUnderTestJson, [swapEndianness(instanceCategory), swapEndianness(authToken.category)], { provider });
-    instanceUtxos.forEach(u => provider.addUtxo(systemUnderTest.tokenAddress, u));
 
     it('Users can run on-chain proofs', async () => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(instanceUtxos[0], systemUnderTest.unlock.proof())
@@ -127,8 +123,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     it('Users can not output reordered proofs', async () => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(instanceUtxos[0], systemUnderTest.unlock.proof())
@@ -155,8 +150,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
     it('Users can not output reordered proofs', async () => {
         const userWallet = generateWallet();
-        const feeUtxo = randomUtxo({ satoshis: 10000n });
-        provider.addUtxo(userWallet.address, feeUtxo);
+        const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
         const transaction = new TransactionBuilder({ provider });
         transaction
             .addInput(instanceUtxos[0], systemUnderTest.unlock.proof())

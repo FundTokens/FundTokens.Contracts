@@ -7,7 +7,7 @@
  *
  * The contracts must reject this transaction.
  */
-import { randomUtxo, type Utxo } from 'cashscript';
+import { randomUtxo, type SpendableUtxo } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
 
@@ -24,7 +24,7 @@ describe('audit: voluntary create fee in a fund creation', () => {
     let fixture: SystemFixture;
 
     /** The voluntary create-fee thread, minted once by the steward (auth bit 0x0010). */
-    const voluntaryFeeUtxo = async (): Promise<Utxo> =>
+    const voluntaryFeeUtxo = async (): Promise<SpendableUtxo> =>
         (await fixture.contracts.createFundFeeContract.getUtxos()).find(u => u.token?.nft?.commitment === VoluntaryFee)!;
 
     beforeAll(async () => {
@@ -35,8 +35,7 @@ describe('audit: voluntary create fee in a fund creation', () => {
 
         const minter = (await mintCreateFundFeeContract.getUtxos()).find(u => u.token?.category === system.fees.create.nft)!;
         const auth = (await provider.getUtxos(owner.tokenAddress)).find(u => u.token?.category === system.authorization)!;
-        const funding = randomUtxo({ satoshis: 20_000n });
-        provider.addUtxo(owner.tokenAddress, funding);
+        const funding = provider.addUtxo(owner.tokenAddress, randomUtxo({ satoshis: 20_000n }));
 
         await new SystemFixture({ provider, system })
             .addInput(minter, mintCreateFundFeeContract.unlock.mint())

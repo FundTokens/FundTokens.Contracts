@@ -11,7 +11,7 @@
  *
  * The contracts must reject the drain.
  */
-import { randomUtxo, type Utxo } from 'cashscript';
+import { randomUtxo, type SpendableUtxo } from 'cashscript';
 
 import { randomCategory } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
@@ -26,7 +26,7 @@ const NftCommitment = 'cafe';
 describe('audit: carrier value and immutable NFT drained by a zero-unit outflow', () => {
     let instance: TestInstance;
     let fund: Fund;
-    let reserve: Utxo;
+    let reserve: SpendableUtxo;
 
     const nftToken = (amount: bigint) =>
         ({ category: fund.assets[0]!.category, amount, nft: { capability: 'none' as const, commitment: NftCommitment } });
@@ -35,8 +35,7 @@ describe('audit: carrier value and immutable NFT drained by a zero-unit outflow'
         instance = await bootstrapInstance();
         fund = normalizeFund(await createFund(instance, { amount: 10n, satoshis: 0n, assets: [{ category: randomCategory(), amount: 4n }] }));
         const { assetContracts } = new FundTokenTransactionBuilder({ provider: instance.provider, system: instance.system, fund }).getContracts();
-        reserve = randomUtxo({ satoshis: CarrierValue, token: nftToken(fund.assets[0]!.amount) });
-        instance.provider.addUtxo(assetContracts[0]!.tokenAddress, reserve);
+        reserve = instance.provider.addUtxo(assetContracts[0]!.tokenAddress, randomUtxo({ satoshis: CarrierValue, token: nftToken(fund.assets[0]!.amount) }));
     });
 
     /** An outflow of zero units spending the reserve as the only accounted custody input. */
@@ -49,8 +48,7 @@ describe('audit: carrier value and immutable NFT drained by a zero-unit outflow'
         const outflowThread = (await managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
         const supply = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
-        const funding = randomUtxo({ satoshis: 400_000n });
-        provider.addUtxo(attacker.tokenAddress, funding);
+        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 400_000n }));
 
         tx
             .addInput(outflowThread, managerContract.unlock.outflow(getFundBin(fund)))  // 0
