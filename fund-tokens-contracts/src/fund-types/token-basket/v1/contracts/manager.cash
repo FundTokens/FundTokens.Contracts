@@ -123,8 +123,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         //
         // Start parsing out token assets, consuming one 40 byte asset (category + amount) at a time
         while(nft_assetData.length > 0) {
-            bytes nft_assetCategory, bytes nft_assetAmount = nft_assetData.split(40)[0].split(32);
-            nft_assetData = nft_assetData.split(40)[1];
+            bytes nft_asset, nft_assetData = nft_assetData.split(40);
+            bytes nft_assetCategory, bytes nft_assetAmount = nft_asset.split(32);
 
             //
             // Verify the asset destination, category, and amounts
@@ -255,8 +255,8 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         while(nft_assetData.length > 0) {
             //
             // Calculate asset release amount w/ variable inputs and change
-            bytes nft_assetCategory, bytes nft_assetAmount = nft_assetData.split(40)[0].split(32);
-            nft_assetData = nft_assetData.split(40)[1];
+            bytes nft_asset, nft_assetData = nft_assetData.split(40);
+            bytes nft_assetCategory, bytes nft_assetAmount = nft_asset.split(32);
             bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x20 + nft_assetCategory + assetTail));
             linkedAssetPush = 0x23 + assetLockingBytecode;
             int assetReleaseAmount = 0;
