@@ -1,5 +1,7 @@
 pragma cashscript ^0.14.0;
 
+import "./lib/authority.cash";
+
 /**
  * FeeMinter: Vault to holding fee minting token with strict minting enforcement and authorization requirements
  * 
@@ -29,18 +31,7 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes next)
         //
         // Check for authorization token in ANY input
         // Bit 0x0010 in commitment indicates fee minting permission
-        bool authorized = false;
-        int inputIndex = 0;
-        do {
-            // Authority held by this contract (this input or another UTXO at this address) does not count
-            if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0010)) == 0x0010) {
-                    authorized = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !authorized);
-        require(authorized, "unauthorized user");
+        require(hasAuthority(authorization, 0x0010), "unauthorized user");
 
         //
         // Verify ALL outputs with locking bytecode enforcement

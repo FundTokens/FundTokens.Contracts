@@ -1,5 +1,7 @@
 pragma cashscript ^0.14.0;
 
+import "./lib/authority.cash";
+
 /**
  * PublicFundVault: PublicFund token vault and execute on-chain proofs
  * 
@@ -30,18 +32,7 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 
         //
         // Check for user authorization
-        bool authorized = false;
-        int inputIndex = 0;
-        do {
-            // Authority held by this contract (this input or another UTXO at this address) does not count
-            if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0100)) == 0x0100) {
-                    authorized = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length);
-        require(authorized);
+        require(hasAuthority(authorization, 0x0100), "unauthorized user");
 
         //
         // Ensure all tokens are implicitly burned

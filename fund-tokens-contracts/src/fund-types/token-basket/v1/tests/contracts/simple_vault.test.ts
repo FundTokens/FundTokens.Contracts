@@ -19,6 +19,10 @@ import systemUnderTestJson from '../../artifacts/simple_vault.js';
 
 const DustAmount = 1000n;
 
+// release() is only the authority check, so it fails as the final statement, which cashscript names
+// but cannot attach its "unauthorized user" message to when the check is a function call.
+const Unauthorized = 'Failing statement: hasAuthority(authToken, 0x0002)';
+
 describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () => {
     const network = Network.MOCKNET;
 
@@ -147,7 +151,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     token: utxoUnderTest.token,
                 }
             ]);
-        expect(transaction).toFailRequireWith('unauthorized user');
+        expect(transaction).toFailRequireWith(Unauthorized);
     });
 
     it('should ensure authorized user released', ({ expect }) => {
@@ -162,6 +166,6 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                     token: utxoUnderTest.token,
                 }
             ]);
-        expect(transaction).toFailRequireWith("unauthorized user");
+        expect(transaction).toFailRequireWith(Unauthorized);
     });
 });

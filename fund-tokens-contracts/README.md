@@ -261,6 +261,7 @@ fund-tokens-contracts/
 │     ├─ token-basket/
 │     │  └─ v1/
 │     │     ├─ contracts/      CashScript sources (frozen once released)
+│     │     │  └─ lib/        shared functions imported by the contracts (not compiled on their own)
 │     │     ├─ artifacts/      generated: <name>.json, typed <name>.ts, index.ts
 │     │     ├─ tests/          contract, integration and unit tests (+ support/ fixtures)
 │     │     └─ *.ts            builders, encoding, fees, contract derivation

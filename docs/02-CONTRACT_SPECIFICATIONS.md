@@ -2,7 +2,7 @@
 
 This document provides detailed specifications for each smart contract in the FundTokens system, including CashScript source and validation rules.
 
-**Authorization**: contracts gated by the authorization token (SimpleMinter, FeeMinter, SimpleVault, AuthHeadVault, InstanceVault, PublicFundVault, FeeManager) accept it from any input *except* one locked by the contract's own address: neither the contract's own input nor another UTXO at that address counts. An authorization token sent to one of these contracts cannot authorize its own release, so keep authorization tokens outside the contracts they authorize.
+**Authorization**: contracts gated by the authorization token (SimpleMinter, FeeMinter, SimpleVault, AuthHeadVault, InstanceVault, PublicFundVault, FeeManager) accept it from any input *except* one locked by the contract's own address: neither the contract's own input nor another UTXO at that address counts. An authorization token sent to one of these contracts cannot authorize its own release, so keep authorization tokens outside the contracts they authorize. The check is one shared function, `hasAuthority()` in [contracts/lib/authority.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/lib/authority.cash), imported by each of these contracts.
 
 ## System Contracts
 

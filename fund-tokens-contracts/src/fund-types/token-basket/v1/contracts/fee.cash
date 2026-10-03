@@ -1,5 +1,7 @@
 pragma cashscript ^0.14.0;
 
+import "./lib/authority.cash";
+
 /**
  * FeeManager: Validates fee payments are paid and routed using the default payment or by using the fee NFT
  * 
@@ -37,18 +39,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
         //
         // Check for authorization token in any input
         // Bit 0x0020 in commitment indicates fee manager closure permission
-        bool authorized = false;
-        int inputIndex = 0;
-        do {
-            // Authority held by this contract (this input or another UTXO at this address) does not count
-            if(tx.inputs[inputIndex].tokenCategory == authToken && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0020)) == 0x0020) {
-                    authorized = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !authorized);
-        require(authorized, "unauthorized user");
+        require(hasAuthority(authToken, 0x0020), "unauthorized user");
     }
 
     /**

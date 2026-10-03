@@ -1,5 +1,7 @@
 pragma cashscript ^0.14.0;
 
+import "./lib/authority.cash";
+
 /**
  * AuthHeadVault: Token identity vault with authorization requirements
  * 
@@ -25,6 +27,11 @@ contract AuthHeadVault(bytes32 authToken)
      */
     function update() {
         //
+        // Check for authorization token in ANY input (the identity, being this contract, never counts)
+        // Bit 0x0004 in commitment indicates authhead (BCMR maintenance) authorization
+        require(hasAuthority(authToken, 0x0004), "unauthorized user");
+
+        //
         // Verify this input
         require(this.activeInputIndex == 0, "expected to be the first input");
 
@@ -32,22 +39,6 @@ contract AuthHeadVault(bytes32 authToken)
         // Verify the identity output
         require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
         require(tx.outputs[this.activeInputIndex].tokenCategory == 0x, "no token allowed on authhead");
-
-        //
-        // Check for authorization token in ANY input but can skip the identity
-        // Bit 0x0004 in commitment indicates authhead (BCMR maintenance) authorization
-        bool authorized = false;
-        int inputIndex = 1;
-        do {
-            // Authority held by this contract (this input or another UTXO at this address) does not count
-            if(tx.inputs[inputIndex].tokenCategory == authToken && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0004)) == 0x0004) {
-                    authorized = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !authorized);
-        require(authorized, "unauthorized user");
     }
 
     /**
@@ -63,24 +54,13 @@ contract AuthHeadVault(bytes32 authToken)
      */
     function burn() {
         //
+        // Check for authorization token in ANY input
+        // Bit 0x0008 in commitment indicates authhead (BCMR maintenance) identity burning
+        require(hasAuthority(authToken, 0x0008), "unauthorized user");
+
+        //
         // Verify the burned identity
         require(tx.outputs[0].lockingBytecode.slice(0, 1) == 0x6a, "first output must be an OP_RETURN");
         require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
-
-        //
-        // Check for authorization token in ANY input
-        // Bit 0x0008 in commitment indicates authhead (BCMR maintenance) identity burning
-        bool authorized = false;
-        int inputIndex = 0;
-        do {
-            // Authority held by this contract (this input or another UTXO at this address) does not count
-            if(tx.inputs[inputIndex].tokenCategory == authToken && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {
-                if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & bytes(0x0008)) == 0x0008) {
-                    authorized = true;
-                }
-            }
-            inputIndex = inputIndex + 1;
-        } while(inputIndex < tx.inputs.length && !authorized);
-        require(authorized, "unauthorized user");
     }
 }
