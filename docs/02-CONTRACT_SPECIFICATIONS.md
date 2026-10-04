@@ -536,15 +536,17 @@ Routes fee payment during transaction execution.
 1. Input UTXO returns to itself with same category/commitment and fungible token amount
 2. If input has feeToken with an enforced fee (type 0x01):
    - Parse commitment: [type (1) | category (32) | amount (8) | destination (var)]
-   - If category == 0x00: output value matches amount
+   - If category == 0x00: output value matches amount, with no token
    - Else: output token category/amount matches
    - Destination: use parsed or default
 3. If input has feeToken with a voluntary fee (type 0x02), the fee output either:
-   - Goes to the default destination with BCH (value > 0) or a token, or
+   - Goes to the default destination with BCH alone (value > 0) or a token without NFT capability (fungible tokens or an immutable NFT), or
    - Is an OP_RETURN with no BCH and no token (no payment)
 4. Else (no fee token):
-   - Output value = defaultValue
+   - Output value = defaultValue, with no token
    - Output destination = default destination
+
+The fee output never carries a minting or mutable NFT. In a fund creation it sits inside the FundStartup and PublicFund anti-minting windows, and the genesis input could otherwise mint a minting NFT of the new fund's category onto it.
 
 **Usage**: Prove fee payment
 

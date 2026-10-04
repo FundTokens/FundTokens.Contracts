@@ -58,10 +58,11 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
         //
         // Verify this input and UTXO is preserved
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
         int feeOutput = this.activeInputIndex + 1;
         bytes thisInputCategory = tx.inputs[this.activeInputIndex].tokenCategory;
         require(thisInputCategory == tx.outputs[this.activeInputIndex].tokenCategory);
-        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
 
         //
         // Check for encoded fee or default
@@ -90,6 +91,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
                 int fee_amount = int(fee_amount_bytes);
                 if(int(fee_category) == 0) {
                     require(tx.outputs[feeOutput].value == fee_amount);
+                    require(tx.outputs[feeOutput].tokenCategory == 0x);
                 } else {
                     require(tx.outputs[feeOutput].tokenCategory == fee_category);
                     require(tx.outputs[feeOutput].tokenAmount == fee_amount);
@@ -99,7 +101,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
                 // fee_type == 0x02
                 // default destination w/ a fungible token or an OP_RETURN w/ no BCH or tokens
                 if(tx.outputs[feeOutput].lockingBytecode == defaultDestination) {
-                    require(tx.outputs[feeOutput].tokenCategory != 0x || tx.outputs[feeOutput].value > 0);
+                    require(tx.outputs[feeOutput].tokenCategory.length == 32 || (tx.outputs[feeOutput].tokenCategory == 0x && tx.outputs[feeOutput].value > 0));
                 } else {
                     require(tx.outputs[feeOutput].lockingBytecode.slice(0, 1) == 0x6a);
                     require(tx.outputs[feeOutput].tokenCategory == 0x);
@@ -111,6 +113,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
             // Verify default route and at least default sats are paid
             require(tx.outputs[feeOutput].lockingBytecode == defaultDestination);
             require(tx.outputs[feeOutput].value == defaultValue);
+            require(tx.outputs[feeOutput].tokenCategory == 0x);
         }
     }
 }
