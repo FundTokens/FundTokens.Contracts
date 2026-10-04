@@ -49,6 +49,7 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
                 if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
                     require(tx.outputs[outputIndex].lockingBytecode == destination);
                     require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
+                    require(tx.outputs[outputIndex].tokenAmount == 0);
                     bytes outputType, bytes outputSerial = tx.outputs[outputIndex].nftCommitment.split(1);
                     require(outputType == 0x01); // Type must be fund minting
                     require(int(outputSerial) == (inputSerial + mintedTokens));
@@ -71,5 +72,6 @@ contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
         bytes thisTokenCategory = tx.inputs[this.activeInputIndex].tokenCategory;
         require(thisTokenCategory == (token + 0x02));
         require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
     }
 }

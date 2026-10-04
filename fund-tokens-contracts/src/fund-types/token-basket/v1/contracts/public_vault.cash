@@ -80,6 +80,7 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
             require(tx.inputs[fundIndex].lockingBytecode == tx.outputs[fundIndex].lockingBytecode);
             require(tx.inputs[fundIndex].tokenCategory == tx.outputs[fundIndex].tokenCategory);
             require(tx.inputs[fundIndex].nftCommitment == tx.outputs[fundIndex].nftCommitment);
+            require(tx.inputs[fundIndex].tokenAmount == tx.outputs[fundIndex].tokenAmount);
 
             fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
             fundIndex = fundIndex + 1;
@@ -95,6 +96,7 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
     }
 
     /**

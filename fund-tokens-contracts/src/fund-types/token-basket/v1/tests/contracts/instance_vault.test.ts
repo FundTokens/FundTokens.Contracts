@@ -361,4 +361,39 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             ]);
         expect(transaction).not.toFailRequire();
     });
+
+    describe('fungible tokens on the instance NFTs', () => {
+        /** proof() over an instance whose two NFTs carry 7 and 9 instance tokens, returning `returned` of each. */
+        const proof = (returned: [bigint, bigint]) => {
+            const txid = randomUtxo().txid;
+            const carrying = instanceUtxos.map((u, vout) => provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
+                txid, vout, satoshis: 3000n, token: { ...u.token!, amount: vout === 0 ? 7n : 9n },
+            })));
+            const userWallet = generateWallet();
+            const funding = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
+            const transaction = new TransactionBuilder({ provider });
+            transaction
+                .addInput(carrying[0]!, systemUnderTest.unlock.proof())
+                .addInput(carrying[1]!, systemUnderTest.unlock.data())
+                .addInput(funding, userWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs(carrying.map((u, i) => ({ to: systemUnderTest.tokenAddress, amount: DustAmount, token: { ...u.token!, amount: returned[i]! } })));
+            const taken = 16n - returned[0] - returned[1];
+            if (taken > 0n) {
+                transaction.addOutput({ to: userWallet.tokenAddress, amount: DustAmount, token: { category: instanceCategory, amount: taken } });
+            }
+            return transaction.addOutput({ to: userWallet.address, amount: DustAmount });
+        };
+
+        it('keeps them on both NFTs (control)', () => {
+            expect(proof([7n, 9n])).not.toFailRequire();
+        });
+
+        it('rejects taking them off the main NFT', () => {
+            expect(proof([0n, 9n])).toFailRequireWith('This input amount must be preserved');
+        });
+
+        it('rejects taking them off the data NFT', () => {
+            expect(proof([7n, 0n])).toFailRequireWith('Data input amount must be preserved');
+        });
+    });
 });

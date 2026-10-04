@@ -101,6 +101,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         require(tx.inputs[dataIndex].lockingBytecode == tx.outputs[dataIndex].lockingBytecode, 'Data input must be preserved');
         require(tx.inputs[dataIndex].tokenCategory == tx.outputs[dataIndex].tokenCategory, 'Data input category must be preserved');
         require(tx.inputs[dataIndex].nftCommitment == tx.outputs[dataIndex].nftCommitment, 'Data input commitment must be preserved');
+        require(tx.inputs[dataIndex].tokenAmount == tx.outputs[dataIndex].tokenAmount, 'Data input amount must be preserved');
 
         //
         // Concate the data and verify the hash
@@ -111,6 +112,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         // return input to contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode, 'This input must be preserved');
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory, 'This input category must be preserved');
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount, 'This input amount must be preserved');
     }
 
     /**
@@ -142,6 +144,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         require(tx.inputs[dataIndex].lockingBytecode == tx.outputs[dataIndex].lockingBytecode, 'Data input must be preserved');
         require(tx.inputs[dataIndex].tokenCategory == tx.outputs[dataIndex].tokenCategory, 'Data input category must be preserved');
         require(tx.inputs[dataIndex].nftCommitment == tx.outputs[dataIndex].nftCommitment, 'Data input commitment must be preserved');
+        require(tx.inputs[dataIndex].tokenAmount == tx.outputs[dataIndex].tokenAmount, 'Data input amount must be preserved');
 
         //
         // Concate the data and verify the hash
@@ -152,6 +155,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         // return input to contract
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode, 'This input must be preserved');
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory, 'This input category must be preserved');
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount, 'This input amount must be preserved');
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment, 'This input commitment must be preserved');
     }
 

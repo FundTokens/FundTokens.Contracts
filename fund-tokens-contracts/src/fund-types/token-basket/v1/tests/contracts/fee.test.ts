@@ -400,4 +400,38 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             ]);
         expect(transaction).toFailRequire();
     });
+
+    describe('fungible tokens on the fee NFT', () => {
+        /** pay() through an encoded Bitcoin fee NFT carrying 50 fee tokens, returning `returned` of them to it. */
+        const pay = (returned: bigint) => {
+            const feeNft = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
+                token: {
+                    category: contractToken.category,
+                    amount: 50n,
+                    nft: { capability: 'none', commitment: '01' + swapEndianness('0'.repeat(32 * 2)) + binToHex(bigIntToBinUint64LEClamped(4000n)) },
+                },
+            }));
+            const funding = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
+            const transaction = new TransactionBuilder({ provider });
+            transaction
+                .addInput(feeNft, systemUnderTest.unlock.pay())
+                .addInput(funding, userWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    { to: systemUnderTest.tokenAddress, amount: feeNft.satoshis, token: { ...feeNft.token!, amount: returned } },
+                    { to: ownerWallet.address, amount: 4000n },
+                ]);
+            if (returned < 50n) {
+                transaction.addOutput({ to: userWallet.tokenAddress, amount: DustAmount, token: { category: contractToken.category, amount: 50n - returned } });
+            }
+            return transaction;
+        };
+
+        it('keeps them on the fee NFT', ({ expect }) => {
+            expect(pay(50n)).not.toFailRequire();
+        });
+
+        it('rejects taking them off the fee NFT', ({ expect }) => {
+            expect(pay(0n)).toFailRequireWith('tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount');
+        });
+    });
 });

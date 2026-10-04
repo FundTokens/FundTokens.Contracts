@@ -28,6 +28,8 @@ export default defineConfig(({ mode }) => ({
         ],
         setupFiles: ['./test-utils/setup.ts'],
         testTimeout: 50_000,
+        // Fixtures (bootstrapping an instance, creating and funding a fund) take longer than the default 10s under a full parallel run
+        hookTimeout: 50_000,
         silent: 'passed-only',
         disableConsoleIntercept: true,
         printConsoleTrace: false,

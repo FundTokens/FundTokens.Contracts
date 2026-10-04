@@ -43,6 +43,7 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes next)
                     // Validate minted token output including NFT commitment
                     require(tx.outputs[outputIndex].lockingBytecode == next);
                     require(tx.outputs[outputIndex].tokenCategory == token);
+                    require(tx.outputs[outputIndex].tokenAmount == 0);
 
                     bytes fee_type, bytes fee_next0 = tx.outputs[outputIndex].nftCommitment.split(1);
                     require(fee_type == 0x01 || fee_type == 0x02); // minting type not allowed
@@ -73,5 +74,6 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes next)
         require(thisInputCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
     }
 }

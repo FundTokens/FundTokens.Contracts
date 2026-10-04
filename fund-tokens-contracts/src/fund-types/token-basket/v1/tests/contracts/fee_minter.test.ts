@@ -272,4 +272,42 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             ]);
         expect(transaction).toFailRequireWith("unauthorized user");
     });
+
+    describe('fungible tokens', () => {
+        /** mint() returning the minting NFT with `kept` fee tokens and minting a fee NFT carrying `minted`. */
+        const mint = ({ kept = 0n, minted = 0n }) => {
+            const funding = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
+            const transaction = new TransactionBuilder({ provider });
+            transaction
+                .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+                .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+                .addInput(funding, ownerWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    { to: systemUnderTest.tokenAddress, amount: DustAmount, token: { ...tokenUnderTest, amount: kept } },
+                    {
+                        to: destinationWallet.tokenAddress,
+                        amount: DustAmount,
+                        token: {
+                            category: tokenUnderTest.category,
+                            amount: minted,
+                            nft: { capability: 'none', commitment: '01' + newFeeToken.category + binToHex(bigIntToBinUint64LEClamped(1000n)) },
+                        },
+                    },
+                    { to: ownerWallet.tokenAddress, amount: DustAmount, token: authUtxo.token },
+                ]);
+            return transaction;
+        };
+
+        it('mints fee NFTs without them (control)', ({ expect }) => {
+            expect(mint({})).not.toFailRequire();
+        });
+
+        it('rejects minting a fee NFT carrying them', ({ expect }) => {
+            expect(mint({ minted: 5n })).toFailRequireWith('tokenAmount == 0');
+        });
+
+        it('rejects minting them onto its own minting NFT', ({ expect }) => {
+            expect(mint({ kept: 5n })).toFailRequireWith('tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount');
+        });
+    });
 });

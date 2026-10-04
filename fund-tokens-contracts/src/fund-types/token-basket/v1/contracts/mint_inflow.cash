@@ -46,6 +46,7 @@ contract FundInflowMint(bytes32 startupContract, bytes32 inflowToken, bytes32 ou
         require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
 
         //
         // Extract fund parameters from output NFT commitment and verify deployment
@@ -64,5 +65,6 @@ contract FundInflowMint(bytes32 startupContract, bytes32 inflowToken, bytes32 ou
         // Verify the minted inflow token destination
         require(tx.outputs[inflowOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
         require(tx.outputs[inflowOutput].tokenCategory == inflowToken);
+        require(tx.outputs[inflowOutput].tokenAmount == 0);
     }
 }

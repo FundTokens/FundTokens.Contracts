@@ -4,6 +4,8 @@ This document provides detailed specifications for each smart contract in the Fu
 
 **Authorization**: contracts gated by the authorization token (SimpleMinter, FeeMinter, SimpleVault, AuthHeadVault, InstanceVault, PublicFundVault, FeeManager) accept it from any input *except* one locked by the contract's own address: neither the contract's own input nor another UTXO at that address counts. An authorization token sent to one of these contracts cannot authorize its own release, so keep authorization tokens outside the contracts they authorize. The check is one shared function, `hasAuthority()` in [contracts/lib/authority.cash](../fund-tokens-contracts/src/fund-types/token-basket/v1/contracts/lib/authority.cash), imported by each of these contracts.
 
+**Fungible tokens on NFTs**: a minting NFT in a transaction can mint fungible tokens of its category onto any output, including the NFTs it returns or creates. So every contract that returns an NFT to itself (a thread, minting NFT, fee NFT, instance or fund data NFT) keeps its fungible token amount unchanged, and every NFT a contract mints carries none (amount 0).
+
 ## System Contracts
 
 ### 1. SimpleMinter
@@ -26,8 +28,10 @@ Allows an authorized user to mint new tokens to a specified destination.
 - Input UTXO must return to itself
 - NFT commitment must be preserved
   - Updated serial number
+- Its fungible token amount is unchanged
 - At least one input not held by this contract must contain the `authorization` token
 - Any output with the `token` category must:
+  - Carry no fungible tokens
   - Send to the specified `destination`
   - Use a increasing serial number and encode token type
 
@@ -55,8 +59,10 @@ Allows the owner to mint fee tokens with commitment encoding fee parameters.
 **Validation**:
 - Input UTXO must have `token` category (fungible minting token)
 - Input UTXO must return to itself
+- Its fungible token amount is unchanged
 - At least one input not held by this contract must contain the `authorization` token
 - Any output with the `token` category must:
+  - Carry no fungible tokens
   - Send to specified `destination`
   - Have NFT commitment with fee parameters:
     - Bytes [0:1] - Fee type (0x01)
@@ -149,7 +155,7 @@ Validates:
 - An authorization token with bit 0x0040 (update instance state) is present, not held by this vault
 - The new state is a defined lifecycle state: 0x01 pre-release, 0x02 main, 0x04 deprecated or 0x08 vulnerable
 - Type, library version, hash and data are unchanged, and the data hashes to the encoded hash
-- Both tokens return to this vault, the data token unchanged
+- Both tokens return to this vault with their fungible token amounts, the data token unchanged
 
 **Usage**: Mark an instance deprecated or vulnerable (or promote a pre-release)
 
@@ -159,7 +165,7 @@ Proves the instance parameters on-chain: both tokens are spent and returned unch
 
 Validates:
 - This input is the proof token and the next input is the data token from this vault
-- Both tokens return to this vault with identical category and commitment
+- Both tokens return to this vault with identical category, commitment and fungible token amount
 - The concatenated data hashes to the encoded hash
 
 **Usage**: On-chain proof of the instance's parameters
@@ -209,7 +215,7 @@ Proves fund composition on-chain by validating that all consecutive publicFund U
 Validates:
 - Each publicFund input returns to matching output (no tampering)
 - Input/output locking bytecode and token categories match
-- NFT commitments are identical
+- NFT commitments and fungible token amounts are identical
 - Concatenated commitment data hashes to expected value
 - The proof covers only the consecutive publicFund inputs starting at this input; publicFund inputs elsewhere in the transaction are not checked
 
@@ -307,7 +313,7 @@ Broadcasts fund parameters in chunks via transaction outputs. `padding` is ignor
 1. First input must have vout==0 and no token (genesis input)
 2. First output must route to authHeadDestination w/ no token
 3. Previous input of this contract UTXO must be startup contract
-4. Public fund UTXO returns to itself with same public fund token
+4. Public fund UTXO returns to itself with same public fund token, commitment and fungible token amount; the fund data chunks it mints carry no fungible tokens
 5. Fund parameters validated:
    - Fund category non-empty
    - Fund category matches genesis transaction hash
@@ -347,9 +353,9 @@ Mints inflow threads to a fund's transaction manager
 **Validation** (mintInflow):
 1. Previous input must be validator contract
 2. Input UTXO must contain inflow token with capability "minting"
-3. Input UTXO returns to itself
+3. Input UTXO returns to itself with the same commitment and fungible token amount
 4. Following input must have outflow token with capability "minting"
-5. Output must contain inflow token (nft minting)
+5. Output must contain inflow token (nft minting), with no fungible tokens
 6. Output [activeInputIndex + 4] is the new manager contract
 
 **Usage**: Hold inflow token and mint for a new fund
@@ -381,8 +387,8 @@ Mints outflow threads to a fund's transaction manager
 1. Input at [activeInputIndex - 2] must be validator contract (sequence control)
 2. Input at [activeInputIndex - 1] must have inflow token with capability "minting" (sequence signal)
 3. Input UTXO must contain outflow token with capability "minting"
-4. Input UTXO returns to itself with outflow token
-5. Output [activeInputIndex + 4] receives outflow token (NFT minting)
+4. Input UTXO returns to itself with outflow token, the same commitment and fungible token amount
+5. Output [activeInputIndex + 4] receives outflow token (NFT minting), with no fungible tokens
 6. Output [activeInputIndex + 4] is the new Fund contract with proper parameters
 7. Fund contract address calculated by hashing:
    - hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)
@@ -424,7 +430,7 @@ Validates an inflow (minting) transaction. The operation is laid out from this i
 3. Each counted FundManager input and output is tokenless or holds the fund token
 4. Fund tokens released (`input - output`) must be a whole multiple of the fund amount and more than zero; this is the number of units deposited
 5. Custody outputs follow the FundManager outputs: satoshis first (if the fund is BCH-backed), then each asset in ascending category order. Each must be at its AssetManager address, the satoshi output tokenless and each asset output in the asset's category, holding exactly `units × amount`
-6. The thread returns to this contract with the same category and commitment
+6. The thread returns to this contract with the same category, commitment and fungible token amount
 
 **Usage**: Inflow transaction initiation, fund token minting
 
@@ -437,7 +443,7 @@ Validates an outflow (redemption) transaction, laid out like `inflow()`.
 2. Each counted FundManager input and output holds only the fund token; fund tokens collected (`output - input`) must be a whole multiple of the fund amount and more than zero
 3. Reserve inputs must follow the FundManager inputs with no gap: satoshis first, then each asset in ascending category order, each as one contiguous run of that AssetManager's UTXOs (several UTXOs of one asset may be spent)
 4. Change may return to each AssetManager right after the FundManager outputs, in the same order; per reserve, released (`inputs - change`) must equal `units × amount`
-5. The thread returns to this contract with the same category and commitment
+5. The thread returns to this contract with the same category, commitment and fungible token amount
 
 **Usage**: Outflow transaction initiation, fund token redeeming
 
@@ -527,7 +533,7 @@ Releases held assets during outflow (redemption) transaction. Amounts are enforc
 Routes fee payment during transaction execution.
 
 **Validation**:
-1. Input UTXO returns to itself with same category/commitment
+1. Input UTXO returns to itself with same category/commitment and fungible token amount
 2. If input has feeToken with an enforced fee (type 0x01):
    - Parse commitment: [type (1) | category (32) | amount (8) | destination (var)]
    - If category == 0x00: output value matches amount

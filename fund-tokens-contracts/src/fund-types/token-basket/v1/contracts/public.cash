@@ -66,6 +66,7 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         while(tx.outputs.length > broadcastOutputEnd && !break) {
             if(tx.outputs[broadcastOutputEnd].tokenCategory == token) {
                 require(tx.outputs[broadcastOutputEnd].lockingBytecode == publicFundDestination);
+                require(tx.outputs[broadcastOutputEnd].tokenAmount == 0);
 
                 //
                 // Ensure the first commitment sets the max size
@@ -135,5 +136,6 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[thisOutput].lockingBytecode);
         require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[thisOutput].tokenCategory);
         require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[thisOutput].nftCommitment);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[thisOutput].tokenAmount);
     }
 }

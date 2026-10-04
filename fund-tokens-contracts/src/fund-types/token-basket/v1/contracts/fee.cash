@@ -61,6 +61,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
         int feeOutput = this.activeInputIndex + 1;
         bytes thisInputCategory = tx.inputs[this.activeInputIndex].tokenCategory;
         require(thisInputCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
 
         //
         // Check for encoded fee or default

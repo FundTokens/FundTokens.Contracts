@@ -315,4 +315,40 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             .addBchChangeOutputIfNeeded({ to: ownerWallet.address, feeRate: 2 });
         await transaction.send();
     });
+
+    describe('fungible tokens', () => {
+        /** mint() returning the minting NFT with `kept` tokens and minting an NFT carrying `minted`. */
+        const mint = ({ kept = 0n, minted = 0n }) => {
+            const funding = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ satoshis: 10000n }));
+            const transaction = new TransactionBuilder({ provider });
+            transaction
+                .addInput(utxoUnderTest, systemUnderTest.unlock.mint())
+                .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+                .addInput(funding, ownerWallet.signatureTemplate.unlockP2PKH())
+                .addOutput({
+                    to: systemUnderTest.tokenAddress,
+                    amount: DustAmount,
+                    token: { category: tokenUnderTest.category, amount: kept, nft: { capability: 'minting', commitment: '0002' } },
+                })
+                .addOutput({
+                    to: destinationWallet.address,
+                    amount: DustAmount,
+                    token: { category: tokenUnderTest.category, amount: minted, nft: { capability: 'minting', commitment: '0101' } },
+                })
+                .addOutput({ to: ownerWallet.tokenAddress, amount: DustAmount, token: authUtxo.token });
+            return transaction;
+        };
+
+        it('mints NFTs without them (control)', ({ expect }) => {
+            expect(mint({})).not.toFailRequire();
+        });
+
+        it('rejects minting an NFT carrying them', ({ expect }) => {
+            expect(mint({ minted: 5n })).toFailRequireWith('tokenAmount == 0');
+        });
+
+        it('rejects minting them onto its own minting NFT', ({ expect }) => {
+            expect(mint({ kept: 5n })).toFailRequireWith('tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount');
+        });
+    });
 });
