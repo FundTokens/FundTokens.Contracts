@@ -6,16 +6,20 @@
  * Categories are 32 bytes in internal byte order in commitments; parses push them reversed (OP_REVERSEBYTES)
  * so `hex` fields read as explorers and the library show categories.
  *
+ * The library's templates (../bcmr.ts) carry these scripts as bytecode; the 'templates' tests check they
+ * match and that every type lists exactly the fields its parse produces.
+ *
  * Two layouts don't fit a per-UTXO parse. They are accepted as they are; the "gap" tests pin what clients see:
  * - Public fund definitions span several NFTs and only the first carries a type byte.
  * - The instance data spans two NFTs and `publicFund` straddles them.
  */
+import { readFileSync } from 'node:fs';
 import { bigIntToBinUint64LE, binToHex, hash256, hexToBin, swapEndianness } from '@bitauth/libauth';
 import { hex, num, parseBytecode, parseNft } from '@test-utils/bcmr.js';
 import { randomCategory } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 import { lockingBytecodeHexOf } from '../../../../core/index.js';
-import { encodeFee, getFundCommitment, hashFund, parseFund } from '../index.js';
+import { bcmrNfts, encodeFee, getFundCommitment, getSystemRegistry, hashFund, parseFund, SystemRegistryPlaceholders, type BcmrParsableNfts } from '../index.js';
 
 /** Minting counters and minting threads: `type · serial`. */
 const Serial = 'OP_BIN2NUM OP_TOALTSTACK';
@@ -280,5 +284,116 @@ describe('fixed basket v1 NFTs under BCMR v2', () => {
             expect(proof.endsWith(publicFundHex.slice(0, 56))).toBe(true); // its first 28 bytes
             expect(rest.startsWith(publicFundHex.slice(56))).toBe(true); // its last 4
         });
+    });
+});
+
+describe('fixed basket v1 BCMR templates', () => {
+    it.each([
+        ['authorization', AuthorizationParse],
+        ['fees', FeeParse],
+        ['inflow', ThreadParse],
+        ['outflow', ThreadParse],
+        ['publicFund', PublicFundParse],
+        ['instance', InstanceParse],
+    ] as const)('%s carries the tested parse script', (name, parse) => {
+        expect(bcmrNfts[name].parse.bytecode).toBe(binToHex(parse));
+    });
+
+    it.each(Object.entries(bcmrNfts))('%s: every type lists only defined fields', (_, template) => {
+        for (const type of Object.values(template.parse.types)) {
+            for (const field of type.fields) {
+                expect(template.fields).toHaveProperty(field);
+            }
+        }
+    });
+
+    const fund = parseFund({ category: randomCategory(), amount: 100n, satoshis: 50_000n, assets: [{ category: randomCategory(), amount: 7n }] });
+    const proof = `0000${'0100'}${'11'.repeat(32)}${'22'.repeat(92)}`;
+
+    // One NFT of every type
+    const samples: [keyof typeof bcmrNfts, string, 'none' | 'mutable' | 'minting', string][] = [
+        ['authorization', '00', 'minting', '0005'],
+        ['authorization', '01', 'none', '01ffff01'],
+        ['authorization', '02', 'none', '0200c007'],
+        ['fees', '00', 'minting', '0007'],
+        ['fees', '01', 'none', encodeFee({ category: randomCategory(), amount: 5n, destination: generateWallet().address })],
+        ['fees', '0100', 'none', encodeFee({ amount: 1_000n })],
+        ['fees', '02', 'none', '02'],
+        ['inflow', '00', 'minting', '0001'],
+        ['inflow', '01', 'minting', '0102'],
+        ['inflow', '02', 'none', `02${swapEndianness(fund.category)}${hashFund(fund)}`],
+        ['outflow', '00', 'minting', '0001'],
+        ['outflow', '01', 'minting', '0102'],
+        ['outflow', '02', 'none', `02${swapEndianness(fund.category)}${hashFund(fund)}`],
+        ['publicFund', '00', 'minting', '0001'],
+        ['publicFund', '01', 'minting', '0103'],
+        ['publicFund', '02', 'none', getFundCommitment(fund)],
+        ['instance', '0001', 'mutable', `0001${proof.slice(4)}`],
+        ['instance', '0002', 'mutable', `0002${proof.slice(4)}`],
+        ['instance', '0004', 'mutable', `0004${proof.slice(4)}`],
+        ['instance', '0008', 'mutable', `0008${proof.slice(4)}`],
+        ['instance', 'ff', 'none', '33'.repeat(116)],
+    ];
+
+    it.each(samples)('%s type %s parses, with its own bytecode, to exactly its listed fields', (name, type, capability, commitment) => {
+        const template: BcmrParsableNfts = bcmrNfts[name];
+        const parsed = parseNft(hexToBin(template.parse.bytecode), { capability, commitment });
+        expect(parsed.error).toBeUndefined();
+        expect(parsed.type).toBe(type);
+        expect(parsed.fields).toHaveLength(template.parse.types[type]!.fields.length);
+    });
+
+    it('covers every type of every template', () => {
+        const types = Object.entries(bcmrNfts).flatMap(([name, template]) => Object.keys(template.parse.types).map(type => `${name} ${type}`));
+        expect(samples.map(([name, type]) => `${name} ${type}`).sort()).toEqual(types.sort());
+    });
+
+    it('is plain JSON', () => {
+        expect(JSON.parse(JSON.stringify(bcmrNfts))).toEqual(bcmrNfts);
+    });
+});
+
+describe('fixed basket v1 system token registry', () => {
+    const categories = {
+        instance: randomCategory(),
+        authorization: randomCategory(),
+        inflow: randomCategory(),
+        outflow: randomCategory(),
+        publicFund: randomCategory(),
+        createFee: randomCategory(),
+        executeFee: randomCategory(),
+    };
+    const revision = '2026-10-04T00:00:00.000Z';
+    const registry = getSystemRegistry({ categories, revision });
+
+    it('has one identity per system category, keyed by its category, with the matching template', () => {
+        const expected = { instance: 'instance', authorization: 'authorization', inflow: 'inflow', outflow: 'outflow', publicFund: 'publicFund', createFee: 'fees', executeFee: 'fees' } as const;
+        expect(Object.keys(registry.identities).sort()).toEqual(Object.values(categories).sort());
+        for (const [role, template] of Object.entries(expected)) {
+            const snapshot = registry.identities[categories[role as keyof typeof categories]]![revision]!;
+            expect(snapshot.token.category).toBe(categories[role as keyof typeof categories]);
+            expect(snapshot.token.nfts).toEqual(bcmrNfts[template]);
+        }
+        expect(registry.latestRevision).toBe(revision);
+    });
+
+    it('follows BCMR v2 display rules: symbols, name and description lengths', () => {
+        const snapshots = Object.values(registry.identities).flatMap(history => Object.values(history));
+        expect(new Set(snapshots.map(snapshot => snapshot.token.symbol)).size).toBe(snapshots.length);
+        for (const { name, description, token } of snapshots) {
+            expect(token.symbol).toMatch(/^[-A-Z0-9]+$/);
+            expect(name.length).toBeLessThanOrEqual(20); // shown in full
+            expect(description.length).toBeLessThanOrEqual(140);
+        }
+    });
+
+    it('is the published template with the placeholders filled in', () => {
+        const template = readFileSync(new URL('../../../../../../docs/fund-types/fixed-basket/v1/bcmr.template.json', import.meta.url), 'utf8');
+        let filled = template;
+        for (const [role, placeholder] of Object.entries(SystemRegistryPlaceholders.categories)) {
+            filled = filled.replaceAll(placeholder, categories[role as keyof typeof categories]);
+        }
+        filled = filled.replaceAll(SystemRegistryPlaceholders.revision, revision);
+        expect(JSON.parse(filled)).toEqual(registry);
     });
 });

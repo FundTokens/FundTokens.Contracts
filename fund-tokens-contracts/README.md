@@ -279,6 +279,7 @@ with Node) runs that version whenever you type `yarn`; run `corepack enable` onc
 | --- | --- |
 | `yarn build:contracts` | Compiles every version's `.cash` into JSON and typed artifacts plus an index. Committed JSON is kept when its bytecode is unchanged |
 | `yarn check:contracts` | Fails if any committed artifact doesn't match its source |
+| `yarn bcmr:template` / `yarn check:bcmr` | Regenerate / check the BCMR registry template in `docs/` |
 | `yarn typecheck` | Type-checks tests, scripts and metrics, then the library under stricter settings |
 | `yarn test` | Runs the tests (vitest), skipping the long-running ones listed in `vitest.config.ts` |
 | `yarn test:all` | Runs every test, long-running ones included (same as `yarn test --mode all`) |

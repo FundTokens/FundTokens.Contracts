@@ -34,6 +34,7 @@ Run from `fund-tokens-contracts/` (Yarn 4 via Corepack).
 | --- | --- |
 | `yarn build:contracts` | After any `.cash` change (regenerates artifacts) |
 | `yarn check:contracts` | Fails if artifacts are stale |
+| `yarn bcmr:template` | After changing a BCMR template (`fixed-basket/v1/bcmr.ts`): regenerates the published registry template |
 | `yarn typecheck` | Type-checks everything |
 | `yarn test` / `npx vitest run <path>` | Tests, skipping the long-running ones in `vitest.config.ts` |
 | `yarn test:all` | Every test |

@@ -176,7 +176,11 @@ altstack item and the type's fields above it. The parse scripts and the commitme
 read are pinned by
 [bcmr.test.ts](../../../../fund-tokens-contracts/src/fund-types/fixed-basket/v1/tests/bcmr.test.ts),
 which runs them in the VM as BCMR clients do. Parses show categories reversed, in the byte
-order explorers use.
+order explorers use. The ready-to-use `token.nfts` templates, with field names and
+encodings, are the library's `bcmrNfts`
+([bcmr.ts](../../../../fund-tokens-contracts/src/fund-types/fixed-basket/v1/bcmr.ts)); the
+tests check each one's bytecode against its script and its type field lists against what
+the parse produces.
 
 | Category | Type key | Fields |
 | --- | --- | --- |
