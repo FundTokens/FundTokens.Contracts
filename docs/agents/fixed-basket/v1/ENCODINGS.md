@@ -129,6 +129,7 @@ proof NFT (mutable):  type (1) = 0x00 · state (1) · version (2) · hash (32) �
 data NFT (immutable): data, rest
 ```
 
+`version` is the contract version number as a 2-byte little-endian integer: v1 is `01 00`.
 `hash = hash256(data)` over the whole data, both parts concatenated. With 128-byte
 commitments the proof NFT carries the first 92 bytes of data and the data NFT the other 116.
 
@@ -166,3 +167,44 @@ Fee values cover the full range `parseSystemParameters` accepts (0 to 2⁶³−1
 The contracts only hash `data`; the deployment tooling writes it. Everything else an
 instance's contracts are built from (their templates, and the addresses derived from them)
 follows from these parameters and the contract version.
+
+## Reading NFTs with BCMR v2
+
+Every v1 NFT category can be described as a BCMR v2 parsable collection
+(`token.nfts.parse`). A parse runs against one UTXO, pushes the NFT type as the bottom
+altstack item and the type's fields above it. The parse scripts and the commitments they
+read are pinned by
+[bcmr.test.ts](../../../../fund-tokens-contracts/src/fund-types/fixed-basket/v1/tests/bcmr.test.ts),
+which runs them in the VM as BCMR clients do. Parses show categories reversed, in the byte
+order explorers use.
+
+| Category | Type key | Fields |
+| --- | --- | --- |
+| Authorization | `00` minting | serial |
+| | `01` person, `02` contract | permissions (`hex`, as written: `00c0`), serial |
+| Fee | `01` enforced, token | token (`hex`), amount (token units), destination (`hex` locking bytecode, empty for the fee vault) |
+| | `0100` enforced, BCH (fee category all zeros) | amount (satoshis), destination |
+| | `02` voluntary | none |
+| | `00` minting | serial |
+| Inflow, outflow | `02` thread | fund category, fund hash |
+| | `00` counter, `01` minting | serial |
+| Public fund | `02` definition (first chunk) | fund hash, fund category, amount, satoshis |
+| | `00` counter, `01` minting | serial |
+| Instance | `0001`, `0002`, `0004`, `0008`: proof NFT (type · state) | version (number), hash, inflow, outflow |
+| | `ff`: data NFT (immutable; the parse tells it apart by capability, as it has no type byte) | authorization, create fee NFT, create fee value, execute fee NFT, execute fee value |
+
+An enforced fee's amount is satoshis for BCH and token units otherwise. A BCMR field has a
+single `decimals`, so BCH fees get their own type (`0100`, built by the parse) and can show
+as BCH.
+
+Accepted limits (the layouts stay as they are):
+
+- **Public fund definitions span NFTs.** Only the first chunk has a type byte; later chunks
+  start mid-asset. A later chunk is read as an unknown type, or, when its first byte happens
+  to be `0x02` (about 1 in 256), as a definition with meaningless fields. Assets beyond the
+  first chunk can't be shown. Read full definitions with `decodeFundCommitment` over all
+  chunks.
+- **The instance's `publicFund` straddles its two NFTs** (28 bytes in the proof NFT, 4 in the
+  data NFT), so neither parse shows it. Every other parameter is shown.
+- BCMR has no address encoding, so fee destinations show as locking bytecode hex. A token
+  fee's amount shows in base units, since the fee token's decimals aren't known.

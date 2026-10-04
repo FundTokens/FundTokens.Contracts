@@ -26,7 +26,7 @@ describe('audit: InstanceVault.update() state change without authorization', () 
         // Instance commitment: type (1) | state (1) | version (2) | hash (32) | data...
         const data1 = hexToBin('aaaa');
         const data2 = hexToBin('bbbb');
-        const mainCommitment = new Uint8Array([0x00, StateMain, 0x00, 0x01, ...hash256(new Uint8Array([...data1, ...data2])), ...data1]);
+        const mainCommitment = new Uint8Array([0x00, StateMain, 0x01, 0x00, ...hash256(new Uint8Array([...data1, ...data2])), ...data1]);
         const mainToken = (commitment: Uint8Array) =>
             ({ category: instance, amount: 0n, nft: { capability: 'mutable' as const, commitment: binToHex(commitment) } });
         const dataToken = { category: instance, amount: 0n, nft: { capability: 'none' as const, commitment: binToHex(data2) } };
