@@ -5,6 +5,14 @@ import { sortAssets } from './encoding.js';
 import type { Fund, FundInput } from './types.js';
 
 /**
+ * The most assets a fund may hold. Every redemption releases every asset, so its transaction grows
+ * with the fund (an input and an output per asset at least): past about 100 assets it nears the
+ * 100,000-byte standard transaction size, and a fund that accepts deposits must be able to redeem them.
+ * The contracts do not enforce this (padding and future consensus changes can raise their limits).
+ */
+export const MaxFundAssets = 100;
+
+/**
  * Normalises a fund's shape without judging its values: amounts become bigint,
  * categories lowercase, assets sorted into contract order. Throws only on values
  * that cannot be represented at all (non-hex categories, non-integer amounts).
@@ -40,6 +48,10 @@ export function validateFund(fund: Fund): Fund {
 
     if (fund.satoshis === 0n && fund.assets.length === 0) {
         throw new FundTokensError('INVALID_ARGUMENT', 'A fund must be backed by satoshis, at least one asset, or both');
+    }
+
+    if (fund.assets.length > MaxFundAssets) {
+        throw new FundTokensError('INVALID_ARGUMENT', `A fund can hold at most ${MaxFundAssets} assets, so its redemptions fit in a standard transaction; got ${fund.assets.length}`);
     }
 
     const seen = new Set<string>();

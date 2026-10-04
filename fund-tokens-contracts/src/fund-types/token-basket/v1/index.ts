@@ -47,7 +47,7 @@ export {
     sortAssets,
 } from './encoding.js';
 export { decodeFee, encodeFee, getAvailableFees, getBestFee } from './fees.js';
-export { normalizeFund, parseFund, validateFund } from './fund.js';
+export { MaxFundAssets, normalizeFund, parseFund, validateFund } from './fund.js';
 export { parseSystemParameters } from './parameters.js';
 export * as artifacts from './artifacts/index.js';
 export type {

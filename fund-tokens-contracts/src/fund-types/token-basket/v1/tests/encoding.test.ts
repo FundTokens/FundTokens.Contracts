@@ -5,6 +5,7 @@ import {
     getFundCommitment,
     getFundHex,
     hashFund,
+    MaxFundAssets,
     normalizeFund,
     parseFund,
     parseSystemParameters,
@@ -13,6 +14,8 @@ import {
 import { BitcoinCategory, MaxSatoshis, MaxTokenAmount } from '../../../../core/constants.js';
 
 const cat = (byte: string) => byte.repeat(32);
+/** `count` distinct asset categories, none of them the fund's. */
+const assets = (count: number) => Array.from({ length: count }, (_, i) => ({ category: 'a'.repeat(60) + i.toString(16).padStart(4, '0'), amount: 1n }));
 
 const fund: Fund = {
     category: cat('77'),
@@ -96,8 +99,13 @@ describe('parseFund', () => {
         ['a duplicated asset', { ...fund, assets: [{ category: cat('88'), amount: 1n }, { category: cat('88'), amount: 2n }] }, /more than once/],
         ['BCH listed as an asset', { ...fund, assets: [{ category: BitcoinCategory, amount: 1n }] }, /fund\.satoshis for BCH/],
         ['its own token as an asset', { ...fund, assets: [{ category: cat('77'), amount: 1n }] }, /its own token/],
+        ['more assets than a redemption can release', { ...fund, assets: assets(MaxFundAssets + 1) }, /at most 100 assets/],
     ])('rejects %s', (_, input, message) => {
         expect(() => parseFund(input)).toThrow(message);
+    });
+
+    it('accepts the most assets a redemption can release', () => {
+        expect(parseFund({ ...fund, assets: assets(MaxFundAssets) }).assets).toHaveLength(MaxFundAssets);
     });
 
     it('normalizeFund skips value checks, for building deliberately invalid transactions', () => {
