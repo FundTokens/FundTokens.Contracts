@@ -15,7 +15,6 @@ import {
     bigIntToBinUint64LEClamped,
     binToNumberInt32LE,
     hexToBin,
-    numberToBinInt32LE,
     hash256,
 } from '@bitauth/libauth';
 
@@ -58,7 +57,8 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             amount: 123456n,
         },
     };
-    const instanceHex = `${swapEndianness(inflow)}${swapEndianness(outflow)}${swapEndianness(publicFund)}${swapEndianness(fees.create.nft)}${binToHex(numberToBinInt32LE(Number(fees.create.amount)))}${swapEndianness(fees.execute.nft)}${binToHex(numberToBinInt32LE(Number(fees.execute.amount)))}`;
+    // Instance data: the system parameters serialized as the contracts take them (docs/agents/token-basket/v1/ENCODINGS.md#instance-data)
+    const instanceHex = `${swapEndianness(inflow)}${swapEndianness(outflow)}${swapEndianness(publicFund)}${swapEndianness(authToken.category)}${swapEndianness(fees.create.nft)}${binToHex(bigIntToBinUint64LEClamped(fees.create.amount))}${swapEndianness(fees.execute.nft)}${binToHex(bigIntToBinUint64LEClamped(fees.execute.amount))}`;
     const instanceHash = binToHex(hash256(hexToBin(instanceHex)));
     const instanceCommitment = '00020001' + instanceHash + instanceHex;
 

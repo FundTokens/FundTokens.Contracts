@@ -130,7 +130,7 @@ data NFT (immutable): data, rest
 ```
 
 `hash = hash256(data)` over the whole data, both parts concatenated. With 128-byte
-commitments the proof NFT carries the first 92 bytes of data.
+commitments the proof NFT carries the first 92 bytes of data and the data NFT the other 116.
 
 | State | Name | Meaning |
 | --- | --- | --- |
@@ -141,10 +141,28 @@ commitments the proof NFT carries the first 92 bytes of data.
 
 The registry reports the same states as `status`: `'pre'`, `'main'`, `'dep'`, `'vul'`.
 
-`data` holds the instance parameters. The deployment tooling (not in this repository)
-writes it; the contracts only hash it. The intended field order is:
+### Instance data
+
+`data` is the instance's system parameters (`SystemParameters`), serialized as the
+protocol contracts take them: in `SystemParameters` order, categories as 32 bytes in
+internal byte order (as passed to the contract constructors), fee values as 8-byte
+little-endian integers (like every other v1 amount). 208 bytes:
 
 ```
 inflow (32) · outflow (32) · publicFund (32) · authorization (32) ·
-createFeeNft (32) · createFeeSats (4) · executeFeeNft (32) · executeFeeSats (4)
+fees.create.nft (32) · fees.create.value (8) · fees.execute.nft (32) · fees.execute.value (8)
 ```
+
+| Field | Used by |
+| --- | --- |
+| `inflow`, `outflow` | FundStartup, FundInflowMint, FundOutflowMint, PublicFund, every TransactionManager and FundManager; AssetManagers take `outflow` only |
+| `publicFund` | PublicFund, PublicFundVault |
+| `authorization` | Every authorization-gated contract and the fee vault |
+| `fees.create.nft`, `fees.create.value` | The create FeeManager (`feeToken`, `defaultValue`) |
+| `fees.execute.nft`, `fees.execute.value` | The execute FeeManager |
+
+Fee values cover the full range `parseSystemParameters` accepts (0 to 2⁶³−1).
+
+The contracts only hash `data`; the deployment tooling writes it. Everything else an
+instance's contracts are built from (their templates, and the addresses derived from them)
+follows from these parameters and the contract version.
