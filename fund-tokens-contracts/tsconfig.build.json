@@ -1,0 +1,17 @@
+{
+  // The published library: src/ without tests, emitted to dist/ with declarations.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    // No source maps: src/ is not published, and the ES2022 output reads like the source.
+    "declaration": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "paths": {}
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/tests/**"]
+}

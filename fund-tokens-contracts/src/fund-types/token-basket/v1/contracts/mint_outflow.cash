@@ -1,0 +1,70 @@
+pragma cashscript ^0.14.0;
+
+/**
+ * FundOutflowMint: Creates per-fund contract instance outflow tokens via bytcode extraction and token commitment verification
+ *
+ * Vault for holding  outflow minting tokens and ensures new minting follows strict requirements.
+ * 
+ * Extract asset contract bytecode from this contract's activation bytecode:
+ *   Push opcodes add ~2 bytes of overhead for >75 byte push
+ *   Push opcodes add 1 byte of overhead for <75 byte push
+ *
+ * Parameters:
+ *   startupContract: Startup contract hash (thread startup verifier)
+ *   inflowToken: Inflow token category (minting capability)
+ *   outflowToken: Outflow token category (minting capability)
+ *   fee: Fee contract hash
+ *   managerContract: TransactionManager bytecode template
+ *   fundContract: Fund contract bytecode template
+ *   assetContract: Asset contract bytecode template
+ */
+contract FundOutflowMint(bytes32 startupContract, bytes32 inflowToken, bytes32 outflowToken, bytes32 fee, bytes managerContract, bytes fundContract, bytes assetContract)
+{
+    /**
+     * mintOutflow(): Create Fund contract instance for fund account management
+     * 
+     * Mints outflow token to newly calculated Fund contract address.
+     * This fund manager controls token accounting and redemption.
+     * 
+     * Ensures:
+     * - Validator input 2 positions before this mint (sequence control)
+     * - Inflow token input immediately before this mint with minting capability
+     * - This FundMint UTXO holds outflow token with minting capability
+     * - This UTXO returns to itself
+     * - Output receives correct Fund contract address and outflow token
+     */
+    function mint() {
+        //
+        // Verify validator and minting tokens in expected tx sequence
+        require(tx.inputs[this.activeInputIndex - 2].lockingBytecode == new LockingBytecodeP2SH32(startupContract));
+        require(tx.inputs[this.activeInputIndex - 1].tokenCategory == (inflowToken + 0x02));
+
+        //
+        // Validate this input/output
+        bytes thisTokenCategory = tx.inputs[this.activeInputIndex].tokenCategory;
+        require(thisTokenCategory == (outflowToken + 0x02));
+        require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+
+        //
+        // Extract fund parameters from output NFT commitment and verify deployment
+        int outflowOutput = this.activeInputIndex + 4;
+        bytes tokenType, bytes categoryAndHash = tx.outputs[outflowOutput].nftCommitment.split(1);
+        require(tokenType == 0x02);
+        bytes fundCategory, bytes fundHash = categoryAndHash.split(32);
+        
+        int assetContractStop = assetContract.length + 2;
+        bytes assetContractParam = this.activeBytecode.slice(0, assetContractStop);
+
+        int fundContractStop = assetContractStop + fundContract.length + 2;
+        bytes fundContractParam = this.activeBytecode.slice(assetContractStop, fundContractStop);
+
+        //
+        // Verify the minted outflow token destination
+        require(tx.outputs[outflowOutput].lockingBytecode == new LockingBytecodeP2SH32(hash256(assetContractParam + fundContractParam + 0x20 + fundHash + 0x20 + fundCategory + 0x20 + outflowToken + 0x20 + inflowToken + 0x20 + fee + managerContract)));
+        require(tx.outputs[outflowOutput].tokenCategory == outflowToken);
+        require(tx.outputs[outflowOutput].tokenAmount == 0);
+    }
+}

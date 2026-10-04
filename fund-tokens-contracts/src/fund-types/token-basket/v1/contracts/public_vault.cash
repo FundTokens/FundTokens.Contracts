@@ -1,0 +1,122 @@
+pragma cashscript ^0.14.0;
+
+import "./lib/authority.cash";
+
+/**
+ * PublicFundVault: PublicFund token vault and execute on-chain proofs
+ * 
+ * Holding vault for the PublicFund token that broadcasts fund composition.
+ * Supports on-chain fund proofs.
+ * 
+ * Parameters:
+ *   publicFund: Token category of the public fund NFT
+ *   authorization: Token category that authorizes sensitive operations
+ */
+contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
+{
+    /**
+     * burn(): Permanently delists a public fund data stream by burning all tokens related to this fund
+     * 
+     * Delist a public fund and allow UTXO cleanup.
+     * Verifies the entire fund series is burned together.
+     * 
+     * Ensures:
+     * - All publicFund inputs must be processed sequentially
+     * - Authorization token (bit 0x0100) must be present somewhere in the transaction
+     * - No publicFund tokens allowed in any output (complete burn)
+     */
+    function burn() {
+        //
+        // Verify this input
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+
+        //
+        // Check for user authorization
+        require(hasAuthority(authorization, 0x0100), "unauthorized user");
+
+        //
+        // Ensure all tokens are implicitly burned
+        int outputIndex = 0;
+        do {
+            require(tx.outputs[outputIndex].tokenCategory != publicFund);
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+
+        //
+        // Verify data integrity (contains the entire sequence)
+        bytes fundCommitment = 0x;
+        int fundIndex = this.activeInputIndex;
+        do {
+            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
+            fundIndex = fundIndex + 1;
+        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
+
+        bytes type, bytes hashAndData = fundCommitment.split(1);
+        require(type == 0x02);
+        bytes hash, bytes fund = hashAndData.split(32);
+        require(hash256(fund) == hash);
+    }
+
+    /**
+     * proof(): Proves fund composition on-chain via hash verification and commitment introspection
+     * 
+     * Support on-chain proofs using commitment introspection and hash verification.
+     * 
+     * Ensures:
+     * - Active input (this UTXO) must forward without changes
+     * - All consecutive publicFund inputs/outputs must be in matching positions
+     * - Commitment data is immutable (same in/out)
+     */
+    function proof() {
+        //
+        // Check this input
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+        
+        //
+        // Build data and validate sequence via hash
+        bytes fundCommitment = 0x;
+        int fundIndex = this.activeInputIndex;
+        do {
+            require(tx.inputs[fundIndex].lockingBytecode == tx.outputs[fundIndex].lockingBytecode);
+            require(tx.inputs[fundIndex].tokenCategory == tx.outputs[fundIndex].tokenCategory);
+            require(tx.inputs[fundIndex].nftCommitment == tx.outputs[fundIndex].nftCommitment);
+            require(tx.inputs[fundIndex].tokenAmount == tx.outputs[fundIndex].tokenAmount);
+
+            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
+            fundIndex = fundIndex + 1;
+        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
+
+        bytes type, bytes hashAndData = fundCommitment.split(1);
+        require(type == 0x02);
+        bytes hash, bytes fund = hashAndData.split(32);
+        require(hash256(fund) == hash);
+
+        //
+        // Preserve this UTXO return input to contract
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].nftCommitment == tx.outputs[this.activeInputIndex].nftCommitment);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+    }
+
+    /**
+     * data(): Validates commitment data continuity in the proof chain
+     * 
+     * Ensures this UTXO is part of a continuous chain of publicFund proofs.
+     * 
+     * Ensures:
+     * - This input must contain publicFund token
+     * - Previous input must have identical locking bytecode
+     * - Previous input must have identical token category
+     * - Previous input must be from the same transaction (outpointTransactionHash)
+     */
+    function data() {
+        //
+        // Check for linked token on this contract
+        require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+        int prevInput = this.activeInputIndex - 1;
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[prevInput].lockingBytecode);
+        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[prevInput].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[prevInput].outpointTransactionHash);
+    }
+}

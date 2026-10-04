@@ -1,0 +1,56 @@
+export default {
+  contractName: 'AuthHeadVault',
+  constructorInputs: [
+    { name: 'authToken', type: 'bytes32' },
+  ],
+  abi: [
+    { name: 'update', inputs: [] },
+    { name: 'burn', inputs: [] },
+  ],
+  bytecode: '00006576ce54798778c7c0c787919a6376cf537f75517f7753798453798763517b757c68688b76c39f5279919a9166757777 OP_0 OP_DEFINE OP_OVER OP_0 OP_NUMEQUAL OP_IF 0004 OP_0 OP_INVOKE OP_VERIFY OP_INPUTINDEX OP_0 OP_NUMEQUALVERIFY OP_INPUTINDEX OP_OUTPUTBYTECODE OP_INPUTINDEX OP_UTXOBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUAL OP_NIP OP_ELSE OP_SWAP OP_1 OP_NUMEQUALVERIFY 0008 OP_0 OP_INVOKE OP_VERIFY OP_0 OP_OUTPUTBYTECODE OP_1 OP_SPLIT OP_DROP 6a OP_EQUALVERIFY OP_0 OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUAL OP_ENDIF',
+  source: 'pragma cashscript ^0.14.0;\r\n\r\nimport "./lib/authority.cash";\r\n\r\n/**\r\n * AuthHeadVault: Token identity vault with authorization requirements\r\n * \r\n * Used specifically for authorizing fund\'s BCMR update operations.\r\n * Operations are authorized via token using commitment as permission bits.\r\n * \r\n * Parameters:\r\n *   authToken: Token category that authorizes contract operations\r\n */\r\ncontract AuthHeadVault(bytes32 authToken)\r\n{\r\n    /**\r\n     * update(): Authorizes authhead update with strict transaction structure\r\n     * \r\n     * There are no restrictions on updating BCMR or identity.\r\n     * Preserves the identity UTXO without combining identites.\r\n     * Only one identity can be updated in a tx.\r\n     *\r\n     * Ensures:\r\n     * - This vault is the first input (positioning control)\r\n     * - First output has no tokens (clean state to maintain authhead integrity)\r\n     * - Authorization token is present with bit 0x0004 (authhead update permission)\r\n     */\r\n    function update() {\r\n        //\r\n        // Check for authorization token in ANY input (the identity, being this contract, never counts)\r\n        // Bit 0x0004 in commitment indicates authhead (BCMR maintenance) authorization\r\n        require(hasAuthority(authToken, 0x0004), "unauthorized user");\r\n\r\n        //\r\n        // Verify this input\r\n        require(this.activeInputIndex == 0, "expected to be the first input");\r\n\r\n        //\r\n        // Verify the identity output\r\n        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);\r\n        require(tx.outputs[this.activeInputIndex].tokenCategory == 0x, "no token allowed on authhead");\r\n    }\r\n\r\n    /**\r\n     * burn(): Authorizes authhead identity burning with strict transaction structure\r\n     *\r\n     * Able to burn multiple identities in a single tx.\r\n     * Used to signal this identity is no longer maintained and for UTXO cleanup.\r\n     *\r\n     * Ensures:\r\n     * - The outputs\' authhead is an OP_RETURN\r\n     * - The outputs\' authhead has no value or tokens\r\n     * - Authorization token is present with bit 0x0008 (authhead identity burning permission)\r\n     */\r\n    function burn() {\r\n        //\r\n        // Check for authorization token in ANY input\r\n        // Bit 0x0008 in commitment indicates authhead (BCMR maintenance) identity burning\r\n        require(hasAuthority(authToken, 0x0008), "unauthorized user");\r\n\r\n        //\r\n        // Verify the burned identity\r\n        require(tx.outputs[0].lockingBytecode.slice(0, 1) == 0x6a, "first output must be an OP_RETURN");\r\n        require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");\r\n    }\r\n}',
+  fingerprint: '6243b5f188d9055f8799733f096a3c64effbd8774a44c0513a5da6a7eae02346',
+  debug: {
+    bytecode: '3200006576ce54798778c7c0c787919a6376cf537f75517f7753798453798763517b757c68688b76c39f5279919a9166757777008978009c63020004008a69c0009dc0cdc0c788c0d1008777677c519d020008008a6900cd517f75016a8800d1008768',
+    sourceMap: '20::32:1;;::::1;28:4:42:5:0;;;;32:40:32:46;:16::47:1;;:8::70;36:16:36:37:0;:41::42;:8::78:1;40:27:40:48:0;:16::65:1;:79::100:0;:69::117:1;:8::119;41:27:41:48:0;:16::63:1;:67::69:0;:8::103:1;28:22:42:5;:4;55::65::0;;;59:40:59:46;:16::47:1;;:8::70;63:27:63:28:0;:16::45:1;:55::56:0;:16::57:1;;:61::65:0;:8::104:1;64:27:64:28:0;:16::43:1;:47::49:0;:8::83:1;14:0:66:1',
+    logs: [],
+    requires: [
+      { ip: 11, line: 32, message: 'unauthorized user' },
+      { ip: 14, line: 36, message: 'expected to be the first input' },
+      { ip: 19, line: 40 },
+      { ip: 24, line: 41, message: 'no token allowed on authhead' },
+      { ip: 32, line: 59, message: 'unauthorized user' },
+      { ip: 39, line: 63, message: 'first output must be an OP_RETURN' },
+      { ip: 44, line: 64, message: 'no token allowed on authhead' },
+    ],
+    sourceTags: '23:23:sc',
+    functions: [
+      {
+        id: 0,
+        name: 'hasAuthority',
+        inputs: [
+          { name: 'authorization', type: 'bytes' },
+          { name: 'permission', type: 'bytes' },
+        ],
+        bytecode: '00006576ce54798778c7c0c787919a6376cf537f75517f7753798453798763517b757c68688b76c39f5279919a9166757777',
+        sourceMap: '21:22:21:27;22:21:22:22;23:4:30:58;24:21:24:31;:11::46:1;:50::63:0;;:11:::1;:77::87:0;:67::104:1;:118::139:0;:108::156:1;:67;;:11;:158:28:9:0;25:32:25:42;:22::57:1;:67::68:0;:22::69:1;;:64::65:0;:22::69:1;;:73::83:0;;:16:::1;:88::98:0;;:15:::1;:100:27:13:0;26:29:26:33;:16::34:1;;;25:100:27:13;24:158:28:9;29:8:29:36;30:12:30:22:0;:25::41;:12:::1;:46::56:0;;:45:::1;:12;23:4::58;;20:76:32:1;;',
+        sourceTags: '47:49:sc',
+        sourceFile: 'lib/authority.cash',
+        logs: [],
+        requires: [],
+      },
+    ],
+    sources: {
+      'lib/authority.cash': 'pragma cashscript ^0.14.0;\r\n\r\n/**\r\n * Authorization token checks shared by the contracts it gates.\r\n *\r\n * Authorization token commitment: [auth_type (1 byte)][permission_flags (2 bytes)][serial_number]\r\n * (see docs/agents/token-basket/v1/ENCODINGS.md for the permission bits).\r\n */\r\n\r\n/**\r\n * hasAuthority(): Whether an input carries an authorization token granting a permission\r\n *\r\n * Parameters:\r\n *   authorization: Authorization token category\r\n *   permission: Permission bit(s) required, as 2 bytes (e.g. 0x0004)\r\n *\r\n * Authority held by the calling contract (its own input or another UTXO at its address) does not\r\n * count, so an authorization token sent to a contract cannot authorize its own release.\r\n */\r\nfunction hasAuthority(bytes authorization, bytes permission) returns (bool) {\r\n    bool authorized = false;\r\n    int inputIndex = 0;\r\n    do {\r\n        if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {\r\n            if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & permission) == permission) {\r\n                authorized = true;\r\n            }\r\n        }\r\n        inputIndex = inputIndex + 1;\r\n    } while(inputIndex < tx.inputs.length && !authorized);\r\n    return authorized;\r\n}\r\n',
+    },
+  },
+  compiler: {
+    name: 'cashc',
+    version: '0.14.0-next.7',
+    options: {
+      enforceFunctionParameterTypes: true,
+      enforceLocktimeGuard: true,
+    },
+  },
+  updatedAt: '2026-10-04T04:12:38.377Z',
+} as const;

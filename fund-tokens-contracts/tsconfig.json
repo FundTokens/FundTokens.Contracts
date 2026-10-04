@@ -1,0 +1,23 @@
+{
+  // Type-checks everything: library, tests, scripts and metrics. Emits nothing.
+  // The published build uses tsconfig.build.json.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node", "vitest/globals"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "@test-utils/*": ["./test-utils/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "test-utils/**/*.ts", "scripts/**/*.ts", "metrics/**/*.ts", "vitest.config.ts"]
+}

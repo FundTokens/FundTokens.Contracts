@@ -1,0 +1,38 @@
+pragma cashscript ^0.14.0;
+
+import "./lib/authority.cash";
+
+/**
+ * SimpleVault: A simple gated vault with token authorization
+ * 
+ * Holds assets that can only be spent when a the authorization token is present in the transaction.
+ * 
+ * Parameters:
+ *   authToken: Token category that authorizes releasing
+ */
+contract SimpleVault(bytes32 authToken)
+{
+    /**
+     * release(): Allows spending only when authToken is present
+     *
+     * Release is dependent only on the authorization token being found in the tx w/ the correct permission bit.
+     *
+     * Ensures:
+     * - Authorization token exists in tx w/ correct permission bit
+     */
+    function release() {
+        //
+        // Check if authorization token is present in ANY input with permission bit 0x0002
+        require(hasAuthority(authToken, 0x0002), "unauthorized user");
+    }
+
+    /**
+     * verify(): An efficient contract linking method to rely on the first UTXO to authorize release
+     *
+     * Ensures:
+     * - Previous input was spent from this contract
+     */
+    function verify() {
+        require(tx.inputs[this.activeInputIndex - 1].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+    }
+}

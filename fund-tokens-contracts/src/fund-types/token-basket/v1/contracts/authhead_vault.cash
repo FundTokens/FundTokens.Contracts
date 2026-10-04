@@ -1,0 +1,66 @@
+pragma cashscript ^0.14.0;
+
+import "./lib/authority.cash";
+
+/**
+ * AuthHeadVault: Token identity vault with authorization requirements
+ * 
+ * Used specifically for authorizing fund's BCMR update operations.
+ * Operations are authorized via token using commitment as permission bits.
+ * 
+ * Parameters:
+ *   authToken: Token category that authorizes contract operations
+ */
+contract AuthHeadVault(bytes32 authToken)
+{
+    /**
+     * update(): Authorizes authhead update with strict transaction structure
+     * 
+     * There are no restrictions on updating BCMR or identity.
+     * Preserves the identity UTXO without combining identites.
+     * Only one identity can be updated in a tx.
+     *
+     * Ensures:
+     * - This vault is the first input (positioning control)
+     * - First output has no tokens (clean state to maintain authhead integrity)
+     * - Authorization token is present with bit 0x0004 (authhead update permission)
+     */
+    function update() {
+        //
+        // Check for authorization token in ANY input (the identity, being this contract, never counts)
+        // Bit 0x0004 in commitment indicates authhead (BCMR maintenance) authorization
+        require(hasAuthority(authToken, 0x0004), "unauthorized user");
+
+        //
+        // Verify this input
+        require(this.activeInputIndex == 0, "expected to be the first input");
+
+        //
+        // Verify the identity output
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == 0x, "no token allowed on authhead");
+    }
+
+    /**
+     * burn(): Authorizes authhead identity burning with strict transaction structure
+     *
+     * Able to burn multiple identities in a single tx.
+     * Used to signal this identity is no longer maintained and for UTXO cleanup.
+     *
+     * Ensures:
+     * - The outputs' authhead is an OP_RETURN
+     * - The outputs' authhead has no value or tokens
+     * - Authorization token is present with bit 0x0008 (authhead identity burning permission)
+     */
+    function burn() {
+        //
+        // Check for authorization token in ANY input
+        // Bit 0x0008 in commitment indicates authhead (BCMR maintenance) identity burning
+        require(hasAuthority(authToken, 0x0008), "unauthorized user");
+
+        //
+        // Verify the burned identity
+        require(tx.outputs[0].lockingBytecode.slice(0, 1) == 0x6a, "first output must be an OP_RETURN");
+        require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
+    }
+}

@@ -1,0 +1,63 @@
+export default {
+  contractName: 'SimpleMinter',
+  constructorInputs: [
+    { name: 'authorization', type: 'bytes32' },
+    { name: 'token', type: 'bytes32' },
+    { name: 'destination', type: 'bytes' },
+  ],
+  abi: [
+    { name: 'mint', inputs: [] },
+  ],
+  bytecode: '0001 OP_0 OP_0 OP_BEGIN OP_DUP OP_UTXOTOKENCATEGORY OP_4 OP_PICK OP_EQUAL OP_OVER OP_UTXOBYTECODE OP_INPUTINDEX OP_UTXOBYTECODE OP_EQUAL OP_NOT OP_BOOLAND OP_IF OP_DUP OP_UTXOTOKENCOMMITMENT OP_3 OP_SPLIT OP_DROP OP_1 OP_SPLIT OP_NIP OP_3 OP_PICK OP_AND OP_3 OP_PICK OP_EQUAL OP_IF OP_1 OP_ROT OP_DROP OP_SWAP OP_ENDIF OP_ENDIF OP_1ADD OP_DUP OP_TXINPUTCOUNT OP_LESSTHAN OP_2 OP_PICK OP_NOT OP_BOOLAND OP_NOT OP_UNTIL OP_DROP OP_NIP OP_NIP OP_VERIFY OP_INPUTINDEX OP_UTXOTOKENCOMMITMENT OP_1 OP_SPLIT OP_SWAP 00 OP_EQUALVERIFY OP_BIN2NUM OP_0 OP_0 OP_BEGIN OP_DUP OP_INPUTINDEX OP_NUMNOTEQUAL OP_OVER OP_OUTPUTTOKENCATEGORY OP_0 OP_EQUAL OP_NOT OP_BOOLAND OP_IF OP_DUP OP_OUTPUTTOKENCATEGORY 20 OP_SPLIT OP_DROP OP_4 OP_PICK OP_EQUAL OP_IF OP_DUP OP_OUTPUTBYTECODE OP_5 OP_PICK OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENCATEGORY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_EQUALVERIFY OP_DUP OP_OUTPUTTOKENAMOUNT OP_0 OP_NUMEQUALVERIFY OP_DUP OP_OUTPUTTOKENCOMMITMENT OP_1 OP_SPLIT OP_OVER OP_1 OP_EQUALVERIFY OP_DUP OP_BIN2NUM OP_5 OP_PICK OP_5 OP_PICK OP_ADD OP_NUMEQUALVERIFY OP_3 OP_ROLL OP_1ADD OP_SWAP OP_2SWAP OP_ROT OP_2DROP OP_ENDIF OP_ENDIF OP_1ADD OP_DUP OP_TXOUTPUTCOUNT OP_GREATERTHANOREQUAL OP_UNTIL OP_INPUTINDEX OP_OUTPUTTOKENCOMMITMENT OP_1 OP_SPLIT OP_4 OP_ROLL OP_4 OP_ROLL OP_ADD OP_SWAP OP_BIN2NUM OP_NUMEQUALVERIFY 00 OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOBYTECODE OP_INPUTINDEX OP_OUTPUTBYTECODE OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENCATEGORY OP_DUP OP_3 OP_ROLL OP_2 OP_CAT OP_EQUALVERIFY OP_INPUTINDEX OP_OUTPUTTOKENCATEGORY OP_EQUALVERIFY OP_INPUTINDEX OP_UTXOTOKENAMOUNT OP_INPUTINDEX OP_OUTPUTTOKENAMOUNT OP_NUMEQUAL OP_NIP OP_NIP',
+  source: 'pragma cashscript ^0.14.0;\r\n\r\nimport "./lib/authority.cash";\r\n\r\n/**\r\n * SimpleMinter: Token minting vault with token authorization using encoded permission bits\r\n * \r\n * Allows an authorized user to mint new tokens to a specified destination.\r\n * Used for holding and creating new NFTs with minting destination and encoding constraints.\r\n * Maintain tokens at initialization for future system scaling.\r\n * \r\n * Parameters:\r\n *   authorization: Token category that authorizes minting (checked in any input)\r\n *   token: Token category being held and minted\r\n *   destination: Locking bytecode where minted tokens are sent\r\n */\r\ncontract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)\r\n{\r\n    /**\r\n     * mint(): Mints new tokens to the destination\r\n     *\r\n     * Mint new tokens to the destination with NFT encoding requirements for typing and serial tracking.\r\n     * \r\n     * Ensures:\r\n     * - This contract returns to itself (locked pattern prevents misuse)\r\n     * - Owner authorization is present in transaction inputs (bit 0x0001)\r\n     * - All minted tokens go to the specified destination\r\n     * - NFT commitments are preserved if present\r\n     */\r\n    function mint() {\r\n        //\r\n        // Check for owner authorization in ANY input\r\n        // Bit 0x0001 in commitment indicates minting authorization\r\n        require(hasAuthority(authorization, 0x0001), "unauthorized user");\r\n\r\n        //\r\n        // This minting thread keeps "global" serial count, use to verify minted token commitments\r\n        bytes inputType, bytes inputSerial_bytes = tx.inputs[this.activeInputIndex].nftCommitment.split(1);\r\n        require(inputType == 0x00); // Verify token type is minting\r\n        int inputSerial = int(inputSerial_bytes);\r\n\r\n        //\r\n        // Verify all minting tokens destination as well as commitment\r\n        // Keep track of number of minted tokens for global update and tokens expected to be minted in order in tx\r\n        int mintedTokens = 0;\r\n        int outputIndex = 0;\r\n        do {\r\n            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {\r\n                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {\r\n                    require(tx.outputs[outputIndex].lockingBytecode == destination);\r\n                    require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);\r\n                    require(tx.outputs[outputIndex].tokenAmount == 0);\r\n                    bytes outputType, bytes outputSerial = tx.outputs[outputIndex].nftCommitment.split(1);\r\n                    require(outputType == 0x01); // Type must be fund minting\r\n                    require(int(outputSerial) == (inputSerial + mintedTokens));\r\n\r\n                    mintedTokens = mintedTokens + 1;\r\n                }\r\n            }\r\n            outputIndex = outputIndex + 1;\r\n        } while(outputIndex < tx.outputs.length);\r\n        \r\n        //\r\n        // Preserve minting NFT commitment with correct typing and updated serial number\r\n        bytes outputType, bytes outputSerial = tx.outputs[this.activeInputIndex].nftCommitment.split(1);\r\n        require((inputSerial + mintedTokens) == int(outputSerial));\r\n        require(outputType == 0x00);\r\n\r\n        //\r\n        // Check the rest of this input and preservation\r\n        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);\r\n        bytes thisTokenCategory = tx.inputs[this.activeInputIndex].tokenCategory;\r\n        require(thisTokenCategory == (token + 0x02));\r\n        require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);\r\n        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);\r\n    }\r\n}',
+  fingerprint: '994baf1881b8e2c1c68e7f17f91721a408c296f01ffdd02d1bf10b34a74325ec',
+  debug: {
+    bytecode: '02000100006576ce54798778c7c0c787919a6376cf537f75517f7753798453798763517b757c68688b76c39f5279919a916675777769c0cf517f7c0100888100006576c09e78d10087919a6376d101207f755479876376cd55798876d1c0ce8876d3009d76d2517f785188768155795579939d537a8b7c727b6d68688b76c4a266c0d2517f547a547a937c819d010088c0c7c0cd88c0ce76537a527e88c0d188c0d0c0d39c7777',
+    sourceMap: '34:44:34:50;:16::51:1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:8::74;38:61:38:82:0;:51::97:1;:104::105:0;:51::106:1;39:16:39:25:0;:29::33;:8::35:1;40:26:40:48;45:27:45:28:0;46:26:46:27;47:8:61:49;48:15:48:26;:30::51;:15:::1;:66::77:0;:55::92:1;:96::98:0;:55:::1;;:15;:100:59:13:0;49:30:49:41;:19::56:1;:66::68:0;:19::69:1;;:73::78:0;;:19:::1;:80:58:17:0;50:39:50:50;:28::67:1;:71::82:0;;:20::84:1;51:39:51:50:0;:28::65:1;:79::100:0;:69::115:1;:20::117;52:39:52:50:0;:28::63:1;:67::68:0;:20::70:1;53:70:53:81:0;:59::96:1;:103::104:0;:59::105:1;54:28:54:38:0;:42::46;:20::48:1;55:32:55:44:0;:28::45:1;:50::61:0;;:64::76;;:50:::1;:20::79;57::57:52;;;;;;49:80:58:17;;48:100:59:13;60:12:60:42;61:16:61:27:0;:30::47;47:8::49:1;;65:58:65:79:0;:47::94:1;:101::102:0;:47::103:1;66:17:66:28:0;;:31::43;;:17:::1;:52::64:0;:48::65:1;:8::67;67:30:67:34:0;:8::36:1;71:26:71:47:0;:16::64:1;:79::100:0;:68::117:1;:8::119;72:44:72:65:0;:34::80:1;73:16:73:33:0;:38::43;;:46::50;:38:::1;:8::53;74:48:74:69:0;:37::84:1;:8::86;75:26:75:47:0;:16::60:1;:75::96:0;:64::109:1;:8::111;30:20:76:5;',
+    logs: [],
+    requires: [
+      { ip: 54, line: 34, message: 'unauthorized user' },
+      { ip: 61, line: 39 },
+      { ip: 89, line: 50 },
+      { ip: 94, line: 51 },
+      { ip: 98, line: 52 },
+      { ip: 105, line: 54 },
+      { ip: 113, line: 55 },
+      { ip: 139, line: 66 },
+      { ip: 141, line: 67 },
+      { ip: 146, line: 71 },
+      { ip: 154, line: 73 },
+      { ip: 157, line: 74 },
+      { ip: 163, line: 75 },
+    ],
+    sourceTags: '48:50:sc;117:117:sc;160:161:sc',
+    functions: [
+      {
+        name: 'hasAuthority',
+        inputs: [
+          { name: 'authorization', type: 'bytes' },
+          { name: 'permission', type: 'bytes' },
+        ],
+        bytecode: '00006576ce54798778c7c0c787919a6376cf537f75517f7753798453798763517b757c68688b76c39f5279919a9166757777',
+        sourceMap: '21:22:21:27;22:21:22:22;23:4:30:58;24:21:24:31;:11::46:1;:50::63:0;;:11:::1;:77::87:0;:67::104:1;:118::139:0;:108::156:1;:67;;:11;:158:28:9:0;25:32:25:42;:22::57:1;:67::68:0;:22::69:1;;:64::65:0;:22::69:1;;:73::83:0;;:16:::1;:88::98:0;;:15:::1;:100:27:13:0;26:29:26:33;:16::34:1;;;25:100:27:13;24:158:28:9;29:8:29:36;30:12:30:22:0;:25::41;:12:::1;:46::56:0;;:45:::1;:12;23:4::58;;20:76:32:1;;',
+        sourceTags: '47:49:sc',
+        sourceFile: 'lib/authority.cash',
+        logs: [],
+        requires: [],
+      },
+    ],
+    sources: {
+      'lib/authority.cash': 'pragma cashscript ^0.14.0;\r\n\r\n/**\r\n * Authorization token checks shared by the contracts it gates.\r\n *\r\n * Authorization token commitment: [auth_type (1 byte)][permission_flags (2 bytes)][serial_number]\r\n * (see docs/agents/token-basket/v1/ENCODINGS.md for the permission bits).\r\n */\r\n\r\n/**\r\n * hasAuthority(): Whether an input carries an authorization token granting a permission\r\n *\r\n * Parameters:\r\n *   authorization: Authorization token category\r\n *   permission: Permission bit(s) required, as 2 bytes (e.g. 0x0004)\r\n *\r\n * Authority held by the calling contract (its own input or another UTXO at its address) does not\r\n * count, so an authorization token sent to a contract cannot authorize its own release.\r\n */\r\nfunction hasAuthority(bytes authorization, bytes permission) returns (bool) {\r\n    bool authorized = false;\r\n    int inputIndex = 0;\r\n    do {\r\n        if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {\r\n            if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & permission) == permission) {\r\n                authorized = true;\r\n            }\r\n        }\r\n        inputIndex = inputIndex + 1;\r\n    } while(inputIndex < tx.inputs.length && !authorized);\r\n    return authorized;\r\n}\r\n',
+    },
+    inlineRanges: '4:53:hasAuthority',
+  },
+  compiler: {
+    name: 'cashc',
+    version: '0.14.0-next.7',
+    options: {
+      enforceFunctionParameterTypes: true,
+      enforceLocktimeGuard: true,
+    },
+  },
+  updatedAt: '2026-10-04T04:12:38.462Z',
+} as const;

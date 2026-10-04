@@ -1,0 +1,77 @@
+pragma cashscript ^0.14.0;
+
+import "./lib/authority.cash";
+
+/**
+ * SimpleMinter: Token minting vault with token authorization using encoded permission bits
+ * 
+ * Allows an authorized user to mint new tokens to a specified destination.
+ * Used for holding and creating new NFTs with minting destination and encoding constraints.
+ * Maintain tokens at initialization for future system scaling.
+ * 
+ * Parameters:
+ *   authorization: Token category that authorizes minting (checked in any input)
+ *   token: Token category being held and minted
+ *   destination: Locking bytecode where minted tokens are sent
+ */
+contract SimpleMinter(bytes32 authorization, bytes32 token, bytes destination)
+{
+    /**
+     * mint(): Mints new tokens to the destination
+     *
+     * Mint new tokens to the destination with NFT encoding requirements for typing and serial tracking.
+     * 
+     * Ensures:
+     * - This contract returns to itself (locked pattern prevents misuse)
+     * - Owner authorization is present in transaction inputs (bit 0x0001)
+     * - All minted tokens go to the specified destination
+     * - NFT commitments are preserved if present
+     */
+    function mint() {
+        //
+        // Check for owner authorization in ANY input
+        // Bit 0x0001 in commitment indicates minting authorization
+        require(hasAuthority(authorization, 0x0001), "unauthorized user");
+
+        //
+        // This minting thread keeps "global" serial count, use to verify minted token commitments
+        bytes inputType, bytes inputSerial_bytes = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
+        require(inputType == 0x00); // Verify token type is minting
+        int inputSerial = int(inputSerial_bytes);
+
+        //
+        // Verify all minting tokens destination as well as commitment
+        // Keep track of number of minted tokens for global update and tokens expected to be minted in order in tx
+        int mintedTokens = 0;
+        int outputIndex = 0;
+        do {
+            if(outputIndex != this.activeInputIndex && tx.outputs[outputIndex].tokenCategory != 0x) {
+                if(tx.outputs[outputIndex].tokenCategory.slice(0, 32) == token) {
+                    require(tx.outputs[outputIndex].lockingBytecode == destination);
+                    require(tx.outputs[outputIndex].tokenCategory == tx.inputs[this.activeInputIndex].tokenCategory);
+                    require(tx.outputs[outputIndex].tokenAmount == 0);
+                    bytes outputType, bytes outputSerial = tx.outputs[outputIndex].nftCommitment.split(1);
+                    require(outputType == 0x01); // Type must be fund minting
+                    require(int(outputSerial) == (inputSerial + mintedTokens));
+
+                    mintedTokens = mintedTokens + 1;
+                }
+            }
+            outputIndex = outputIndex + 1;
+        } while(outputIndex < tx.outputs.length);
+        
+        //
+        // Preserve minting NFT commitment with correct typing and updated serial number
+        bytes outputType, bytes outputSerial = tx.outputs[this.activeInputIndex].nftCommitment.split(1);
+        require((inputSerial + mintedTokens) == int(outputSerial));
+        require(outputType == 0x00);
+
+        //
+        // Check the rest of this input and preservation
+        require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.outputs[this.activeInputIndex].lockingBytecode);
+        bytes thisTokenCategory = tx.inputs[this.activeInputIndex].tokenCategory;
+        require(thisTokenCategory == (token + 0x02));
+        require(thisTokenCategory == tx.outputs[this.activeInputIndex].tokenCategory);
+        require(tx.inputs[this.activeInputIndex].tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount);
+    }
+}
