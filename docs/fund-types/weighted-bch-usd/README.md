@@ -28,6 +28,10 @@ fund can use are all set per fund.
   The price contract is fixed; the steward can change which oracles it uses, but only after
   a public delay, so holders can see a change coming and redeem first.
 - **Fees.** The same create and execute fees as token basket.
+- **Wallets.** Fund tokens are ordinary CashTokens, named and sized by the fund's BCMR
+  metadata. Each shard's state is a small NFT the fund's contracts hold. Its BCMR
+  description lets explorers and indexers show what each shard did last (mint, redeem,
+  rebalance, grow or shrink) and its BCH reserve.
 
 | | |
 | --- | --- |

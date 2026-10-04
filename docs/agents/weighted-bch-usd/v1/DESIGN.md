@@ -1,6 +1,7 @@
 # Weighted BCH/USD v1: Design
 
-**Status: design, under review, no contracts yet.** This is the specification the v1
+**Status: design accepted; PriceFeed, ShardManager, ReserveVault and FeeManager written,
+fund creation and the remaining system contracts not yet.** This is the specification the v1
 contracts and builders will be written from. When the contracts exist, it is split into the
 usual `CONTRACTS.md`, `TRANSACTIONS.md`, `ENCODINGS.md` and `LIMITS.md`, and the contracts
 become the source of truth.
@@ -116,15 +117,33 @@ adjacent indices:
 **Shard state** (the fund-category mutable NFT's commitment):
 
 ```
-0x01 · index (1) · count (1) · units (8) · epoch (4)
+op (1) · index (1) · count (1) · units (8) · epoch (4)
 ```
+
+15 bytes.
 
 | Field | Meaning |
 | --- | --- |
+| `op` | The operation that produced this state ([below](#shard-operations)). Set by the contracts, so indexers can trust it |
 | `index` | 0 … `maxShards`−1, fixed at genesis |
 | `count` | Active shards in the fund (active shards are indices 0 … `count`−1). Equal in every active shard |
 | `units` | Units outstanding against this shard, `lockedUnits` included. 0 for a parked shard, otherwise never below `lockedUnits` |
 | `epoch` | Price timestamp of the fund's last rebalance (0 at creation). Equal in every active shard |
+
+#### Shard operations
+
+| `op` | Operation | Written by | What changed from the spent state |
+| --- | --- | --- | --- |
+| 0x01 | Created | FundStartup, at genesis (active and parked shards) | No spent state |
+| 0x02 | Mint | `exchange`, fund tokens leaving | `units` up by Δ |
+| 0x03 | Redeem | `exchange`, fund tokens returning | `units` down by Δ |
+| 0x04 | Rebalance | `rebalance`, every active shard | `epoch` = the new price time; reserves traded |
+| 0x05 | Grow | `grow`, every shard in the transaction | `count` up; the activated shard's `units` 0 → `lockedUnits` |
+| 0x06 | Shrink | `shrink`, every shard in the transaction | `count` down; `units` moved from the removed shard to the target |
+
+An indexer classifies any shard output from its commitment alone. For a mint or redeem,
+the amount Δ is the `units` difference from the shard's previous output (the input it
+spends). The contracts don't read `op` from a spent state, so it never affects behaviour.
 
 **Active and parked.** A shard is **active** when `units > 0`, **parked** when
 `units == 0`. A parked shard holds only dust (and its fund tokens): no reserves, no basket.
@@ -184,6 +203,10 @@ fee**. Rebalancing and resizing pay no protocol fee.
 
 ### Mint (in kind)
 
+One ShardManager function, `exchange(fund)`, does both: fund tokens leaving the shard
+mint, fund tokens returning redeem (one function keeps the shard script, which every
+rebalance carries once per shard, small).
+
 Through one or more active shards, `Δ` whole units at each. Shard state before: `sats`,
 `usd`, `units`.
 
@@ -193,7 +216,7 @@ Through one or more active shards, `Δ` whole units at each. Shard state before:
 | Fund tokens released | `in[a].tokenAmount − out[a].tokenAmount == Δ · amount`, `Δ > 0` |
 | BCH deposited | `out[a].value − in[a].value == ceil(sats · Δ / units)` |
 | USD deposited | `usd(out[a+1]) − usd(in[a+1]) == ceil(usd · Δ / units)`, where `usd(x)` is `x`'s `usdCategory` amount, or 0 when tokenless |
-| State | `units' = units + Δ`; `index`, `count`, `epoch` unchanged |
+| State | `op' = 0x02`; `units' = units + Δ`; `index`, `count`, `epoch` unchanged |
 | Fee chain | `in[a+2]` is another active shard of this fund, or the execute FeeManager returned at `a + 2` |
 
 ### Redeem (in kind)
@@ -204,7 +227,7 @@ Through one or more active shards, `Δ` whole units at each. Shard state before:
 | Fund tokens returned | `out[a].tokenAmount − in[a].tokenAmount == Δ · amount`, `Δ > 0` |
 | BCH released | `in[a].value − out[a].value == sats · Δ / units` |
 | USD released | `usd(in[a+1]) − usd(out[a+1]) == usd · Δ / units` |
-| State | `units' = units − Δ ≥ lockedUnits`; `index`, `count`, `epoch` unchanged |
+| State | `op' = 0x03`; `units' = units − Δ ≥ lockedUnits`; `index`, `count`, `epoch` unchanged |
 | Fee chain | As mint |
 
 Deposits and withdrawals are exact, not minimums: an overpayment would lift one shard's
@@ -217,7 +240,7 @@ across shards.
 Anyone may rebalance a fund whose weight, at a price posted **in the same transaction**,
 is outside `targetBps ± toleranceBps`. Every active shard runs `rebalance()`; each one:
 
-1. Reads the price feed: `in[0]` holds the feed state NFT (`price + 0x01`), and `out[0]`'s
+1. Reads the price feed: `in[0]` holds the feed state NFT (`price + 0x01`, type `0x01`), and `out[0]`'s
    state has a strictly newer timestamp `t'` than `in[0]`'s (the feed ran `update()` in
    this transaction). The price `p` is `out[0]`'s.
 2. Checks every active shard is here and rebalancing: for `j` in 0 … `count`−1, `in[b + 2j]`
@@ -225,7 +248,7 @@ is outside `targetBps ± toleranceBps`. Every active shard runs `rebalance()`; e
    `b = a − 2 · index`.
 3. Checks the trigger and computes the trade from its own reserves (below).
 4. Checks its outputs: `sats' = sats ∓ x`, `usd' = usd ± y` exactly; `units`, `index`,
-   `count`, the fund token amount and the reserve's dust unchanged; `epoch' = t'`.
+   `count`, the fund token amount and the reserve's dust unchanged; `epoch' = t'`; `op' = 0x04`.
 
 With `T = targetBps`, `L = toleranceBps`, `R = rewardBps`, `P = p · usdScale`,
 `VB = sats · P`, `VU = usd · 10¹⁰`, `V = VB + VU`, `B = 10000`:
@@ -275,7 +298,8 @@ the spread included. Rounding favours the fund. Within the band, `rebalance()` f
 ### Resizing
 
 Both spend every active shard (`in[b + 2j]`, `j` < `count`) plus the shard being changed,
-and set every active shard's `count'` to the new count. Indices stay contiguous: only the
+and set every active shard's `count'` to the new count. Every shard in the transaction is
+marked `op' = 0x05` (grow) or `0x06` (shrink). Indices stay contiguous: only the
 next parked shard can be added, only the highest active one removed.
 
 **Add a shard** (`grow()`, anyone): activates parked shard `count`, at `b + 2 · count`.
@@ -294,7 +318,7 @@ Anti-spam: each added shard costs a permanent seed, donated to holders, and at m
 `count ≥ 2`), merging it into active shard `m` (`m < count − 1`):
 
 - Shard `m` gains all of the removed shard's BCH and USD reserves and its `units`.
-- The removed shard keeps its fund tokens, holds 1,000 sats of dust paid by the steward
+- The removed shard keeps its fund tokens, holds dust paid by the steward (its value is not checked)
   (not taken from the reserve), and its state becomes `units = 0`, `count = count − 1`. Its
   reserve keeps its dust and becomes tokenless.
 - Both shards have the same basket, so the merge preserves it.
@@ -305,23 +329,28 @@ through the shards left, and anyone can add them back by paying seeds.
 
 ## Price feed
 
-One PriceFeed per instance, shared by every fund, fixed for the instance's life. It holds
-the feed **state NFT** (mutable, `price` category):
+One PriceFeed per instance, shared by every fund, fixed for the instance's life
+([price_feed.cash](../../../../fund-tokens-contracts/src/fund-types/weighted-bch-usd/v1/contracts/price_feed.cash)).
+It holds two mutable NFTs of the `price` category, both created at deployment:
 
 ```
-0x01 · timestamp (4) · price (8) · sourcesHash (32) · [pending]
-pending: sourcesHash (32) · since (4)
+state NFT:   0x01 · timestamp (4) · price (8) · sourcesHash (32)
+upgrade NFT: 0x02 · [pending sourcesHash (32)]
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `timestamp` | Price time: the oldest source message's timestamp. Strictly increases |
-| `price` | USD cents per BCH |
-| `sourcesHash` | `hash256(pubkey₀ · pubkey₁ · …)`: the source oracles' 33-byte public keys |
-| `pending` | A proposed source set, absent when none; `since` = `timestamp` when proposed |
+| `timestamp` | Price time: the oldest source message's timestamp. Strictly increases. 0 until the first update |
+| `price` | USD cents per BCH, 8-byte little-endian |
+| `sourcesHash` | `hash256(pubkey₀ · pubkey₁ · …)`: the source oracles' 33-byte public keys, in order |
+| pending | A proposed source set's hash; absent when none |
 
-The state NFT never leaves the PriceFeed, so shards trust the `price` category: a
-mutable `price` NFT is the feed. Shards read `0x01 · timestamp · price` from it.
+Neither NFT ever leaves the PriceFeed, so shards trust the category and type: a mutable
+`price` NFT whose commitment starts `0x01` is the feed's state. Shards read
+`0x01 · timestamp · price` from it.
+
+The upgrade NFT is separate so that its UTXO's age measures how long a proposal has waited:
+price updates recreate the state UTXO all the time but never touch the upgrade NFT.
 
 ### Sources: oracles.cash messages
 
@@ -334,7 +363,7 @@ messageTimestamp (4) · messageSequence (4) · priceSequence (4) · price (4)
 All signed 32-bit little-endian (`priceSequence > 0` marks a price message; negative values
 are metadata). The signature is Schnorr over `sha256(message)`, which is exactly what
 `checkDataSig(sig, message, pubkey)` verifies. For the USD oracle `price` is USD cents per
-BCH (to confirm against the oracle's metadata before deployment).
+BCH (to check against the oracle's metadata messages before deployment).
 
 Every source must sign this format in this unit: the feed contract is fixed, so a source
 with another format can't be added. Upgrades change which oracles sign, not how they're read.
@@ -363,21 +392,36 @@ always exit.
 
 ### Source upgrades (authorization `0x0200`, timelocked)
 
-- `propose(sources)`: sets `pending` to `hash256(sources)` with `since = timestamp`;
-  `sources` is 1 to 3 public keys. Needs `0x0200`.
-- `cancel()`: clears `pending`. Needs `0x0200`.
-- `activate()`, anyone, once **either** `timestamp ≥ since + upgradeDelay` (oracle time
-  has moved on), **or** the state UTXO is at least `upgradeDelayBlocks` old (`this.age`,
-  so a feed whose oracles went silent can still be repaired). Replaces `sourcesHash` and
-  clears `pending`.
+On the upgrade NFT:
 
-The script can't read the clock, and a transaction's locktime only bounds time from below.
-So the delay is measured in oracle time, with block age as the fallback; a proposer can't
-backdate either. While a change is pending it's public on-chain, and holders who distrust
-it can redeem in kind before it activates.
+- `propose(sources)`: the upgrade NFT returns holding `0x02 · hash256(sources)`; `sources` is
+  1 to 3 whole 33-byte public keys. Replaces any pending proposal. Needs `0x0200`.
+- `cancel()`: the upgrade NFT returns holding `0x02`. Needs `0x0200`.
+
+Adopting (anyone): the state NFT runs `adopt()` with the upgrade NFT at the next input
+running `activate()`.
+
+- `adopt()` checks the upgrade NFT is this feed's, holds a proposal, and is spent with a
+  **time-based relative timelock** of at least `upgradeDelay`: `tx.version ≥ 2`, its
+  sequence number has the disable flag (bit 31) clear and the type flag (bit 22) set, and
+  `sequence mod 65536 ≥ ceil(upgradeDelay / 512)`. The state returns with only its
+  `sourcesHash` replaced by the proposal; the upgrade NFT returns cleared (`0x02`).
+- `activate()` checks the previous input is the state NFT and its output holds the proposal.
+
+The script can't read the clock, and a transaction's locktime only bounds time from below,
+so a proposal can't record a trustworthy time (an early design measured the delay in oracle
+time from the posted timestamp, which a stale feed lets a proposer backdate). A UTXO's age
+can: consensus (BIP68) only accepts the input once the upgrade NFT's UTXO has been
+confirmed for that long, in median time past. The upgrade NFT is only recreated by
+proposing, cancelling or adopting, so its age counts from the proposal. Time is in
+512-second steps (`upgradeDelay` rounds up; at most 65,535 steps, about 388 days); 7 days
+is 1,182 steps. The check is in `adopt()` itself, so it holds whatever function the upgrade
+NFT runs (cancelling it in the same transaction doesn't skip it). While a change is pending
+it's public on-chain, and holders who distrust it can redeem in kind before it can be
+adopted. Adopting needs no price, so a silent oracle can always be replaced.
 
 PriceFeed parameters (instance-level): `price`, `authorization`, `maxSpreadBps`,
-`maxSkew`, `upgradeDelay` (seconds), `upgradeDelayBlocks`.
+`maxSkew`, `upgradeDelay` (seconds).
 
 ### Residual oracle risk
 
@@ -391,13 +435,81 @@ window, the message that suits it best. Mitigations:
   prices cheaply, which closes the window. The maintainer should run a keeper.
 - Every configured source must sign a message within `maxSkew` of the others.
 
+## BCMR
+
+A fund's metadata follows [BCMR v2](https://github.com/bitjson/chip-bcmr), published from
+the fund's identity (authhead) in the AuthHeadVault, as for token basket (permission
+`0x0004`). The fund category carries two kinds of token, and BCMR describes both:
+
+| Token | Held by | How wallets show it |
+| --- | --- | --- |
+| Fungible fund tokens | Users | `token.symbol` and `token.decimals`, like any CashToken |
+| Mutable shard NFTs | The ShardManager only | `token.nfts`: a parsable collection; explorers and indexers see them, user wallets never hold one |
+
+**Fund tokens.** A unit is `amount` base tokens, so wallets show a unit as
+`amount / 10^decimals` tokens. Choosing `amount = 10^decimals` (e.g. `decimals` 8,
+`amount` 10⁸) shows one unit as one token, priced at the per-unit basket. Mints and
+redeems are whole units, so wallets should offer whole tokens on those screens; holders can
+still send any amount.
+
+**Shard NFTs.** The shard state is fixed-width, so a 32-byte parse bytecode decodes it.
+Clients run it in BCMR's standardized NFT parsing transaction (the shard UTXO as input 0):
+
+```
+OP_0 OP_UTXOTOKENCOMMITMENT OP_SIZE <15> OP_EQUALVERIFY     shard states only
+OP_1 OP_SPLIT OP_SWAP OP_TOALTSTACK                         op (raw byte): the NFT type
+OP_1 OP_SPLIT OP_SWAP OP_BIN2NUM OP_TOALTSTACK              index
+OP_1 OP_SPLIT OP_SWAP OP_BIN2NUM OP_TOALTSTACK              count
+OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_TOALTSTACK              units
+OP_BIN2NUM OP_TOALTSTACK                                    epoch
+OP_0 OP_UTXOVALUE OP_TOALTSTACK                             BCH reserve (the UTXO's value)
+OP_0 OP_UTXOTOKENAMOUNT OP_TOALTSTACK                       unreleased fund tokens
+
+bytecode: 00cf825f88517f7c6b517f7c816b517f7c816b587f7c816b816b00c66b00d06b
+```
+
+The bottom altstack item is the raw `op` byte, which selects the type (`"01"` … `"06"`).
+The fields above it follow in order. The USD reserve is in another UTXO, so a parse can't
+read it. Pinned by
+[shard.bcmr.test.ts](../../../../fund-tokens-contracts/src/fund-types/weighted-bch-usd/v1/tests/contracts/shard.bcmr.test.ts),
+which runs it in the VM.
+
+```jsonc
+"nfts": {
+  "description": "Shards of the fund: one per thread, held by the fund's contracts.",
+  "fields": {
+    "shard":        { "name": "Shard", "encoding": { "type": "number" } },
+    "activeShards": { "name": "Active shards", "encoding": { "type": "number" } },
+    "units":        { "name": "Units", "description": "Units outstanding against this shard, locked units included", "encoding": { "type": "number", "aggregate": "add" } },
+    "rebalanced":   { "name": "Last rebalance", "description": "Price time of the last rebalance; 0 before the first", "encoding": { "type": "locktime" } },
+    "bchReserve":   { "name": "BCH reserve", "encoding": { "type": "number", "decimals": 8, "unit": "BCH", "aggregate": "add" } },
+    "unreleased":   { "name": "Unreleased fund tokens", "encoding": { "type": "number", "decimals": 8, "aggregate": "add" } }
+  },
+  "parse": {
+    "bytecode": "00cf825f88517f7c6b517f7c816b517f7c816b587f7c816b816b00c66b00d06b",
+    "types": {
+      "01": { "name": "Shard: created", "fields": ["shard", "activeShards", "units", "rebalanced", "bchReserve", "unreleased"] },
+      "02": { "name": "Shard: mint",      "fields": [ /* the same six */ ] },
+      "03": { "name": "Shard: redeem",    "fields": [ /* … */ ] },
+      "04": { "name": "Shard: rebalance", "fields": [ /* … */ ] },
+      "05": { "name": "Shard: grow",      "fields": [ /* … */ ] },
+      "06": { "name": "Shard: shrink",    "fields": [ /* … */ ] }
+    }
+  }
+}
+```
+
+`unreleased` takes the fund token's `decimals`. `aggregate: "add"` lets a client total
+`units`, `bchReserve` and `unreleased` across a fund's shards. The library will generate
+this from the fund definition (the only per-fund values are `decimals` and the names).
+
 ## Contracts
 
 ### Per fund
 
 | Contract | Parameters (declaration order) | Functions |
 | --- | --- | --- |
-| ShardManager | execute fee hash, `price`, `authorization`, ReserveVault locking bytecode, `fundCategory`, `fundHash` | `mint(fund, padding)`, `redeem(fund, padding)`, `rebalance(fund, padding)`, `grow(fund, padding)`, `shrink(fund, padding)` |
+| ShardManager ([shard.cash](../../../../fund-tokens-contracts/src/fund-types/weighted-bch-usd/v1/contracts/shard.cash)) | execute fee hash, `price`, `authorization`, ReserveVault locking bytecode, `fundHash` (the fund category is read from the definition) | `exchange(fund)`, `rebalance(fund, padding)`, `grow(fund, padding)`, `shrink(fund, target, padding)` |
 | ReserveVault | `fundCategory` | `release()`: `in[a−1]` is a shard (`fundCategory + 0x01`) paired with this UTXO by outpoint, and `out[a]` returns to this vault |
 
 The ShardManager checks everything about the reserve's output (category `usdCategory` or
@@ -455,7 +567,7 @@ builder has equal input and output counts.
 
 | Index | Input | Output |
 | --- | --- | --- |
-| `a + 2i` | Shard `mint` / `redeem` | Shard |
+| `a + 2i` | Shard `exchange` | Shard |
 | `a + 2i + 1` | Reserve `release` | Reserve |
 | `a + 2m` | Execute FeeManager `pay` | Returned |
 | `a + 2m + 1` | User | Fee payment |
@@ -489,18 +601,27 @@ interface SystemParameters {
         category: string;
         maxSpreadBps: number;      // e.g. 200 (2%)
         maxSkew: number;           // seconds, e.g. 300
-        upgradeDelay: number;      // seconds of oracle time, e.g. 7 days
-        upgradeDelayBlocks: number;// fallback, e.g. 1008 (~7 days)
+        upgradeDelay: number;      // seconds, 604800 (7 days)
     };
     fees: { create: { nft: string; value: bigint }; execute: { nft: string; value: bigint } };
 }
 ```
 
-Authorization permissions: token-basket v1's `0x0001` … `0x0100` unchanged (`0x0001`
-now only mints public fund minting NFTs, as there are no thread categories), plus:
+Authorization permissions are this version's own: authorization tokens aren't shared with
+other fund types, so bits are assigned from the lowest up. The contracts copied from token
+basket keep their bits, and the new permissions take the next free ones:
 
 | Bit | Contract | Permission |
 | --- | --- | --- |
+| 0x0001 | SimpleMinter | Mint public fund minting NFTs (there are no thread categories) |
+| 0x0002 | SimpleVault | Release vault UTXOs, e.g. collected fees |
+| 0x0004 | AuthHeadVault | Update a fund identity (BCMR) |
+| 0x0008 | AuthHeadVault | Burn fund identities |
+| 0x0010 | FeeMinter | Mint fee NFTs |
+| 0x0020 | FeeManager | Close fee UTXOs |
+| 0x0040 | InstanceVault | Change the instance's lifecycle state |
+| 0x0080 | InstanceVault | Burn a deprecated or vulnerable instance |
+| 0x0100 | PublicFundVault | Delist a public fund |
 | 0x0200 | PriceFeed | Propose and cancel a source change |
 | 0x0400 | ShardManager | Remove a shard |
 | 0xF800 | | Reserved |
@@ -526,8 +647,9 @@ now only mints public fund minting NFTs, as there are no thread categories), plu
 
 To be measured once the contracts compile. A rebalance or resize spends two inputs per
 active shard (plus the feed for a rebalance), and each ShardManager input carries the
-111-byte definition. The `maxShards ≤ 16` cap is provisional, chosen so a full rebalance
-fits the 100,000-byte standard limit. Mint and redeem cost the same per shard whatever the
+111-byte definition. The `maxShards ≤ 16` cap is provisional: the contracts will be tested
+at the true maximum (the most shards whose full rebalance and resize fit the 100,000-byte
+standard limit and their compute budgets), and the cap set from that. Mint and redeem cost the same per shard whatever the
 fund's size. Each parked shard costs its creator two dust UTXOs at genesis.
 
 ## Decisions taken
@@ -538,14 +660,22 @@ fund's size. Each parked shard costs its creator two dust UTXOs at genesis.
 | The band | Absolute weight points: `5000 ± 500` is 45%–55% |
 | Shard count | Adjustable after creation, up to `maxShards` set at genesis; anyone adds (paying the seed), the steward removes |
 | Upgrades | Oracle sources only, timelocked; the price contract is fixed |
+| Upgrade delay | 7 days, measured in time: the upgrade NFT's time-based relative timelock (BIP68), never in blocks |
+| `maxShards` cap | 16 until tested at the true maximum |
+| Mint and redeem fee | One fixed execute fee per transaction, however many shards it uses |
 | Rebalance fee | None |
 
-## Open questions
+## Deployment facts
 
-1. **Upgrade delay values**: e.g. 7 days of oracle time, 1008 blocks as the fallback.
-2. **`maxShards` cap**: 16 is provisional until a full rebalance is measured.
-3. **Deployment facts to confirm**: the PUSD category and decimals; the oracles.cash USD
-   oracle public key and price unit.
+| | |
+| --- | --- |
+| PUSD (ParityUSD) category | `2469acc5afa4b10cb5b5c04afb89c3a3ffd61c5da9c01e26d00951cae2a02544` |
+| PUSD decimals | 2 (`usdScale` 100) |
+| oracles.cash (General Protocols) USD/BCH oracle public key | `02d09db08af1ff4e8453919cc866a4be427d7bfe18f2c05e5444c196fcf6fd2818` |
+| Its price unit | USD cents per BCH (to check against its metadata messages) |
+
+With 2 decimals and prices in cents, `P = p · 100`: one satoshi is worth
+`p · 100 / 10¹⁰` PUSD base units (cents).
 
 ## Implementation plan
 

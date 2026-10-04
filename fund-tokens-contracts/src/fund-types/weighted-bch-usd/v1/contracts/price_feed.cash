@@ -1,0 +1,229 @@
+pragma cashscript ^0.14.0;
+
+import "./lib/authority.cash";
+
+/**
+ * PriceFeed: Posts the BCH/USD price from signed oracle messages for every fund of an instance
+ *
+ * Holds two mutable NFTs of the price category, both created when the instance is deployed:
+ *   State NFT:   0x01 . timestamp (4) . price (8) . sourcesHash (32)
+ *   Upgrade NFT: 0x02 . [pending sourcesHash (32)]
+ * The price is USD cents per BCH. sourcesHash is hash256 of the source oracles' 33-byte public keys,
+ * concatenated in order. Neither NFT ever leaves this contract, so a mutable price NFT with type
+ * 0x01 is the feed's state wherever it is read.
+ *
+ * Sources sign oracles.cash (General Protocols) price messages, 16 bytes of signed 32-bit
+ * little-endian integers: messageTimestamp . messageSequence . priceSequence . price,
+ * signed with Schnorr over sha256(message) (what checkDataSig verifies).
+ *
+ * Parameters:
+ *   price: Price token category (the state and upgrade NFTs, both mutable)
+ *   authorization: Authorization token category (proposes and cancels source changes)
+ *   maxSpreadBps: Most the source prices may differ, in basis points of the lowest
+ *   maxSkew: Most seconds between the source messages' timestamps
+ *   upgradeDelay: Seconds a proposed source set must wait before it can be adopted
+ */
+contract PriceFeed(bytes32 price, bytes32 authorization, int maxSpreadBps, int maxSkew, int upgradeDelay)
+{
+    /**
+     * update(bytes sources, bytes messages, bytes signatures): Post a newer price (anyone)
+     *
+     * Parameters:
+     *   sources: The configured source public keys (33 bytes each, in order)
+     *   messages: One 16-byte price message per source, in the same order
+     *   signatures: One 64-byte Schnorr data signature per message, in the same order
+     *
+     * Ensures:
+     * - Every configured source signed a price message (1 to 3 sources)
+     * - The messages were signed within maxSkew seconds of each other
+     * - The new timestamp (the oldest message's) is newer than the posted one
+     * - The prices agree within maxSpreadBps, otherwise the update fails: rebalancing halts
+     * - The new price is the median (1 or 3 sources) or mean (2 sources)
+     * - Only the timestamp and price change
+     */
+    function update(bytes sources, bytes messages, bytes signatures) {
+        //
+        // This is the state NFT and the sources are the configured set
+        require(tx.inputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        bytes state = tx.inputs[this.activeInputIndex].nftCommitment;
+        require(state.split(1)[0] == 0x01, 'Only the state NFT can be updated');
+        bytes head, bytes sourcesHash = state.split(13);
+        bytes timeAndPrice = head.split(1)[1];
+        require(hash256(sources) == sourcesHash, 'Sources must be the configured set');
+
+        int count = sources.length / 33;
+        require(within(count, 1, 4));
+        require(sources.length == count * 33);
+        require(messages.length == count * 16, 'Each source needs one price message');
+        require(signatures.length == count * 64, 'Each message needs one signature');
+
+        //
+        // Verify every source's message and gather the time and price range
+        // Message fields are 32-bit, so 2^31 - 1 bounds every time and price
+        int minTime = 2147483647;
+        int maxTime = 0;
+        int minPrice = 2147483647;
+        int maxPrice = 0;
+        int total = 0;
+        int k = 0;
+        do {
+            bytes message = messages.slice(k * 16, k * 16 + 16);
+            require(checkDataSig(datasig(signatures.slice(k * 64, k * 64 + 64)), message, pubkey(sources.slice(k * 33, k * 33 + 33))), 'Each message must be signed by its source');
+            require(int(message.slice(8, 12)) > 0, 'Only price messages are accepted'); // priceSequence; metadata messages are negative
+            int time = int(message.slice(0, 4));
+            int value = int(message.slice(12, 16));
+            require(value > 0, 'Prices must be positive');
+
+            minTime = min(minTime, time);
+            maxTime = max(maxTime, time);
+            minPrice = min(minPrice, value);
+            maxPrice = max(maxPrice, value);
+            total = total + value;
+            k = k + 1;
+        } while(k < count);
+
+        require(maxTime - minTime <= maxSkew, 'Source messages must be signed close together');
+        require(minTime > int(timeAndPrice.split(4)[0]), 'The price must be newer than the posted price');
+        require((maxPrice - minPrice) * 10000 <= maxSpreadBps * minPrice, 'Sources disagree');
+
+        //
+        // Median of three, otherwise the mean of the lowest and highest (one or two sources)
+        int newPrice = (minPrice + maxPrice) / 2;
+        if(count == 3) {
+            newPrice = total - minPrice - maxPrice;
+        }
+
+        //
+        // The state NFT returns to itself with only the time and price changed
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        require(tx.outputs[this.activeInputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[this.activeInputIndex].nftCommitment == 0x01 + toPaddedBytes(minTime, 4) + toPaddedBytes(newPrice, 8) + sourcesHash, 'The state must hold the new time and price');
+    }
+
+    /**
+     * propose(bytes sources): Propose a new source set (authorization 0x0200)
+     *
+     * Parameters:
+     *   sources: The proposed source public keys (33 bytes each, 1 to 3 of them)
+     *
+     * The upgrade NFT is recreated, so its age (the timelock adopt() checks) restarts. Proposing
+     * again replaces a pending proposal and restarts its timelock.
+     *
+     * Ensures:
+     * - This is the upgrade NFT
+     * - 1 to 3 public keys are proposed
+     * - The upgrade NFT returns to itself holding their hash
+     * - Authorization token with bit 0x0200 is present
+     */
+    function propose(bytes sources) {
+        require(tx.inputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        require(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[0] == 0x02, 'Only the upgrade NFT holds proposals');
+
+        int count = sources.length / 33;
+        require(within(count, 1, 4), 'Propose 1 to 3 sources');
+        require(sources.length == count * 33, 'Sources are 33-byte public keys');
+
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        require(tx.outputs[this.activeInputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[this.activeInputIndex].nftCommitment == 0x02 + hash256(sources), 'The upgrade NFT must hold the proposal');
+
+        require(hasAuthority(authorization, 0x0200), 'unauthorized user');
+    }
+
+    /**
+     * cancel(): Cancel a pending source change (authorization 0x0200)
+     *
+     * Ensures:
+     * - This is the upgrade NFT
+     * - The upgrade NFT returns to itself holding no proposal
+     * - Authorization token with bit 0x0200 is present
+     */
+    function cancel() {
+        require(tx.inputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        require(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[0] == 0x02, 'Only the upgrade NFT holds proposals');
+
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        require(tx.outputs[this.activeInputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[this.activeInputIndex].nftCommitment == 0x02, 'The upgrade NFT must hold no proposal');
+
+        require(hasAuthority(authorization, 0x0200), 'unauthorized user');
+    }
+
+    /**
+     * adopt(): The state takes the pending source set once its timelock has passed (anyone)
+     *
+     * Spent with the upgrade NFT at the next input, which runs activate().
+     *
+     * The script can't read the clock: the wait is the upgrade NFT's age, a time-based relative
+     * timelock (BIP68) that consensus enforces from the input's sequence number. Only proposing
+     * or cancelling recreates the upgrade NFT, so its age counts from the proposal. Price updates
+     * never touch it.
+     *
+     * Ensures:
+     * - This is the state NFT and the next input is the upgrade NFT with a pending proposal
+     * - The upgrade NFT's input is time-locked for at least upgradeDelay (rounded up to 512 seconds)
+     * - The state returns to itself with only its sources hash changed, to the proposal
+     * - The upgrade NFT returns to itself holding no proposal
+     */
+    function adopt() {
+        require(tx.inputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        bytes state = tx.inputs[this.activeInputIndex].nftCommitment;
+        require(state.split(1)[0] == 0x01, 'Only the state NFT adopts sources');
+        bytes head = state.split(13)[0];
+
+        //
+        // The upgrade NFT, with a pending proposal
+        int upgradeIndex = this.activeInputIndex + 1;
+        require(tx.inputs[upgradeIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[upgradeIndex].tokenCategory == price + 0x01);
+        bytes upgradeType, bytes pending = tx.inputs[upgradeIndex].nftCommitment.split(1);
+        require(upgradeType == 0x02);
+        require(pending.length == 32, 'No source change is pending');
+
+        //
+        // The upgrade NFT has waited: its sequence number is a time-based relative timelock
+        // (disable flag, bit 31, clear; type flag, bit 22, set; 512-second steps in the low 16 bits)
+        int sequence = tx.inputs[upgradeIndex].sequenceNumber;
+        require(tx.version >= 2);
+        require(sequence < 2147483648);
+        require((sequence / 4194304) % 2 == 1, 'The timelock must be time-based');
+        require(sequence % 65536 >= (upgradeDelay + 511) / 512, 'The source change is still timelocked');
+
+        //
+        // The state takes the pending sources; the upgrade NFT is cleared
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        require(tx.outputs[this.activeInputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[this.activeInputIndex].nftCommitment == head + pending, 'The state must hold the pending sources');
+
+        require(tx.outputs[upgradeIndex].lockingBytecode == tx.inputs[upgradeIndex].lockingBytecode);
+        require(tx.outputs[upgradeIndex].tokenCategory == price + 0x01);
+        require(tx.outputs[upgradeIndex].tokenAmount == tx.inputs[upgradeIndex].tokenAmount);
+        require(tx.outputs[upgradeIndex].nftCommitment == 0x02, 'The upgrade NFT must be cleared');
+    }
+
+    /**
+     * activate(): The upgrade NFT's side of adopt() (anyone)
+     *
+     * adopt() checks the timelock and both outputs; this only ties the upgrade NFT to it.
+     *
+     * Ensures:
+     * - This is the upgrade NFT with a pending proposal
+     * - The previous input is the state NFT and its output holds the pending sources
+     */
+    function activate() {
+        require(tx.inputs[this.activeInputIndex].tokenCategory == price + 0x01);
+        bytes type, bytes pending = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
+        require(type == 0x02, 'Only the upgrade NFT activates');
+        require(pending.length == 32, 'No source change is pending');
+
+        int stateIndex = this.activeInputIndex - 1;
+        require(tx.inputs[stateIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.inputs[stateIndex].tokenCategory == price + 0x01);
+        require(tx.inputs[stateIndex].nftCommitment.split(1)[0] == 0x01);
+        require(tx.outputs[stateIndex].nftCommitment.split(13)[1] == pending, 'The state must adopt the pending sources');
+    }
+}
