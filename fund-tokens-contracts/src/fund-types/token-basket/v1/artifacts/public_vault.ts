@@ -55,7 +55,7 @@ export default {
       },
     ],
     sources: {
-      'lib/authority.cash': 'pragma cashscript ^0.14.0;\r\n\r\n/**\r\n * Authorization token checks shared by the contracts it gates.\r\n *\r\n * Authorization token commitment: [auth_type (1 byte)][permission_flags (2 bytes)][serial_number]\r\n * (see docs/11-AUTHORIZATION_TOKEN.md for the permission bits).\r\n */\r\n\r\n/**\r\n * hasAuthority(): Whether an input carries an authorization token granting a permission\r\n *\r\n * Parameters:\r\n *   authorization: Authorization token category\r\n *   permission: Permission bit(s) required, as 2 bytes (e.g. 0x0004)\r\n *\r\n * Authority held by the calling contract (its own input or another UTXO at its address) does not\r\n * count, so an authorization token sent to a contract cannot authorize its own release.\r\n */\r\nfunction hasAuthority(bytes authorization, bytes permission) returns (bool) {\r\n    bool authorized = false;\r\n    int inputIndex = 0;\r\n    do {\r\n        if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {\r\n            if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & permission) == permission) {\r\n                authorized = true;\r\n            }\r\n        }\r\n        inputIndex = inputIndex + 1;\r\n    } while(inputIndex < tx.inputs.length && !authorized);\r\n    return authorized;\r\n}\r\n',
+      'lib/authority.cash': 'pragma cashscript ^0.14.0;\r\n\r\n/**\r\n * Authorization token checks shared by the contracts it gates.\r\n *\r\n * Authorization token commitment: [auth_type (1 byte)][permission_flags (2 bytes)][serial_number]\r\n * (see docs/agents/token-basket/v1/ENCODINGS.md for the permission bits).\r\n */\r\n\r\n/**\r\n * hasAuthority(): Whether an input carries an authorization token granting a permission\r\n *\r\n * Parameters:\r\n *   authorization: Authorization token category\r\n *   permission: Permission bit(s) required, as 2 bytes (e.g. 0x0004)\r\n *\r\n * Authority held by the calling contract (its own input or another UTXO at its address) does not\r\n * count, so an authorization token sent to a contract cannot authorize its own release.\r\n */\r\nfunction hasAuthority(bytes authorization, bytes permission) returns (bool) {\r\n    bool authorized = false;\r\n    int inputIndex = 0;\r\n    do {\r\n        if(tx.inputs[inputIndex].tokenCategory == authorization && tx.inputs[inputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode) {\r\n            if((bytes(tx.inputs[inputIndex].nftCommitment.slice(1, 3)) & permission) == permission) {\r\n                authorized = true;\r\n            }\r\n        }\r\n        inputIndex = inputIndex + 1;\r\n    } while(inputIndex < tx.inputs.length && !authorized);\r\n    return authorized;\r\n}\r\n',
     },
     inlineRanges: '13:62:hasAuthority',
   },
@@ -67,5 +67,5 @@ export default {
       enforceLocktimeGuard: true,
     },
   },
-  updatedAt: '2026-10-04T01:48:25.416Z',
+  updatedAt: '2026-10-04T04:12:38.457Z',
 } as const;

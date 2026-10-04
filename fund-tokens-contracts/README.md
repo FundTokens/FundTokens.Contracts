@@ -302,11 +302,12 @@ FUNDTOKENS_REGISTRY_URL=http://localhost:3002 yarn test src/registry
 2. Run `yarn build:contracts`.
 3. Set `id` in `v2/index.ts` and `version` in `v2/instance.ts`, register `v2` in `token-basket/index.ts` (`versions`, `latest`), and add `./token-basket/v2` exports to `package.json`. `FundTypeResolver` picks it up from there.
 4. Keep `v1` untouched: its contracts, builders and tests go on serving existing funds.
+5. Copy the version's docs too (`docs/fund-types/token-basket/v1` and `docs/agents/token-basket/v1` in the repository) and update the copies for what changed.
 
 A new fund type follows the `weighted-bch-usd` stub: a directory with an `index.ts`
 descriptor whose versions export `createInstance`, listed in `src/fund-types/catalog.ts`,
 added to `ResolvedInstance` in `src/fund-types/FundTypeResolver.ts`, and in the
-`package.json` exports.
+`package.json` exports. Document it under `docs/fund-types/<type>/` and `docs/agents/<type>/` in the repository.
 
 ## Publishing
 

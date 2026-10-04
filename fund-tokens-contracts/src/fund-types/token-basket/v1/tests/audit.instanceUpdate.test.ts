@@ -1,7 +1,7 @@
 /**
  * Audit finding: InstanceVault.update() has no authorization check. Anyone can change the
  * instance state byte, e.g. mark the main instance "vulnerable" or clear that mark, defeating
- * the vulnerability signal (docs/07-INSTANCE_TOKEN.md).
+ * the vulnerability signal (docs/fund-types/token-basket/v1/TOKENS.md).
  *
  * The contracts must reject a state change made without the authorization token.
  */

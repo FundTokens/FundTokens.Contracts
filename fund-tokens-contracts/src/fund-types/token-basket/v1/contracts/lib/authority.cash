@@ -4,7 +4,7 @@ pragma cashscript ^0.14.0;
  * Authorization token checks shared by the contracts it gates.
  *
  * Authorization token commitment: [auth_type (1 byte)][permission_flags (2 bytes)][serial_number]
- * (see docs/11-AUTHORIZATION_TOKEN.md for the permission bits).
+ * (see docs/agents/token-basket/v1/ENCODINGS.md for the permission bits).
  */
 
 /**

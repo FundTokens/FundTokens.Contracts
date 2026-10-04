@@ -1,8 +1,9 @@
 # Integration Guide & Examples
 
 Step-by-step examples for integrating FundTokens into an application with
-`@fundtokens/builders`. For the full API, see the
-[Transaction Builder API Reference](03-TRANSACTION_BUILDER_API.md).
+`@fundtokens/builders`. The examples use the token basket fund type (v1); other fund types
+resolve the same way and differ in their builders. For the full API, see the
+[Library API](LIBRARY_API.md) and the [token basket v1 builders](fund-types/token-basket/v1/BUILDERS.md).
 
 ## Table of Contents
 
@@ -43,6 +44,15 @@ const { system } = tb; // parsed parameters; tb.contracts holds the system contr
 `resolve` throws `UNSUPPORTED_FUND_TYPE` when this library has no version for the
 instance; upgrade the library in that case. The examples below use `tb`, the resolved
 instance.
+
+Once more fund types exist, check which one you resolved before using its builders:
+
+```ts
+const instance = resolver.resolve(registryInstance);
+if (instance.key === 'token-basket' && instance.version === 'v1') {
+    // instance is a TokenBasket.v1.TokenBasketInstance
+}
+```
 
 ## Creating a Fund
 
@@ -252,10 +262,6 @@ They aren't part of the published package. Otherwise, test against chipnet.
 
 ## See Also
 
-- [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md): system design overview
-- [02-CONTRACT_SPECIFICATIONS.md](02-CONTRACT_SPECIFICATIONS.md): contract details
-- [03-TRANSACTION_BUILDER_API.md](03-TRANSACTION_BUILDER_API.md): API reference
-- [05-FLOW_DIAGRAMS.md](05-FLOW_DIAGRAMS.md): visual flow diagrams
-- [06-SYSTEM_TOKENS.md](06-SYSTEM_TOKENS.md): system token specification
-- [09-FEE_TOKENS.md](09-FEE_TOKENS.md): fee token specification
-- [11-AUTHORIZATION_TOKEN.md](11-AUTHORIZATION_TOKEN.md): authorization token specification
+- [Overview](OVERVIEW.md): concepts and lifecycle
+- [Library API](LIBRARY_API.md): registry, resolver, errors
+- [Token basket v1](fund-types/token-basket/v1/README.md): contracts, [system tokens](fund-types/token-basket/v1/TOKENS.md), [builders](fund-types/token-basket/v1/BUILDERS.md)
