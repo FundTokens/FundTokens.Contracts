@@ -23,7 +23,7 @@ non-upgradeable, and every fund token works anywhere CashTokens do.
 | Fund type | Versions |
 | --- | --- |
 | [Token basket](docs/fund-types/token-basket/README.md): a fixed basket of BCH and CashTokens per unit | [v1](docs/fund-types/token-basket/v1/README.md) |
-| [Weighted BCH/USD](docs/fund-types/weighted-bch-usd/README.md) | planned |
+| [Weighted BCH/USD](docs/fund-types/weighted-bch-usd/README.md): BCH and a USD token at a target weight, rebalanced by anyone for a small reward | [v1](docs/agents/weighted-bch-usd/v1/DESIGN.md) (in design) |
 
 ## Repository
 

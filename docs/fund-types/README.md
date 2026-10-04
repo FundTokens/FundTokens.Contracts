@@ -3,7 +3,7 @@
 | Fund type | Library key | Registry type | Versions |
 | --- | --- | --- | --- |
 | [Token basket](token-basket/README.md) | `token-basket` | `fixed-basket` | [v1](token-basket/v1/README.md) (supported) |
-| [Weighted BCH/USD](weighted-bch-usd/README.md) | `weighted-bch-usd` | `weighted-bch-usd` | v1 (planned) |
+| [Weighted BCH/USD](weighted-bch-usd/README.md) | `weighted-bch-usd` | `weighted-bch-usd` | v1 ([in design](../agents/weighted-bch-usd/v1/DESIGN.md)) |
 
 A fund type defines what backs a fund and how minting and redemption work. Each fund type
 ships **contract versions**. A released version is frozen: its contracts, builders and
