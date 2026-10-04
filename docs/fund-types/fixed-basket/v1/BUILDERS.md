@@ -169,6 +169,46 @@ Encoding does not validate: validate first (the builders do). Layouts:
 
 Default fee UTXOs (no NFT) cost `fee.value` in BCH. Voluntary and malformed fee NFTs are skipped.
 
+## BCMR templates
+
+**Registry to publish.** [bcmr.template.json](bcmr.template.json) is a complete
+[BCMR v2](https://github.com/bitjson/chip-bcmr) registry for an instance's system tokens:
+one identity each for the instance, authorization, inflow, outflow, public fund, create fee
+and execute fee categories, with names, symbols and the NFT templates below. Replace the
+`<…_CATEGORY>` placeholders with the instance's categories and `<REVISION_TIMESTAMP>` with
+the publication time (`YYYY-MM-DDTHH:mm:ss.sssZ`), then publish it. It validates against the
+BCMR v2 JSON schema once filled in. `getSystemRegistry({ categories, revision })` returns the
+same registry filled in; the template is generated from it (`yarn bcmr:template`, checked
+by `yarn check:bcmr`).
+
+**NFT templates.** The `token.nfts` values the registry uses, one per system token category,
+so wallets and explorers can read the NFTs: their types and fields, decoded by parse
+bytecode. Each one is plain JSON.
+
+| Export | For the category |
+| --- | --- |
+| `authorizationNfts` | `authorization` |
+| `feeNfts` | `fees.create.nft` and `fees.execute.nft` |
+| `inflowNfts`, `outflowNfts` | `inflow`, `outflow` |
+| `publicFundNfts` | `publicFund` |
+| `instanceNfts` | The instance category |
+| `bcmrNfts` | All of the above, by name (`fees` covers both fee categories) |
+
+Place one in the category's identity snapshot, with your own token details:
+
+```ts
+import { FixedBasket } from '@fundtokens/builders';
+
+const snapshot = {
+    name: 'FundTokens authorization',
+    token: { category: system.authorization, symbol: 'FT-AUTH', nfts: FixedBasket.v1.authorizationNfts },
+};
+```
+
+What each type shows, and what the layouts can't show (later public fund definition
+chunks, the instance's public fund category):
+[encodings](../../../agents/fixed-basket/v1/ENCODINGS.md#reading-nfts-with-bcmr-v2).
+
 ## Contracts and artifacts
 
 | Export | Description |

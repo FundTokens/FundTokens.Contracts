@@ -1,0 +1,580 @@
+{
+  "$schema": "https://cashtokens.org/bcmr-v2.schema.json",
+  "version": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "latestRevision": "<REVISION_TIMESTAMP>",
+  "registryIdentity": {
+    "name": "FundTokens system tokens",
+    "description": "The system tokens of a FundTokens fixed basket v1 instance."
+  },
+  "identities": {
+    "<INSTANCE_CATEGORY>": {
+      "<REVISION_TIMESTAMP>": {
+        "name": "FundTokens Instance",
+        "description": "A FundTokens fixed basket v1 instance: its lifecycle state and system parameters.",
+        "token": {
+          "category": "<INSTANCE_CATEGORY>",
+          "symbol": "FT-INSTANCE",
+          "nfts": {
+            "description": "The instance: its lifecycle state and system parameters, held in two NFTs by the InstanceVault. The public fund category spans both and isn't shown.",
+            "fields": {
+              "version": {
+                "name": "Contract version",
+                "encoding": {
+                  "type": "number"
+                }
+              },
+              "hash": {
+                "name": "Data hash",
+                "description": "hash256 of the instance data across both NFTs",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "inflow": {
+                "name": "Inflow token",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "outflow": {
+                "name": "Outflow token",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "authorization": {
+                "name": "Authorization token",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "createFeeToken": {
+                "name": "Create fee token",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "createFee": {
+                "name": "Create fee",
+                "description": "Default fee to create a fund",
+                "encoding": {
+                  "type": "number",
+                  "decimals": 8,
+                  "unit": "BCH"
+                }
+              },
+              "executeFeeToken": {
+                "name": "Execute fee token",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "executeFee": {
+                "name": "Execute fee",
+                "description": "Default fee to mint or redeem",
+                "encoding": {
+                  "type": "number",
+                  "decimals": 8,
+                  "unit": "BCH"
+                }
+              }
+            },
+            "parse": {
+              "bytecode": "00ce82770121876300cf527f7c6b527f7c816b01207f7c6b01207f7cbc6b01207f7cbc6b756701ff6b00cf547f7701207f7cbc6b01207f7cbc6b587f7c816b01207f7cbc6b816b68",
+              "types": {
+                "0001": {
+                  "name": "Instance (pre-release)",
+                  "description": "Early access: use at your own risk",
+                  "fields": [
+                    "version",
+                    "hash",
+                    "inflow",
+                    "outflow"
+                  ]
+                },
+                "0002": {
+                  "name": "Instance (main)",
+                  "description": "The instance to use for new funds",
+                  "fields": [
+                    "version",
+                    "hash",
+                    "inflow",
+                    "outflow"
+                  ]
+                },
+                "0004": {
+                  "name": "Instance (deprecated)",
+                  "description": "No new funds; existing funds keep working",
+                  "fields": [
+                    "version",
+                    "hash",
+                    "inflow",
+                    "outflow"
+                  ]
+                },
+                "0008": {
+                  "name": "Instance (vulnerable)",
+                  "description": "A vulnerability was found: redeem holdings",
+                  "fields": [
+                    "version",
+                    "hash",
+                    "inflow",
+                    "outflow"
+                  ]
+                },
+                "ff": {
+                  "name": "Instance data",
+                  "description": "The rest of the instance's system parameters",
+                  "fields": [
+                    "authorization",
+                    "createFeeToken",
+                    "createFee",
+                    "executeFeeToken",
+                    "executeFee"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "<AUTHORIZATION_CATEGORY>": {
+      "<REVISION_TIMESTAMP>": {
+        "name": "FundTokens Auth",
+        "description": "Authorization tokens for a FundTokens instance: each grants the maintenance permissions it carries.",
+        "token": {
+          "category": "<AUTHORIZATION_CATEGORY>",
+          "symbol": "FT-AUTH",
+          "nfts": {
+            "description": "Authorization tokens: each grants the permission bits it carries over the instance's maintenance operations.",
+            "fields": {
+              "permissions": {
+                "name": "Permissions",
+                "description": "Permission bits, two bytes as written (e.g. 00c0 grants 0x0040 and 0x0080)",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "serial": {
+                "name": "Serial",
+                "description": "Counter of the NFTs this minting token has issued",
+                "encoding": {
+                  "type": "number"
+                }
+              }
+            },
+            "parse": {
+              "bytecode": "00cf517f7c766b01008764527f7c6b68816b",
+              "types": {
+                "00": {
+                  "name": "Authorization minting token",
+                  "description": "Issues authorization tokens",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "01": {
+                  "name": "Authorization token",
+                  "description": "Held by a person or service",
+                  "fields": [
+                    "permissions",
+                    "serial"
+                  ]
+                },
+                "02": {
+                  "name": "Contract authorization token",
+                  "description": "Held by a contract",
+                  "fields": [
+                    "permissions",
+                    "serial"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "<INFLOW_CATEGORY>": {
+      "<REVISION_TIMESTAMP>": {
+        "name": "FundTokens Inflow",
+        "description": "Mint threads of FundTokens fixed basket funds: each lets one mint run at a time.",
+        "token": {
+          "category": "<INFLOW_CATEGORY>",
+          "symbol": "FT-INFLOW",
+          "nfts": {
+            "description": "Inflow threads: each lets one mint of its fund run at a time.",
+            "fields": {
+              "fundCategory": {
+                "name": "Fund",
+                "description": "The fund token category",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "fundHash": {
+                "name": "Fund hash",
+                "description": "hash256 of the fund definition",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "serial": {
+                "name": "Serial",
+                "description": "Counter of the NFTs this minting token has issued",
+                "encoding": {
+                  "type": "number"
+                }
+              }
+            },
+            "parse": {
+              "bytecode": "00cf517f7c766b52876301207f7cbc6b6b67816b68",
+              "types": {
+                "00": {
+                  "name": "Inflow counter",
+                  "description": "Issues inflow minting tokens",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "01": {
+                  "name": "Inflow minting token",
+                  "description": "Mints inflow threads for new funds",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "02": {
+                  "name": "Inflow thread",
+                  "description": "A fund's mint thread, held by its TransactionManager",
+                  "fields": [
+                    "fundCategory",
+                    "fundHash"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "<OUTFLOW_CATEGORY>": {
+      "<REVISION_TIMESTAMP>": {
+        "name": "FundTokens Outflow",
+        "description": "Redeem threads of FundTokens fixed basket funds: each lets one redemption run at a time.",
+        "token": {
+          "category": "<OUTFLOW_CATEGORY>",
+          "symbol": "FT-OUTFLOW",
+          "nfts": {
+            "description": "Outflow threads: each lets one redemption of its fund run at a time.",
+            "fields": {
+              "fundCategory": {
+                "name": "Fund",
+                "description": "The fund token category",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "fundHash": {
+                "name": "Fund hash",
+                "description": "hash256 of the fund definition",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "serial": {
+                "name": "Serial",
+                "description": "Counter of the NFTs this minting token has issued",
+                "encoding": {
+                  "type": "number"
+                }
+              }
+            },
+            "parse": {
+              "bytecode": "00cf517f7c766b52876301207f7cbc6b6b67816b68",
+              "types": {
+                "00": {
+                  "name": "Outflow counter",
+                  "description": "Issues outflow minting tokens",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "01": {
+                  "name": "Outflow minting token",
+                  "description": "Mints outflow threads for new funds",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "02": {
+                  "name": "Outflow thread",
+                  "description": "A fund's redemption thread, held by its TransactionManager",
+                  "fields": [
+                    "fundCategory",
+                    "fundHash"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "<PUBLIC_FUND_CATEGORY>": {
+      "<REVISION_TIMESTAMP>": {
+        "name": "FundTokens Public",
+        "description": "Public FundTokens fixed basket funds: their definitions, published on-chain when they were created.",
+        "token": {
+          "category": "<PUBLIC_FUND_CATEGORY>",
+          "symbol": "FT-PUBLIC",
+          "nfts": {
+            "description": "Public fund definitions, published on-chain when a public fund is created. A definition longer than one NFT continues in the next ones, which can't be shown on their own.",
+            "fields": {
+              "fundHash": {
+                "name": "Fund hash",
+                "description": "hash256 of the fund definition",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "fundCategory": {
+                "name": "Fund",
+                "description": "The fund token category",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "amount": {
+                "name": "Fund tokens per unit",
+                "description": "In the fund token's base units",
+                "encoding": {
+                  "type": "number"
+                }
+              },
+              "satoshis": {
+                "name": "BCH per unit",
+                "encoding": {
+                  "type": "number",
+                  "decimals": 8,
+                  "unit": "BCH"
+                }
+              },
+              "serial": {
+                "name": "Serial",
+                "description": "Counter of the NFTs this minting token has issued",
+                "encoding": {
+                  "type": "number"
+                }
+              }
+            },
+            "parse": {
+              "bytecode": "00cf517f7c766b52876301207f7c6b01207f7cbc6b587f7c816b577f7c816b7567816b68",
+              "types": {
+                "00": {
+                  "name": "Public fund counter",
+                  "description": "Issues public fund minting tokens",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "01": {
+                  "name": "Public fund minting token",
+                  "description": "Publishes the definitions of new public funds",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "02": {
+                  "name": "Public fund definition",
+                  "description": "The first part of a public fund's definition; its assets continue in the NFTs after it",
+                  "fields": [
+                    "fundHash",
+                    "fundCategory",
+                    "amount",
+                    "satoshis"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "<CREATE_FEE_CATEGORY>": {
+      "<REVISION_TIMESTAMP>": {
+        "name": "Fund Creation Fee",
+        "description": "Fee tokens for creating FundTokens fixed basket funds: alternative prices for the creation fee.",
+        "token": {
+          "category": "<CREATE_FEE_CATEGORY>",
+          "symbol": "FT-CREATE-FEE",
+          "nfts": {
+            "description": "Fee tokens: alternative prices for the instance's fee, held by its fee contract.",
+            "fields": {
+              "token": {
+                "name": "Fee token",
+                "description": "The token category the fee is paid in",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "amount": {
+                "name": "Fee",
+                "description": "Token amount to pay, in the token's base units",
+                "encoding": {
+                  "type": "number"
+                }
+              },
+              "bchAmount": {
+                "name": "Fee",
+                "encoding": {
+                  "type": "number",
+                  "decimals": 8,
+                  "unit": "BCH"
+                }
+              },
+              "destination": {
+                "name": "Destination",
+                "description": "Locking bytecode receiving the fee; empty for the fee vault",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "serial": {
+                "name": "Serial",
+                "description": "Counter of the NFTs this minting token has issued",
+                "encoding": {
+                  "type": "number"
+                }
+              }
+            },
+            "parse": {
+              "bytecode": "00cf517f7c765187637c01207f7c762000000000000000000000000000000000000000000000000000000000000000008763757c01007e6b677b6bbc6b68587f7c816b6b67766b01008763816b67756868",
+              "types": {
+                "00": {
+                  "name": "Fee minting token",
+                  "description": "Issues fee tokens",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "01": {
+                  "name": "Token fee",
+                  "description": "Pay this amount of a token to the destination",
+                  "fields": [
+                    "token",
+                    "amount",
+                    "destination"
+                  ]
+                },
+                "0100": {
+                  "name": "BCH fee",
+                  "description": "Pay this amount of BCH to the destination",
+                  "fields": [
+                    "bchAmount",
+                    "destination"
+                  ]
+                },
+                "02": {
+                  "name": "Voluntary fee",
+                  "description": "Pay anything to the fee vault, or nothing",
+                  "fields": []
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "<EXECUTE_FEE_CATEGORY>": {
+      "<REVISION_TIMESTAMP>": {
+        "name": "Fund Execution Fee",
+        "description": "Fee tokens for minting and redeeming FundTokens fixed basket funds: alternative prices for the execution fee.",
+        "token": {
+          "category": "<EXECUTE_FEE_CATEGORY>",
+          "symbol": "FT-EXECUTE-FEE",
+          "nfts": {
+            "description": "Fee tokens: alternative prices for the instance's fee, held by its fee contract.",
+            "fields": {
+              "token": {
+                "name": "Fee token",
+                "description": "The token category the fee is paid in",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "amount": {
+                "name": "Fee",
+                "description": "Token amount to pay, in the token's base units",
+                "encoding": {
+                  "type": "number"
+                }
+              },
+              "bchAmount": {
+                "name": "Fee",
+                "encoding": {
+                  "type": "number",
+                  "decimals": 8,
+                  "unit": "BCH"
+                }
+              },
+              "destination": {
+                "name": "Destination",
+                "description": "Locking bytecode receiving the fee; empty for the fee vault",
+                "encoding": {
+                  "type": "hex"
+                }
+              },
+              "serial": {
+                "name": "Serial",
+                "description": "Counter of the NFTs this minting token has issued",
+                "encoding": {
+                  "type": "number"
+                }
+              }
+            },
+            "parse": {
+              "bytecode": "00cf517f7c765187637c01207f7c762000000000000000000000000000000000000000000000000000000000000000008763757c01007e6b677b6bbc6b68587f7c816b6b67766b01008763816b67756868",
+              "types": {
+                "00": {
+                  "name": "Fee minting token",
+                  "description": "Issues fee tokens",
+                  "fields": [
+                    "serial"
+                  ]
+                },
+                "01": {
+                  "name": "Token fee",
+                  "description": "Pay this amount of a token to the destination",
+                  "fields": [
+                    "token",
+                    "amount",
+                    "destination"
+                  ]
+                },
+                "0100": {
+                  "name": "BCH fee",
+                  "description": "Pay this amount of BCH to the destination",
+                  "fields": [
+                    "bchAmount",
+                    "destination"
+                  ]
+                },
+                "02": {
+                  "name": "Voluntary fee",
+                  "description": "Pay anything to the fee vault, or nothing",
+                  "fields": []
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

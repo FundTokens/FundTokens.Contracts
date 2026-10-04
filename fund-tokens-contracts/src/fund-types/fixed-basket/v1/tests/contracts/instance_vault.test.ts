@@ -60,7 +60,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
     // Instance data: the system parameters serialized as the contracts take them (docs/agents/fixed-basket/v1/ENCODINGS.md#instance-data)
     const instanceHex = `${swapEndianness(inflow)}${swapEndianness(outflow)}${swapEndianness(publicFund)}${swapEndianness(authToken.category)}${swapEndianness(fees.create.nft)}${binToHex(bigIntToBinUint64LEClamped(fees.create.amount))}${swapEndianness(fees.execute.nft)}${binToHex(bigIntToBinUint64LEClamped(fees.execute.amount))}`;
     const instanceHash = binToHex(hash256(hexToBin(instanceHex)));
-    const instanceCommitment = '00020001' + instanceHash + instanceHex;
+    const instanceCommitment = '00020100' + instanceHash + instanceHex; // type 0x00, main, version 1 (2-byte little-endian)
 
     const instanceTxId = randomUtxo().txid;
 
