@@ -1,0 +1,370 @@
+pragma cashscript ^0.14.0;
+
+import "./lib/authority.cash";
+
+/**
+ * ShardManager: One shard (thread) of a BCH/USD target blend fund
+ *
+ * A shard is a pair of UTXOs, always spent and recreated together at adjacent indices:
+ *   Shard (this contract):  the shard's BCH reserve (its whole value), its unreleased fund tokens,
+ *                           and a mutable fund-category NFT holding the shard state
+ *   Reserve (ReserveVault): the shard's USD reserve (or none), paired with the shard by outpoint
+ *
+ * Shard state: op (1) . index (1) . count (1) . units (8) . epoch (4)
+ *   op: the operation that produced this state, so indexers can classify a shard output on its own:
+ *       0x01 created (genesis), 0x02 mint, 0x03 redeem, 0x04 rebalance, 0x05 grow, 0x06 shrink
+ *   index: 0 .. maxShards - 1, fixed at genesis
+ *   count: active shards in the fund (indices 0 .. count - 1), equal in every active shard
+ *   units: units outstanding against this shard; 0 when parked, otherwise at least lockedUnits
+ *   epoch: price timestamp of the fund's last rebalance, equal in every active shard
+ *
+ * Every active shard has the same per-unit basket (sats / units, usd / units): exchanges move a
+ * shard's reserves in exact proportion to its units, and rebalancing and resizing spend every
+ * active shard in one transaction.
+ *
+ * Fund definition (111 bytes, hashed into fundHash):
+ *   fundCategory (32) . amount (8) . usdCategory (32) . usdScale (8) . targetBps (2) . toleranceBps (2) .
+ *   rewardBps (2) . maxShards (1) . lockedUnits (8) . unitSats (8) . unitUsd (8)
+ *
+ * Parameters:
+ *   fee: Execute FeeManager contract hash (exchanges pay its fee)
+ *   price: Price feed token category (rebalances read the feed's state NFT)
+ *   authorization: Authorization token category (removes shards)
+ *   reserveVault: ReserveVault locking bytecode (holds the USD reserves)
+ *   fundHash: hash256 of the fund definition
+ */
+contract ShardManager(bytes32 fee, bytes32 price, bytes32 authorization, bytes reserveVault, bytes32 fundHash)
+{
+    /**
+     * exchange(bytes fund): Mint or redeem whole units in kind
+     *
+     * Parameters:
+     *   fund: The fund definition
+     *
+     * Fund tokens leaving the shard mint units: the user deposits the per-unit basket of BCH and USD,
+     * rounded up. Fund tokens returning redeem units: the user receives it, rounded down. Several
+     * shards may exchange in one transaction, each followed by the next, the last by the execute fee.
+     *
+     * Ensures:
+     * - This is an active shard of this fund, with its reserve next
+     * - Whole units are exchanged, and at least one
+     * - Exactly the per-unit basket moves in or out of both reserves
+     * - A shard never redeems below lockedUnits
+     * - Only units changes in the state, and op is 0x02 (mint) or 0x03 (redeem)
+     * - The next input is another shard of this fund, or the execute fee (returned)
+     */
+    function exchange(bytes fund) {
+        require(hash256(fund) == fundHash);
+        bytes fundCategory = fund.slice(0, 32);
+        int amount = int(fund.slice(32, 40));
+        bytes usdCategory = fund.slice(40, 72);
+
+        //
+        // This shard and its reserve, both returned
+        int reserveIndex = this.activeInputIndex + 1;
+        bytes state = tx.inputs[this.activeInputIndex].nftCommitment;
+        require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.inputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.inputs[reserveIndex].tokenCategory == usdCategory || tx.inputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.outputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.outputs[reserveIndex].tokenCategory == usdCategory || tx.outputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[reserveIndex].value == tx.inputs[reserveIndex].value, 'The reserve dust must not change');
+
+        int units = int(state.slice(3, 11));
+        require(units > 0, 'Only an active shard can exchange');
+
+        //
+        // Units exchanged: positive mints (tokens leave), negative redeems (tokens return)
+        int released = tx.inputs[this.activeInputIndex].tokenAmount - tx.outputs[this.activeInputIndex].tokenAmount;
+        require(released % amount == 0, 'Only whole units can be exchanged');
+        int delta = released / amount;
+        require(delta != 0, 'At least one unit must be exchanged');
+
+        int bch = tx.inputs[this.activeInputIndex].value;
+        int usd = tx.inputs[reserveIndex].tokenAmount;
+        int satsChange = tx.outputs[this.activeInputIndex].value - bch;
+        int usdChange = tx.outputs[reserveIndex].tokenAmount - usd;
+        bytes op = 0x03; // redeem
+        if(delta > 0) {
+            op = 0x02; // mint
+            require(satsChange == (bch * delta + units - 1) / units, 'Mint must deposit the BCH basket');
+            require(usdChange == (usd * delta + units - 1) / units, 'Mint must deposit the USD basket');
+        } else {
+            require(units + delta >= int(fund.slice(87, 95)), 'A shard keeps its locked units');
+            require(satsChange == bch * delta / units, 'Redeem must release the BCH basket');
+            require(usdChange == usd * delta / units, 'Redeem must release the USD basket');
+        }
+
+        require(tx.outputs[this.activeInputIndex].nftCommitment == op + state.slice(1, 3) + toPaddedBytes(units + delta, 8) + state.slice(11, 15), 'Only units change, marked mint or redeem');
+
+        //
+        // Chain to the next shard, or end at the execute fee
+        int nextIndex = this.activeInputIndex + 2;
+        if(tx.inputs[nextIndex].tokenCategory != fundCategory + 0x01) {
+            require(tx.inputs[nextIndex].lockingBytecode == new LockingBytecodeP2SH32(fee), 'An exchange must pay the execute fee');
+            require(tx.outputs[nextIndex].lockingBytecode == tx.inputs[nextIndex].lockingBytecode, 'Fee must not close');
+        }
+    }
+
+    /**
+     * rebalance(bytes fund, bytes padding): Trade the shard back to its target weight (anyone)
+     *
+     * Parameters:
+     *   fund: The fund definition
+     *   padding: Ignored. Each byte raises this input's operation cost budget by 800
+     *
+     * Every active shard rebalances in the same transaction, at the price the feed posts in it
+     * (input and output 0). The shard computes the trade that lands exactly on targetBps at that
+     * price, net of the rebalancer's rewardBps spread, rounded in the fund's favour.
+     *
+     * Ensures:
+     * - Input 0 is the price feed's state NFT, updated in this transaction (a newer timestamp)
+     * - Every active shard of this fund is spent, in index order, and sets epoch to the new timestamp
+     * - The shard's weight at the new price is outside targetBps +/- toleranceBps
+     * - The BCH and USD reserves change by exactly the computed trade
+     * - Only epoch changes in the state, and op is 0x04; fund tokens and reserve dust are unchanged
+     */
+    function rebalance(bytes fund, bytes padding) {
+        require(hash256(fund) == fundHash);
+        bytes fundCategory = fund.slice(0, 32);
+        bytes usdCategory = fund.slice(40, 72);
+
+        //
+        // This shard and its reserve, both returned
+        int reserveIndex = this.activeInputIndex + 1;
+        bytes state = tx.inputs[this.activeInputIndex].nftCommitment;
+        require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.inputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.inputs[reserveIndex].tokenCategory == usdCategory || tx.inputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.outputs[this.activeInputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.outputs[reserveIndex].tokenCategory == usdCategory || tx.outputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[reserveIndex].value == tx.inputs[reserveIndex].value, 'The reserve dust must not change');
+        require(int(state.slice(3, 11)) > 0, 'Only an active shard can rebalance');
+
+        //
+        // The feed's state NFT, updated in this transaction: 0x01 . timestamp (4) . price (8) . sourcesHash
+        require(tx.inputs[0].tokenCategory == price + 0x01);
+        require(tx.inputs[0].nftCommitment.split(1)[0] == 0x01, 'Input 0 must be the price feed state');
+        require(tx.outputs[0].lockingBytecode == tx.inputs[0].lockingBytecode);
+        bytes feedState = tx.outputs[0].nftCommitment;
+        bytes epoch = feedState.slice(1, 5);
+        require(int(epoch) > int(tx.inputs[0].nftCommitment.slice(1, 5)), 'The price must be posted in this transaction');
+
+        //
+        // Every active shard rebalances with this one: shard j is at b + 2j and takes the new epoch
+        int count = int(state.slice(2, 3));
+        int base = this.activeInputIndex - 2 * int(state.slice(1, 2));
+        int j = 0;
+        do {
+            int shardIndex = base + 2 * j;
+            require(tx.inputs[shardIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode); // only shards can spend from here
+            require(int(tx.inputs[shardIndex].nftCommitment.slice(1, 2)) == j, 'Every active shard must rebalance, in order');
+            require(tx.outputs[shardIndex].nftCommitment.slice(11, 15) == epoch, 'Every active shard must rebalance');
+            j = j + 1;
+        } while(j < count);
+
+        //
+        // Value in USD base units x 10^10: BCH sats * price (cents/BCH) * usdScale, USD usd * 10^10
+        int target = int(fund.slice(80, 82));
+        int tolerance = int(fund.slice(82, 84));
+        int reward = int(fund.slice(84, 86));
+        int priceScaled = int(feedState.slice(5, 13)) * int(fund.slice(72, 80));
+        int bch = tx.inputs[this.activeInputIndex].value;
+        int usd = tx.inputs[reserveIndex].tokenAmount;
+        int bchValue = bch * priceScaled;
+        int usdValue = usd * 10000000000;
+        int value = bchValue + usdValue;
+
+        //
+        // Sell (overweight) or buy (underweight) x sats for y USD so BCH is exactly target of the
+        // value at this price, the rebalancer trading rewardBps better than the feed
+        int satsOut = bch;
+        int usdOut = usd;
+        if(bchValue * 10000 > (target + tolerance) * value) {
+            int sold = 10000 * (bchValue * (10000 - target) - target * usdValue) / (priceScaled * (100000000 - target * reward));
+            satsOut = bch - sold;
+            usdOut = usd + (sold * priceScaled * (10000 - reward) + 99999999999999) / 100000000000000;
+        } else {
+            require(bchValue * 10000 < (target - tolerance) * value, 'The fund is inside its band');
+            int bought = 10000 * (target * usdValue - bchValue * (10000 - target)) / (priceScaled * (100000000 + target * reward));
+            satsOut = bch + bought;
+            usdOut = usd - bought * priceScaled * (10000 + reward) / 100000000000000;
+        }
+        require(tx.outputs[this.activeInputIndex].value == satsOut, 'The BCH reserve must make the computed trade');
+        require(tx.outputs[reserveIndex].tokenAmount == usdOut, 'The USD reserve must make the computed trade');
+        require(tx.outputs[this.activeInputIndex].nftCommitment == 0x04 + state.slice(1, 11) + epoch, 'Only epoch changes, marked rebalance');
+    }
+
+    /**
+     * grow(bytes fund, bytes padding): Activate the next parked shard (anyone)
+     *
+     * Parameters:
+     *   fund: The fund definition
+     *   padding: Ignored. Each byte raises this input's operation cost budget by 800
+     *
+     * Every active shard and the parked shard at index count run grow(). The new shard is seeded
+     * with lockedUnits of shard 0's per-unit basket, rounded up, paid by the caller: a permanent
+     * donation that makes adding shards cost something. At most maxShards can be active.
+     *
+     * Ensures:
+     * - Shards 0 .. count are spent in index order: 0 .. count - 1 active, count parked
+     * - Every one of them takes count + 1, at most maxShards
+     * - Every one of them is marked op 0x05; active shards change nothing else
+     * - The new shard holds exactly the seed, lockedUnits units and the fund's epoch; its
+     *   reserve exactly the USD seed
+     */
+    function grow(bytes fund, bytes padding) {
+        require(hash256(fund) == fundHash);
+        bytes fundCategory = fund.slice(0, 32);
+        bytes usdCategory = fund.slice(40, 72);
+
+        //
+        // This shard and its reserve, both returned
+        int reserveIndex = this.activeInputIndex + 1;
+        bytes state = tx.inputs[this.activeInputIndex].nftCommitment;
+        require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.inputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.inputs[reserveIndex].tokenCategory == usdCategory || tx.inputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.outputs[this.activeInputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.outputs[reserveIndex].tokenCategory == usdCategory || tx.outputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[reserveIndex].value == tx.inputs[reserveIndex].value, 'The reserve dust must not change');
+
+        //
+        // The new count: the parked shard being activated is the next index
+        int index = int(state.slice(1, 2));
+        int units = int(state.slice(3, 11));
+        int newCount = int(state.slice(2, 3)) + 1;
+        if(units == 0) {
+            newCount = index + 1;
+        }
+        require(newCount <= int(fund.slice(86, 87)), 'A fund has at most maxShards shards');
+        bytes newCountByte = toPaddedBytes(newCount, 1);
+
+        //
+        // Shards 0 .. newCount - 1 are here in order, all but the last active, and take the new count
+        int base = this.activeInputIndex - 2 * index;
+        int j = 0;
+        do {
+            int shardIndex = base + 2 * j;
+            bytes shardState = tx.inputs[shardIndex].nftCommitment;
+            require(tx.inputs[shardIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode); // only shards can spend from here
+            require(int(shardState.slice(1, 2)) == j, 'Every shard must be spent, in order');
+            require((int(shardState.slice(3, 11)) == 0) == (j == newCount - 1), 'Only the next parked shard can be added');
+            require(tx.outputs[shardIndex].nftCommitment.slice(2, 3) == newCountByte, 'Every shard must take the new count');
+            j = j + 1;
+        } while(j < newCount);
+
+        //
+        // An active shard keeps its reserves; the new one is seeded with lockedUnits at shard 0's basket
+        if(units == 0) {
+            int lockedUnits = int(fund.slice(87, 95));
+            bytes state0 = tx.inputs[base].nftCommitment;
+            int units0 = int(state0.slice(3, 11));
+            require(tx.outputs[this.activeInputIndex].value == (lockedUnits * tx.inputs[base].value + units0 - 1) / units0, 'The new shard must hold the BCH seed');
+            require(tx.outputs[reserveIndex].tokenAmount == (lockedUnits * tx.inputs[base + 1].tokenAmount + units0 - 1) / units0, 'The new shard must hold the USD seed');
+            require(tx.outputs[this.activeInputIndex].nftCommitment == 0x05 + state.slice(1, 2) + newCountByte + toPaddedBytes(lockedUnits, 8) + state0.slice(11, 15), 'The new shard takes lockedUnits and the epoch, marked grow');
+        } else {
+            require(tx.outputs[this.activeInputIndex].value == tx.inputs[this.activeInputIndex].value, 'An active shard keeps its BCH');
+            require(tx.outputs[reserveIndex].tokenAmount == tx.inputs[reserveIndex].tokenAmount, 'An active shard keeps its USD');
+            require(tx.outputs[this.activeInputIndex].nftCommitment == 0x05 + state.slice(1, 2) + newCountByte + state.slice(3, 15), 'Only count changes, marked grow');
+        }
+    }
+
+    /**
+     * shrink(bytes fund, int target, bytes padding): Park the highest active shard (authorization 0x0400)
+     *
+     * Parameters:
+     *   fund: The fund definition
+     *   target: The active shard taking the removed shard's reserves and units
+     *   padding: Ignored. Each byte raises this input's operation cost budget by 800
+     *
+     * Every active shard runs shrink() with the same target. The removed shard (count - 1) moves
+     * all its reserves and units into the target, which has the same basket, so nothing leaves the
+     * fund. It keeps its fund tokens, for when it is added again; the steward pays its new dust.
+     *
+     * Ensures:
+     * - At least two shards are active; the target is another active shard
+     * - Shards 0 .. count - 1 are spent in index order and take count - 1
+     * - Units: the target gains the removed shard's, the removed shard has none, the rest are unchanged
+     * - The target gains the removed shard's BCH and USD exactly; others keep theirs
+     * - The removed shard's reserve is left with no USD
+     * - Every one of them is marked op 0x06
+     * - Authorization token with bit 0x0400 is present
+     */
+    function shrink(bytes fund, int target, bytes padding) {
+        require(hash256(fund) == fundHash);
+        bytes fundCategory = fund.slice(0, 32);
+        bytes usdCategory = fund.slice(40, 72);
+
+        //
+        // This shard and its reserve, both returned
+        int reserveIndex = this.activeInputIndex + 1;
+        bytes state = tx.inputs[this.activeInputIndex].nftCommitment;
+        require(tx.inputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.inputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.inputs[reserveIndex].tokenCategory == usdCategory || tx.inputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);
+        require(tx.outputs[this.activeInputIndex].tokenCategory == fundCategory + 0x01);
+        require(tx.outputs[this.activeInputIndex].tokenAmount == tx.inputs[this.activeInputIndex].tokenAmount);
+        require(tx.outputs[reserveIndex].lockingBytecode == reserveVault);
+        require(tx.outputs[reserveIndex].tokenCategory == usdCategory || tx.outputs[reserveIndex].tokenCategory == 0x);
+        require(tx.outputs[reserveIndex].value == tx.inputs[reserveIndex].value, 'The reserve dust must not change');
+        require(hasAuthority(authorization, 0x0400), 'unauthorized user');
+
+        int index = int(state.slice(1, 2));
+        int count = int(state.slice(2, 3));
+        int removed = count - 1;
+        require(int(state.slice(3, 11)) > 0, 'Only active shards can shrink');
+        require(within(target, 0, removed), 'The target must be another active shard');
+        bytes newCountByte = toPaddedBytes(removed, 1);
+
+        //
+        // Shards 0 .. count - 1 are here in order and take the new count; units move to the target
+        int base = this.activeInputIndex - 2 * index;
+        int removedIndex = base + 2 * removed;
+        require(tx.inputs[removedIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode, 'Every active shard must be spent, in order');
+        int removedUnits = int(tx.inputs[removedIndex].nftCommitment.slice(3, 11));
+        int j = 0;
+        do {
+            int shardIndex = base + 2 * j;
+            bytes shardState = tx.inputs[shardIndex].nftCommitment;
+            bytes shardOut = tx.outputs[shardIndex].nftCommitment;
+            require(tx.inputs[shardIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode); // only shards can spend from here
+            require(int(shardState.slice(1, 2)) == j, 'Every active shard must be spent, in order');
+            require(shardOut.slice(2, 3) == newCountByte, 'Every shard must take the new count');
+            int expectedUnits = int(shardState.slice(3, 11));
+            if(j == target) {
+                expectedUnits = expectedUnits + removedUnits;
+            }
+            if(j == removed) {
+                expectedUnits = 0;
+            }
+            require(int(shardOut.slice(3, 11)) == expectedUnits, 'Units must move to the target');
+            j = j + 1;
+        } while(j < count);
+
+        //
+        // Reserves: the target gains the removed shard's, the removed shard's reserve keeps no USD
+        int satsOut = tx.inputs[this.activeInputIndex].value;
+        int usdOut = tx.inputs[reserveIndex].tokenAmount;
+        if(index == target) {
+            satsOut = satsOut + tx.inputs[removedIndex].value;
+            usdOut = usdOut + tx.inputs[removedIndex + 1].tokenAmount;
+        }
+        if(index == removed) {
+            usdOut = 0;
+        } else {
+            require(tx.outputs[this.activeInputIndex].value == satsOut, 'Only the target gains BCH');
+        }
+        require(tx.outputs[reserveIndex].tokenAmount == usdOut, 'Only the target gains USD');
+        require(tx.outputs[this.activeInputIndex].nftCommitment == 0x06 + state.slice(1, 2) + newCountByte + tx.outputs[this.activeInputIndex].nftCommitment.slice(3, 11) + state.slice(11, 15), 'Only count and units change, marked shrink');
+    }
+}

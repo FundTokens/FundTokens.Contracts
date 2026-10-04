@@ -37,7 +37,7 @@ export interface RegistryFund {
     readonly genesisHeight: number;
     readonly genesisTimestamp: number;
     readonly lockingBytecode: string;
-    /** Parse with the instance's fund type version, e.g. `TokenBasket.v1.parseFund`. */
+    /** Parse with the instance's fund type version, e.g. `FixedBasket.v1.parseFund`. */
     readonly fund: RegistrySerializedFund;
     readonly authheadTxid: string;
     readonly authheadHeight: number;

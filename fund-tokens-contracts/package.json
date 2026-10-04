@@ -28,22 +28,22 @@
       "types": "./dist/registry/index.d.ts",
       "default": "./dist/registry/index.js"
     },
-    "./token-basket": {
-      "types": "./dist/fund-types/token-basket/index.d.ts",
-      "default": "./dist/fund-types/token-basket/index.js"
+    "./fixed-basket": {
+      "types": "./dist/fund-types/fixed-basket/index.d.ts",
+      "default": "./dist/fund-types/fixed-basket/index.js"
     },
-    "./token-basket/v1": {
-      "types": "./dist/fund-types/token-basket/v1/index.d.ts",
-      "default": "./dist/fund-types/token-basket/v1/index.js"
+    "./fixed-basket/v1": {
+      "types": "./dist/fund-types/fixed-basket/v1/index.d.ts",
+      "default": "./dist/fund-types/fixed-basket/v1/index.js"
     },
-    "./token-basket/v1/artifacts/*.json": "./dist/fund-types/token-basket/v1/artifacts/*.json",
-    "./weighted-bch-usd": {
-      "types": "./dist/fund-types/weighted-bch-usd/index.d.ts",
-      "default": "./dist/fund-types/weighted-bch-usd/index.js"
+    "./fixed-basket/v1/artifacts/*.json": "./dist/fund-types/fixed-basket/v1/artifacts/*.json",
+    "./bch-usd-target-blend": {
+      "types": "./dist/fund-types/bch-usd-target-blend/index.d.ts",
+      "default": "./dist/fund-types/bch-usd-target-blend/index.js"
     },
-    "./weighted-bch-usd/v1": {
-      "types": "./dist/fund-types/weighted-bch-usd/v1/index.d.ts",
-      "default": "./dist/fund-types/weighted-bch-usd/v1/index.js"
+    "./bch-usd-target-blend/v1": {
+      "types": "./dist/fund-types/bch-usd-target-blend/v1/index.d.ts",
+      "default": "./dist/fund-types/bch-usd-target-blend/v1/index.js"
     },
     "./package.json": "./package.json"
   },

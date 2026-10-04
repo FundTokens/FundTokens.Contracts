@@ -4,7 +4,7 @@ import { delay, http, HttpResponse } from 'msw';
 
 import { FundTokensRegistry } from '../FundTokensRegistry.js';
 import { RegistryError } from '../../core/errors.js';
-import { TokenBasket } from '../../fund-types/index.js';
+import { FixedBasket } from '../../fund-types/index.js';
 
 const baseUrl = 'https://registry.example/';
 const api = (path: string) => new URL(path, baseUrl).toString();
@@ -154,12 +154,11 @@ describe('FundTokensRegistry', () => {
             expect(await client.getInstances({ type: 'mean-reversion' })).toHaveLength(0);
         });
 
-        it('accepts a fund type descriptor or library key in place of the registry type', async () => {
+        it('accepts a fund type descriptor in place of its key', async () => {
             const client = registry();
-            expect((await client.getCurrentInstance(TokenBasket)).id).toBe(1);
-            expect((await client.getCurrentInstance('token-basket')).id).toBe(1);
+            expect((await client.getCurrentInstance(FixedBasket)).id).toBe(1);
             expect((await client.getCurrentInstance('fixed-basket')).id).toBe(1);
-            expect(await client.getInstances({ type: TokenBasket })).toHaveLength(2);
+            expect(await client.getInstances({ type: FixedBasket })).toHaveLength(2);
         });
 
         it('returns the current instance ids per type', async () => {
@@ -179,16 +178,16 @@ describe('FundTokensRegistry', () => {
 
         it('returns copies, so callers cannot corrupt the cache', async () => {
             const client = registry();
-            const first = await client.getCurrentInstance(TokenBasket);
+            const first = await client.getCurrentInstance(FixedBasket);
             (first.parameters as Record<string, unknown>).inflow = 'tampered';
-            const second = await client.getCurrentInstance(TokenBasket);
+            const second = await client.getCurrentInstance(FixedBasket);
             expect(second.parameters.inflow).toBe(parameters.inflow);
             expect(second).not.toBe(first);
         });
 
         it('caches instance listings and shares in-flight requests', async () => {
             const client = registry();
-            await Promise.all([client.getInstances(), client.getCurrentInstance(TokenBasket), client.getInstance(1)]);
+            await Promise.all([client.getInstances(), client.getCurrentInstance(FixedBasket), client.getInstance(1)]);
             await client.getCurrentInstanceIds();
             expect(instancesRequests).toBe(1);
 
@@ -212,8 +211,8 @@ describe('FundTokensRegistry', () => {
         });
 
         it('yields parameters that the matching fund type version parses', async () => {
-            const current = await registry().getCurrentInstance(TokenBasket);
-            const version = TokenBasket.resolve(current);
+            const current = await registry().getCurrentInstance(FixedBasket);
+            const version = FixedBasket.resolve(current);
             const system = version.parseSystemParameters(current.parameters);
             expect(version.id).toBe('v1');
             expect(system.fees.execute.value).toBe(1000n);
@@ -243,9 +242,9 @@ describe('FundTokensRegistry', () => {
             expect(await client.getFund('ff'.repeat(32))).toBeUndefined();
         });
 
-        it('parses a registry fund with the token basket fund parser', async () => {
+        it('parses a registry fund with the fixed basket fund parser', async () => {
             const found = await registry().getFund(allFunds[0]!.category);
-            const parsed = TokenBasket.v1.parseFund(found!.fund);
+            const parsed = FixedBasket.v1.parseFund(found!.fund);
             expect(parsed).toMatchObject({ amount: 1n, satoshis: 1000n, assets: [{ amount: 100n }] });
         });
 

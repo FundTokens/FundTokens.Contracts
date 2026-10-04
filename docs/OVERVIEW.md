@@ -12,8 +12,8 @@ Each fund type has its own contracts. Today:
 
 | Fund type | Status |
 | --- | --- |
-| [Token basket](fund-types/token-basket/README.md): a fixed basket of BCH and CashTokens per unit | v1, live |
-| [Weighted BCH/USD](fund-types/weighted-bch-usd/README.md): BCH and a USD token in target weights | planned |
+| [Fixed basket](fund-types/fixed-basket/README.md): a fixed basket of BCH and CashTokens per unit | v1, live |
+| [BCH/USD Target Blend](fund-types/bch-usd-target-blend/README.md): BCH and a USD token in target weights | planned |
 
 **Contract version.** A fund type's contracts are released as versions (`v1`, `v2`, …).
 A released version never changes; improvements ship as a new version, and funds on an older
@@ -23,7 +23,7 @@ version keep working with the builders that match it.
 tokens, with fixed parameters (token categories, fees). Every fund belongs to one instance.
 The [registry](LIBRARY_API.md#fundtokensregistry) lists instances and says which is current.
 
-**Fund.** A fund token category and its definition. For a token basket: how many fund
+**Fund.** A fund token category and its definition. For a fixed basket: how many fund
 tokens make one *unit*, and the BCH and assets backing each unit. The definition is fixed
 at creation and published on-chain.
 

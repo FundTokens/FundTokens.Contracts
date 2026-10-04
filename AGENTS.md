@@ -67,4 +67,4 @@ Run from `fund-tokens-contracts/` (Yarn 4 via Corepack).
   run through `OP_INVOKE` can break location mapping. Put message-bearing checks before the
   final function call, or assert on the failing statement.
 - Contract parameters are pushed in reverse declaration order; addresses other contracts
-  rebuild depend on that order ([TRANSACTIONS.md](docs/agents/token-basket/v1/TRANSACTIONS.md#contract-addresses)).
+  rebuild depend on that order ([TRANSACTIONS.md](docs/agents/fixed-basket/v1/TRANSACTIONS.md#contract-addresses)).

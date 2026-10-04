@@ -19,13 +19,13 @@ docs/
 ├── README.md, OVERVIEW.md, INTEGRATION_GUIDE.md, LIBRARY_API.md   ← shared by every fund type
 ├── fund-types/
 │   ├── README.md                   ← catalog of fund types and versions
-│   ├── token-basket/
-│   │   ├── README.md               ← what a token basket is; its versions
+│   ├── fixed-basket/
+│   │   ├── README.md               ← what a fixed basket is; its versions
 │   │   └── v1/
 │   │       ├── README.md           ← contracts and how operations work
 │   │       ├── TOKENS.md           ← system tokens: instance, threads, fees, authorization
 │   │       └── BUILDERS.md         ← v1 builder API
-│   └── weighted-bch-usd/README.md  ← planned
+│   └── bch-usd-target-blend/README.md  ← planned
 └── agents/                         ← implementation-level specs for AI agents and auditors
 ```
 

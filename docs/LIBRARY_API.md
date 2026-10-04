@@ -2,7 +2,7 @@
 
 The fund-type independent API of `@fundtokens/builders`: entry points, the registry client,
 fund type resolution and shared exports. Each fund type version documents its own builders,
-e.g. [token basket v1](fund-types/token-basket/v1/BUILDERS.md). For a walkthrough, see the
+e.g. [fixed basket v1](fund-types/fixed-basket/v1/BUILDERS.md). For a walkthrough, see the
 [integration guide](INTEGRATION_GUIDE.md).
 
 Source: [fund-tokens-contracts/src](../fund-tokens-contracts/src)
@@ -11,23 +11,23 @@ Source: [fund-tokens-contracts/src](../fund-tokens-contracts/src)
 
 | Import | Contents |
 | --- | --- |
-| `@fundtokens/builders` | Everything: registry client, fund type namespaces (`TokenBasket`, `WeightedBchUsd`), shared errors and helpers |
+| `@fundtokens/builders` | Everything: registry client, fund type namespaces (`FixedBasket`, `BchUsdTargetBlend`), shared errors and helpers |
 | `@fundtokens/builders/registry` | `FundTokensRegistry` and registry types |
-| `@fundtokens/builders/<fund-type>` | A fund type's descriptor, `resolve`, and every version (e.g. `token-basket`) |
-| `@fundtokens/builders/<fund-type>/<version>` | One version's builders, encoding, fees, contract derivation (e.g. `token-basket/v1`) |
+| `@fundtokens/builders/<fund-type>` | A fund type's descriptor, `resolve`, and every version (e.g. `fixed-basket`) |
+| `@fundtokens/builders/<fund-type>/<version>` | One version's builders, encoding, fees, contract derivation (e.g. `fixed-basket/v1`) |
 | `@fundtokens/builders/<fund-type>/<version>/artifacts/<name>.json` | That version's compiled contract artifacts |
 
-From the root, fund types are namespaces: `TokenBasket.v1.FundTokenTransactionBuilder`.
+From the root, fund types are namespaces: `FixedBasket.v1.FundTokenTransactionBuilder`.
 
 **Versioning.** Use the version that matches the registry instance you operate on.
 `FundTypeResolver` picks it for you:
 
 ```ts
-import { FundTokensRegistry, FundTypeResolver, TokenBasket } from '@fundtokens/builders';
+import { FundTokensRegistry, FundTypeResolver, FixedBasket } from '@fundtokens/builders';
 
 const registry = new FundTokensRegistry({ network: 'chipnet' });
 const resolver = new FundTypeResolver({ provider });
-const tb = resolver.resolve(await registry.getCurrentInstance(TokenBasket)); // a TokenBasket.v1 instance
+const tb = resolver.resolve(await registry.getCurrentInstance(FixedBasket)); // a FixedBasket.v1 instance
 const builder = tb.createFundTokenBuilder(fund);
 ```
 
@@ -54,7 +54,7 @@ new FundTokensRegistry({
 | --- | --- | --- |
 | `getHealth()` | `RegistryHealth` | `{ ready, httpStatus, status, network, sync, registry, … }`. Never throws; an unreachable registry gives `ready: false` and `error` |
 | `isLive()` | `boolean` | Liveness only |
-| `getInstances({ type? })` | `RegistryInstance[]` | `type`: a registry type (`'fixed-basket'`), a library key (`'token-basket'`) or a descriptor (`TokenBasket`) |
+| `getInstances({ type? })` | `RegistryInstance[]` | `type`: a fund type key (`'fixed-basket'`, as the registry's instance `type`) or a descriptor (`FixedBasket`) |
 | `getCurrentInstanceIds()` | `Record<type, id \| null>` | |
 | `getInstance(id)` | `RegistryInstance \| undefined` | |
 | `getCurrentInstance(type)` | `RegistryInstance` | Throws `REGISTRY_NOT_FOUND` when the type has no current instance |
@@ -81,10 +81,10 @@ instance's version.
 
 | Export | Description |
 | --- | --- |
-| `TokenBasket` | `key: 'token-basket'`, `registryType: 'fixed-basket'`, `versions: { v1 }`, `latest: 'v1'`, `resolve(instance)` |
-| `WeightedBchUsd` | `key` and `registryType: 'weighted-bch-usd'`, `versions: { v1 }` (planned) |
+| `FixedBasket` | `key: 'fixed-basket'`, `versions: { v1 }`, `latest: 'v1'`, `resolve(instance)` |
+| `BchUsdTargetBlend` | `key: 'bch-usd-target-blend'`, `versions: { v1 }` (planned) |
 | `fundTypes` | Every fund type descriptor |
-| `getFundType(keyOrRegistryType)` | Descriptor lookup, or `undefined` |
+| `getFundType(key)` | Descriptor lookup, or `undefined` |
 | `resolveVersion` | The version of a descriptor matching an instance (what `resolve` uses) |
 
 A descriptor's `resolve(instance)` returns the version whose `id` equals `instance.version`.
@@ -111,9 +111,9 @@ new FundTypeResolver({ provider })
 
 `ResolvedInstance` is the union of every supported version's instance class. Narrow on
 `key` and `version` once more than one exists. Every instance class has `key`,
-`registryType`, `version`, `provider`, `system` (parsed parameters) and `contracts`, plus
+`version`, `provider`, `system` (parsed parameters) and `contracts`, plus
 its version's builders; see the version's builder docs (e.g.
-[TokenBasketInstance](fund-types/token-basket/v1/BUILDERS.md#tokenbasketinstance)).
+[FixedBasketInstance](fund-types/fixed-basket/v1/BUILDERS.md#fixedbasketinstance)).
 
 ---
 

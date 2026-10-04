@@ -6,9 +6,9 @@ export function resolveVersion<T extends FundTypeDescriptor>(
     fundType: T,
     instance: InstanceReference,
 ): T['versions'][keyof T['versions']] {
-    if (instance.type !== fundType.registryType) {
+    if (instance.type !== fundType.key) {
         throw new FundTokensError('UNSUPPORTED_FUND_TYPE',
-            `Instance type '${instance.type}' is not ${fundType.name} ('${fundType.registryType}')`);
+            `Instance type '${instance.type}' is not ${fundType.name} ('${fundType.key}')`);
     }
 
     // Registry instances record the contract version id, which is independent of the npm package version.

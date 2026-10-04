@@ -1,0 +1,32 @@
+export default {
+  contractName: 'ReserveVault',
+  constructorInputs: [
+    { name: 'fundCategory', type: 'bytes32' },
+  ],
+  abi: [
+    { name: 'release', inputs: [] },
+  ],
+  bytecode: 'OP_INPUTINDEX OP_1SUB OP_DUP OP_UTXOTOKENCATEGORY OP_ROT OP_1 OP_CAT OP_EQUALVERIFY OP_DUP OP_OUTPOINTTXHASH OP_INPUTINDEX OP_OUTPOINTTXHASH OP_EQUALVERIFY OP_OUTPOINTINDEX OP_1ADD OP_INPUTINDEX OP_OUTPOINTINDEX OP_NUMEQUALVERIFY OP_INPUTINDEX OP_OUTPUTBYTECODE OP_INPUTINDEX OP_UTXOBYTECODE OP_EQUAL',
+  source: 'pragma cashscript ^0.14.0;\r\n\r\n/**\r\n * ReserveVault: Holds the USD reserves of a BCH/USD target blend fund\'s shards\r\n *\r\n * Each shard\'s reserve is created at the output right after its shard, in the same transaction,\r\n * and every operation recreates the pair the same way. So a reserve belongs to the shard whose\r\n * outpoint is just before its own. The ShardManager checks everything about the reserve\'s output;\r\n * this contract only proves the reserve moves with its own shard.\r\n *\r\n * Mutable NFTs of the fund category exist only as shards (all minted at genesis, with no minting\r\n * NFT), so the category identifies a shard.\r\n *\r\n * Parameters:\r\n *   fundCategory: The fund token category\r\n */\r\ncontract ReserveVault(bytes32 fundCategory)\r\n{\r\n    /**\r\n     * release(): Spend this reserve with its shard\r\n     *\r\n     * Ensures:\r\n     * - The previous input is a shard of this fund\r\n     * - It is this reserve\'s shard: the outpoint just before this one\r\n     * - The reserve returns to this vault\r\n     */\r\n    function release() {\r\n        int shardIndex = this.activeInputIndex - 1;\r\n        require(tx.inputs[shardIndex].tokenCategory == fundCategory + 0x01, \'A reserve moves only with a shard\');\r\n        require(tx.inputs[shardIndex].outpointTransactionHash == tx.inputs[this.activeInputIndex].outpointTransactionHash, \'A reserve moves only with its own shard\');\r\n        require(tx.inputs[shardIndex].outpointIndex + 1 == tx.inputs[this.activeInputIndex].outpointIndex, \'A reserve moves only with its own shard\');\r\n        require(tx.outputs[this.activeInputIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode);\r\n    }\r\n}\r\n',
+  fingerprint: 'bd19465219142ffbae94fc121083c60c501be0cd7ab506596aa6a3a972ab799f',
+  debug: {
+    bytecode: 'c08c76ce7b517e8876c8c0c888c98bc0c99dc0cdc0c787',
+    sourceMap: '28:25:28:46;:::50:1;29:26:29:36:0;:16::51:1;:55::67:0;:70::74;:55:::1;:8::113;30:26:30:36:0;:16::61:1;:75::96:0;:65::121:1;:8::166;31:16:31:51;:::55;:69::90:0;:59::105:1;:8::150;32:27:32:48:0;:16::65:1;:79::100:0;:69::117:1;:8::119',
+    logs: [],
+    requires: [
+      { ip: 8, line: 29, message: 'A reserve moves only with a shard' },
+      { ip: 13, line: 30, message: 'A reserve moves only with its own shard' },
+      { ip: 18, line: 31, message: 'A reserve moves only with its own shard' },
+      { ip: 24, line: 32 },
+    ],
+  },
+  compiler: {
+    name: 'cashc',
+    version: '0.14.0-next.7',
+    options: {
+      enforceFunctionParameterTypes: true,
+      enforceLocktimeGuard: true,
+    },
+  },
+  updatedAt: '2026-10-04T17:28:00.830Z',
+} as const;

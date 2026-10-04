@@ -1,13 +1,13 @@
 import { Contract, MockNetworkProvider } from 'cashscript';
 import { swapEndianness } from '@bitauth/libauth';
 
-import { TokenBasket } from '../src/index.js';
-import { deriveMaintenanceContracts } from '../src/fund-types/token-basket/v1/tests/support/system.js';
+import { FixedBasket } from '../src/index.js';
+import { deriveMaintenanceContracts } from '../src/fund-types/fixed-basket/v1/tests/support/system.js';
 import calculateScriptOperationCost from './calculateScriptOperationCost.js';
 import logAnalyzedBytecode from './logAnalyzedBytcode.js';
 import { randomCategory } from '../test-utils/random.js';
 
-const { v1 } = TokenBasket;
+const { v1 } = FixedBasket;
 
 ///
 const provider = new MockNetworkProvider();

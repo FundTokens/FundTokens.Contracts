@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { FundTokensRegistry } from '../FundTokensRegistry.js';
-import { getFundType, TokenBasket } from '../../fund-types/index.js';
+import { getFundType, FixedBasket } from '../../fund-types/index.js';
 
 const url = process.env.FUNDTOKENS_REGISTRY_URL;
 
@@ -27,16 +27,16 @@ describe.skipIf(!url)('FundTokensRegistry (live)', () => {
         }
     });
 
-    it('serves a current token basket instance with parseable parameters', async () => {
-        const instance = await registry.getCurrentInstance(TokenBasket);
-        expect(() => TokenBasket.v1.parseSystemParameters(instance.parameters)).not.toThrow();
+    it('serves a current fixed basket instance with parseable parameters', async () => {
+        const instance = await registry.getCurrentInstance(FixedBasket);
+        expect(() => FixedBasket.v1.parseSystemParameters(instance.parameters)).not.toThrow();
     });
 
     it('pages funds and resolves each one', async () => {
         let seen = 0;
         for await (const fund of registry.iterateFunds({ pageSize: 2 })) {
             seen += 1;
-            expect(() => TokenBasket.v1.parseFund(fund.fund)).not.toThrow();
+            expect(() => FixedBasket.v1.parseFund(fund.fund)).not.toThrow();
             const detail = await registry.getFund(fund.category);
             expect(detail?.category).toBe(fund.category);
         }
