@@ -30,8 +30,8 @@ docs/agents/
 
 | Fund type | Version | Status | Agent docs |
 | --- | --- | --- | --- |
-| Token basket (`token-basket`, registry `fixed-basket`) | v1 | supported | [token-basket/v1](token-basket/v1/CONTRACTS.md) |
-| Weighted BCH/USD (`weighted-bch-usd`) | v1 | planned, no contracts | none yet |
+| Fixed basket (`fixed-basket`, registry `fixed-basket`) | v1 | supported | [fixed-basket/v1](fixed-basket/v1/CONTRACTS.md) |
+| BCH/USD Target Blend (`bch-usd-target-blend`) | v1 | in design, no contracts | [bch-usd-target-blend/v1](bch-usd-target-blend/v1/DESIGN.md) (design) |
 
 A released version is frozen. A contract change ships as a new version directory in the
 code and a new directory here (copy the previous version's docs, then edit). Never edit a

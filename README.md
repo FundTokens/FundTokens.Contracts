@@ -22,8 +22,8 @@ non-upgradeable, and every fund token works anywhere CashTokens do.
 
 | Fund type | Versions |
 | --- | --- |
-| [Token basket](docs/fund-types/token-basket/README.md): a fixed basket of BCH and CashTokens per unit | [v1](docs/fund-types/token-basket/v1/README.md) |
-| [Weighted BCH/USD](docs/fund-types/weighted-bch-usd/README.md) | planned |
+| [Fixed basket](docs/fund-types/fixed-basket/README.md): a fixed basket of BCH and CashTokens per unit | [v1](docs/fund-types/fixed-basket/v1/README.md) |
+| [BCH/USD Target Blend](docs/fund-types/bch-usd-target-blend/README.md): BCH and a USD token at a target weight, rebalanced by anyone for a small reward | [v1](docs/agents/bch-usd-target-blend/v1/DESIGN.md) (in design) |
 
 ## Repository
 

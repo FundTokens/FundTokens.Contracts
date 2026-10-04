@@ -25,27 +25,27 @@ ESM only, with TypeScript declarations included. Node 18+ or any modern bundler.
 | --- | --- |
 | `@fundtokens/builders` | Everything below, plus shared errors, constants and output helpers |
 | `@fundtokens/builders/registry` | `FundTokensRegistry` and registry types |
-| `@fundtokens/builders/token-basket` | Token basket fund type: descriptor, `resolve`, and all versions |
-| `@fundtokens/builders/token-basket/v1` | Token basket v1 builders, encoding, fees and contract derivation |
-| `@fundtokens/builders/token-basket/v1/artifacts/<name>.json` | Compiled v1 contract artifacts (e.g. `fund.json`) |
-| `@fundtokens/builders/weighted-bch-usd[/v1]` | Weighted BCH/USD: **planned**, builders throw `NOT_IMPLEMENTED` |
+| `@fundtokens/builders/fixed-basket` | Fixed basket fund type: descriptor, `resolve`, and all versions |
+| `@fundtokens/builders/fixed-basket/v1` | Fixed basket v1 builders, encoding, fees and contract derivation |
+| `@fundtokens/builders/fixed-basket/v1/artifacts/<name>.json` | Compiled v1 contract artifacts (e.g. `fund.json`) |
+| `@fundtokens/builders/bch-usd-target-blend[/v1]` | BCH/USD Target Blend: **planned**, builders throw `NOT_IMPLEMENTED` |
 
-From the root, fund types are namespaces: `TokenBasket.v1.FundTokenTransactionBuilder`,
-`TokenBasket.v1.Fund` (a type), and so on.
+From the root, fund types are namespaces: `FixedBasket.v1.FundTokenTransactionBuilder`,
+`FixedBasket.v1.Fund` (a type), and so on.
 
 ## Quick start
 
 ### 1. Resolve the instance
 
 ```ts
-import { FundTokensRegistry, FundTypeResolver, TokenBasket } from '@fundtokens/builders';
+import { FundTokensRegistry, FundTypeResolver, FixedBasket } from '@fundtokens/builders';
 
 const registry = new FundTokensRegistry({ network: 'chipnet' }); // or { url: 'http://localhost:3002' }
 const resolver = new FundTypeResolver({ provider });
 
 // The registry says which instance to use; the resolver picks the fund type version that
 // operates it and binds it to your provider: parsed parameters, contracts, builder classes.
-const tb = resolver.resolve(await registry.getCurrentInstance(TokenBasket));
+const tb = resolver.resolve(await registry.getCurrentInstance(FixedBasket));
 tb.version;                        // 'v1'
 tb.contracts.publicFundVaultContract; // system contracts
 tb.FundTokenTransactionBuilder;    // this version's classes, if you construct builders yourself
@@ -53,7 +53,7 @@ tb.FundTokenTransactionBuilder;    // this version's classes, if you construct b
 
 `resolve` throws `UNSUPPORTED_FUND_TYPE` if this library has no matching version
 (`FundTypeResolver.supports(instance)` checks first). If you already know the version,
-`TokenBasket.v1` has the same classes and functions to use directly.
+`FixedBasket.v1` has the same classes and functions to use directly.
 
 ### 2. Create a fund
 
@@ -138,7 +138,7 @@ users. `getAvailableFees` lists the cheapest option per payment category.
 | `MISSING_UTXO` | A contract UTXO the transaction needs doesn't exist (e.g. the fund isn't created yet) |
 | `INSUFFICIENT_FUNDS` | Contract UTXOs can't cover the request (e.g. custody holds too little to redeem) |
 | `UNSUPPORTED_FUND_TYPE` | No usable fund type version matches a registry instance |
-| `NOT_IMPLEMENTED` | A planned feature (e.g. Weighted BCH/USD builders) |
+| `NOT_IMPLEMENTED` | A planned feature (e.g. BCH/USD Target Blend builders) |
 | `REGISTRY_REQUEST_FAILED` / `REGISTRY_NOT_FOUND` / `REGISTRY_INVALID_RESPONSE` | Registry unreachable or erroring / no such record / unexpected response |
 
 ```ts
@@ -161,8 +161,8 @@ with `debug`, `info`, `warn` and `error` methods, to trace what they add.
 const registry = new FundTokensRegistry({ network: 'chipnet', timeoutMs: 10_000, cacheTtlMs: 60_000 });
 
 await registry.getHealth();                        // { ready, httpStatus, status, sync, ... }; never throws
-await registry.getInstances({ type: TokenBasket }); // every instance of a fund type
-await registry.getCurrentInstance('fixed-basket');  // registry type, library key or descriptor
+await registry.getInstances({ type: FixedBasket }); // every instance of a fund type
+await registry.getCurrentInstance('fixed-basket');  // fund type key or descriptor
 await registry.getInstance(1);                      // undefined if unknown
 await registry.getFunds({ limit: 50, offset: 0 });  // one page
 for await (const fund of registry.iterateFunds()) { /* every fund */ }
@@ -185,8 +185,8 @@ const resolver = new FundTypeResolver({ provider });
 
 // Instances
 FundTypeResolver.supports(instance);   // false for unknown types and unsupported or planned versions
-const tb = resolver.resolve(instance); // a TokenBasket.v1.TokenBasketInstance today
-tb.key; tb.version;                    // 'token-basket', 'v1'; narrow on these as more types are added
+const tb = resolver.resolve(instance); // a FixedBasket.v1.FixedBasketInstance today
+tb.key; tb.version;                    // 'fixed-basket', 'v1'; narrow on these as more types are added
 tb.system;                             // parsed parameters (bigint fees)
 tb.contracts;                          // system contracts
 tb.PublicFundTransactionBuilder;       // this version's builder classes
@@ -212,16 +212,16 @@ const usable = (await registry.getInstances()).filter(FundTypeResolver.supports)
 
 ## Fund types and versions
 
-| Fund type | Registry type | Versions |
+| Fund type | Key (library and registry `type`) | Versions |
 | --- | --- | --- |
-| `TokenBasket`: fixed basket of BCH and CashTokens | `fixed-basket` | `v1` (supported) |
-| `WeightedBchUsd`: BCH and a USD token in target weights | `weighted-bch-usd` | `v1` (planned) |
+| `FixedBasket`: fixed basket of BCH and CashTokens | `fixed-basket` | `v1` (supported) |
+| `BchUsdTargetBlend`: BCH and a USD token in target weights | `bch-usd-target-blend` | `v1` (planned) |
 
 A version's contracts are frozen when it's released. A contract change ships as a
 new version with its own copy of the contracts, builders and tests, so funds on an
 older version keep working with the builders that match them.
 
-`FundTypeResolver` (and `TokenBasket.resolve`) match the registry instance's `version` against
+`FundTypeResolver` (and `FixedBasket.resolve`) match the registry instance's `version` against
 each version's `id` (`'v1'`). The contract version is independent of the npm package
 version, so **instances should record the contract version id (`v1`) as their registry
 `version`.**
@@ -230,15 +230,15 @@ version, so **instances should record the contract version id (`v1`) as their re
 
 | 0.1.x | 0.2 |
 | --- | --- |
-| `import { FundTokenTransactionBuilder } from '@fundtokens/builders'` | `TokenBasket.v1.FundTokenTransactionBuilder`, or import from `@fundtokens/builders/token-basket/v1` |
-| `getFundHex`, `decodeFund`, `encodeFee`, … at the root | Same names under `TokenBasket.v1` |
+| `import { FundTokenTransactionBuilder } from '@fundtokens/builders'` | `FixedBasket.v1.FundTokenTransactionBuilder`, or import from `@fundtokens/builders/fixed-basket/v1` |
+| `getFundHex`, `decodeFund`, `encodeFee`, … at the root | Same names under `FixedBasket.v1` |
 | `addInflow({ amount })` / `addOutflow({ amount })` | `addInflow({ units })` / `addOutflow({ units })`; same meaning |
 | `system: { ...system, fee: system.fees.execute }` | `system`; the execute fee is always used |
 | `addBroadcast` resolved to `undefined` | Resolves to the builder, for chaining |
 | `registry.getCurrent(type)` returned parameters | `registry.getCurrentInstance(type)` returns the instance; parse `instance.parameters` with its version |
 | `registry.getInstance({ id, hash })` | `registry.getInstance(id)`; the registry no longer keys instances by hash |
 | `SystemTransactionBuilder` | Removed; system maintenance is not part of this library |
-| `lib/art/*.json` | `@fundtokens/builders/token-basket/v1/artifacts/*.json`, or typed via `TokenBasket.v1.artifacts.fundManager` etc. |
+| `lib/art/*.json` | `@fundtokens/builders/fixed-basket/v1/artifacts/*.json`, or typed via `FixedBasket.v1.artifacts.fundManager` etc. |
 | Plain `Error`s | `FundTokensError` with a `code` |
 | Logged to `console` by default | Silent by default; pass `logger: console` |
 
@@ -258,14 +258,14 @@ fund-tokens-contracts/
 │  ├─ core/                    shared errors, validation, outputs (fund-type independent)
 │  ├─ registry/                FundTokensRegistry (+ tests/)
 │  └─ fund-types/
-│     ├─ token-basket/
+│     ├─ fixed-basket/
 │     │  └─ v1/
 │     │     ├─ contracts/      CashScript sources (frozen once released)
 │     │     │  └─ lib/        shared functions imported by the contracts (not compiled on their own)
 │     │     ├─ artifacts/      generated: <name>.json, typed <name>.ts, index.ts
 │     │     ├─ tests/          contract, integration and unit tests (+ support/ fixtures)
 │     │     └─ *.ts            builders, encoding, fees, contract derivation
-│     └─ weighted-bch-usd/v1/  planned stub
+│     └─ bch-usd-target-blend/v1/  planned stub
 ├─ test-utils/                 wallet and vitest setup shared by tests
 ├─ scripts/                    build-contracts, copy-artifacts
 └─ metrics/                    contract operation cost report
@@ -298,13 +298,13 @@ FUNDTOKENS_REGISTRY_URL=http://localhost:3002 yarn test src/registry
 
 ### Adding a fund type version
 
-1. Copy the latest version directory (e.g. `token-basket/v1` to `token-basket/v2`), then change the contracts and builders there only.
+1. Copy the latest version directory (e.g. `fixed-basket/v1` to `fixed-basket/v2`), then change the contracts and builders there only.
 2. Run `yarn build:contracts`.
-3. Set `id` in `v2/index.ts` and `version` in `v2/instance.ts`, register `v2` in `token-basket/index.ts` (`versions`, `latest`), and add `./token-basket/v2` exports to `package.json`. `FundTypeResolver` picks it up from there.
+3. Set `id` in `v2/index.ts` and `version` in `v2/instance.ts`, register `v2` in `fixed-basket/index.ts` (`versions`, `latest`), and add `./fixed-basket/v2` exports to `package.json`. `FundTypeResolver` picks it up from there.
 4. Keep `v1` untouched: its contracts, builders and tests go on serving existing funds.
-5. Copy the version's docs too (`docs/fund-types/token-basket/v1` and `docs/agents/token-basket/v1` in the repository) and update the copies for what changed.
+5. Copy the version's docs too (`docs/fund-types/fixed-basket/v1` and `docs/agents/fixed-basket/v1` in the repository) and update the copies for what changed.
 
-A new fund type follows the `weighted-bch-usd` stub: a directory with an `index.ts`
+A new fund type follows the `bch-usd-target-blend` stub: a directory with an `index.ts`
 descriptor whose versions export `createInstance`, listed in `src/fund-types/catalog.ts`,
 added to `ResolvedInstance` in `src/fund-types/FundTypeResolver.ts`, and in the
 `package.json` exports. Document it under `docs/fund-types/<type>/` and `docs/agents/<type>/` in the repository.

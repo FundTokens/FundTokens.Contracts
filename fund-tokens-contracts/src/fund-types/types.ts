@@ -14,10 +14,8 @@ export interface FundTypeVersion {
 
 /** What every fund type module exports about itself. */
 export interface FundTypeDescriptor {
-    /** The library's name for the type, e.g. 'token-basket'. */
+    /** The fund type, e.g. 'fixed-basket': the library's name for it and the registry's instance `type`. */
     readonly key: string;
-    /** The registry's `type` for instances of this type, e.g. 'fixed-basket'. */
-    readonly registryType: string;
     readonly name: string;
     readonly description: string;
     readonly versions: Readonly<Record<string, FundTypeVersion>>;

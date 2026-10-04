@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { fundTypes, getFundType, TokenBasket, WeightedBchUsd } from '../index.js';
+import { fundTypes, getFundType, FixedBasket, BchUsdTargetBlend } from '../index.js';
 
 describe('fund types', () => {
-    it('are found by library key or registry type', () => {
-        expect(getFundType('token-basket')).toBe(TokenBasket);
-        expect(getFundType('fixed-basket')).toBe(TokenBasket);
-        expect(getFundType('weighted-bch-usd')).toBe(WeightedBchUsd);
+    it('are found by key', () => {
+        expect(getFundType('fixed-basket')).toBe(FixedBasket);
+        expect(getFundType('bch-usd-target-blend')).toBe(BchUsdTargetBlend);
         expect(getFundType('mean-reversion')).toBeUndefined();
     });
 
@@ -17,23 +16,22 @@ describe('fund types', () => {
         }
     });
 
-    it('have unique keys and registry types', () => {
+    it('have unique keys', () => {
         expect(new Set(fundTypes.map(t => t.key)).size).toBe(fundTypes.length);
-        expect(new Set(fundTypes.map(t => t.registryType)).size).toBe(fundTypes.length);
     });
 });
 
-describe('TokenBasket.resolve', () => {
+describe('FixedBasket.resolve', () => {
     it('resolves an instance recording the contract version', () => {
-        expect(TokenBasket.resolve({ type: 'fixed-basket', version: 'v1' })).toBe(TokenBasket.v1);
+        expect(FixedBasket.resolve({ type: 'fixed-basket', version: 'v1' })).toBe(FixedBasket.v1);
     });
 
     it('rejects an npm package version in place of the contract version', () => {
-        expect(() => TokenBasket.resolve({ type: 'fixed-basket', version: '0.1.0-rc15' }))
+        expect(() => FixedBasket.resolve({ type: 'fixed-basket', version: '0.1.0-rc15' }))
             .toThrow(expect.objectContaining({ code: 'UNSUPPORTED_FUND_TYPE', message: expect.stringMatching(/0\.1\.0-rc15/) }));
     });
 
     it('rejects instances of another type', () => {
-        expect(() => TokenBasket.resolve({ type: 'weighted-bch-usd', version: 'v1' })).toThrow(/is not Token Basket/);
+        expect(() => FixedBasket.resolve({ type: 'bch-usd-target-blend', version: 'v1' })).toThrow(/is not Fixed Basket/);
     });
 });

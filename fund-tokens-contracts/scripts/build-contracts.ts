@@ -15,7 +15,7 @@
  *   tsx scripts/build-contracts.ts --check    fail if any committed artifact is stale
  *   tsx scripts/build-contracts.ts --force    recompile and rewrite every artifact
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileFile, utils } from 'cashc';
@@ -87,6 +87,7 @@ for (const type of directories(fundTypesDir)) {
                 continue;
             }
 
+            mkdirSync(artifactsDir, { recursive: true }); // a new version has none yet
             if (!upToDate) {
                 writeFileSync(jsonFile, utils.formatArtifact(fresh, 'json'));
                 console.log(`compiled ${relative(jsonFile)}`);

@@ -1,15 +1,16 @@
 # Fund Types
 
-| Fund type | Library key | Registry type | Versions |
-| --- | --- | --- | --- |
-| [Token basket](token-basket/README.md) | `token-basket` | `fixed-basket` | [v1](token-basket/v1/README.md) (supported) |
-| [Weighted BCH/USD](weighted-bch-usd/README.md) | `weighted-bch-usd` | `weighted-bch-usd` | v1 (planned) |
+| Fund type | Key | Versions |
+| --- | --- | --- |
+| [Fixed basket](fixed-basket/README.md) | `fixed-basket` | [v1](fixed-basket/v1/README.md) (supported) |
+| [BCH/USD Target Blend](bch-usd-target-blend/README.md) | `bch-usd-target-blend` | v1 ([in design](../agents/bch-usd-target-blend/v1/DESIGN.md)) |
 
 A fund type defines what backs a fund and how minting and redemption work. Each fund type
 ships **contract versions**. A released version is frozen: its contracts, builders and
 docs describe it forever, so funds created on it can always be operated. Changes ship as a
 new version.
 
+Each fund type has one key, used by the library and as the registry instance's `type`.
 Each registry instance names its fund type (`type`) and contract version (`version`).
 `FundTypeResolver` picks the matching version from the library
 ([Library API](../LIBRARY_API.md#fundtyperesolver)).

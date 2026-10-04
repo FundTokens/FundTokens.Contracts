@@ -3,14 +3,14 @@ import { MockNetworkProvider, randomUtxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
 import { FundTokensRegistry } from '../../registry/FundTokensRegistry.js';
 import type { RegistryFund, RegistryInstance } from '../../registry/types.js';
-import { FundTypeResolver, TokenBasket } from '../index.js';
-import { bootstrapInstance, randomSystem, type TestInstance } from '../token-basket/v1/tests/support/bootstrap.js';
+import { FundTypeResolver, FixedBasket } from '../index.js';
+import { bootstrapInstance, randomSystem, type TestInstance } from '../fixed-basket/v1/tests/support/bootstrap.js';
 import { randomCategory } from '@test-utils/random.js';
 
-const { v1 } = TokenBasket;
+const { v1 } = FixedBasket;
 
 /** System parameters as the registry serves them: JSON, fee values as numbers. */
-const asRegistryJson = (system: TokenBasket.v1.SystemParameters) => ({
+const asRegistryJson = (system: FixedBasket.v1.SystemParameters) => ({
     ...system,
     fees: {
         create: { nft: system.fees.create.nft, value: Number(system.fees.create.value) },
@@ -58,8 +58,7 @@ describe('FundTypeResolver', () => {
             ['an npm package version', { type: 'fixed-basket', version: '0.1.0-rc15' }, false],
             ['an unknown contract version', { type: 'fixed-basket', version: 'v9' }, false],
             ['an unknown fund type', { type: 'mean-reversion', version: 'v1' }, false],
-            ['a library key instead of the registry type', { type: 'token-basket', version: 'v1' }, false],
-            ['a planned fund type', { type: 'weighted-bch-usd', version: 'v1' }, false],
+            ['a planned fund type', { type: 'bch-usd-target-blend', version: 'v1' }, false],
         ])('%s: %s', (_, instance, expected) => {
             expect(FundTypeResolver.supports(instance)).toBe(expected);
         });
@@ -75,8 +74,8 @@ describe('FundTypeResolver', () => {
             const instance = registryInstance();
             const resolved = resolver.resolve(instance);
 
-            expect(resolved).toBeInstanceOf(v1.TokenBasketInstance);
-            expect(resolved).toMatchObject({ key: 'token-basket', registryType: 'fixed-basket', version: 'v1' });
+            expect(resolved).toBeInstanceOf(v1.FixedBasketInstance);
+            expect(resolved).toMatchObject({ key: 'fixed-basket', version: 'v1' });
             expect(resolved.system).toEqual(v1.parseSystemParameters(instance.parameters));
             expect(resolved.system.fees.execute.value).toBeTypeOf('bigint');
             expect(resolved.PublicFundTransactionBuilder).toBe(v1.PublicFundTransactionBuilder);
@@ -105,7 +104,7 @@ describe('FundTypeResolver', () => {
         it.each([
             ['an unknown fund type', { type: 'mean-reversion' }, /not known/],
             ['an unsupported version', { version: '0.1.0-rc12' }, /not supported/],
-            ['a planned fund type', { type: 'weighted-bch-usd' }, /planned/],
+            ['a planned fund type', { type: 'bch-usd-target-blend' }, /planned/],
         ])('rejects %s', (_, overrides, message) => {
             expect(() => resolver.resolve(registryInstance(overrides)))
                 .toThrow(expect.objectContaining({ code: 'UNSUPPORTED_FUND_TYPE', message: expect.stringMatching(message) }));
@@ -152,7 +151,7 @@ describe('FundTypeResolver', () => {
             fetch: async input => new Response(JSON.stringify(responses[new URL(String(input)).pathname.slice(1)])),
         });
 
-        const current = await registry.getCurrentInstance(TokenBasket);
+        const current = await registry.getCurrentInstance(FixedBasket);
         const fundRecord = (await registry.getFund(record.category))!;
         const owner = (await registry.getInstance(fundRecord.instanceId))!;
 

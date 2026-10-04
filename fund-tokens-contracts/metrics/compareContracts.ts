@@ -33,7 +33,7 @@ interface Snapshot {
     savedAt: string;
     commit: string;
     dirty: boolean;
-    /** Keyed by artifact path, e.g. src/fund-types/token-basket/v1/artifacts/asset.json */
+    /** Keyed by artifact path, e.g. src/fund-types/fixed-basket/v1/artifacts/asset.json */
     contracts: Record<string, ContractShape>;
 }
 
@@ -189,7 +189,7 @@ const printTable = (rows: string[][], rightAligned: Set<number>): void => {
 
 interface Base {
     label: string;
-    /** Artifact paths present in the base, e.g. src/fund-types/token-basket/v1/artifacts/asset.json */
+    /** Artifact paths present in the base, e.g. src/fund-types/fixed-basket/v1/artifacts/asset.json */
     files: Set<string>;
     read(relativeJson: string): ContractShape | undefined;
 }

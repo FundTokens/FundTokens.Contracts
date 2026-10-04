@@ -1,6 +1,5 @@
 import { FundTokensError, RegistryError } from '../core/errors.js';
 import { assertCategory } from '../core/validation.js';
-import { getFundType } from '../fund-types/index.js';
 import type {
     RegistryDocumentVersion,
     RegistryFund,
@@ -23,8 +22,8 @@ export interface FundTokensRegistryOptions {
     cacheTtlMs?: number | undefined;
 }
 
-/** A fund type given by registry type ('fixed-basket'), library key ('token-basket'), or descriptor (`TokenBasket`). */
-export type FundTypeReference = string | { readonly registryType: string };
+/** A fund type given by key ('fixed-basket', the registry's instance `type`) or descriptor (`FixedBasket`). */
+export type FundTypeReference = string | { readonly key: string };
 
 interface InstancesPayload {
     readonly current: Readonly<Record<string, number | null>>;
@@ -38,11 +37,8 @@ const MetadataRegistryPath = '.well-known/bitcoin-cash-metadata-registry.json';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
-function toRegistryType(type: FundTypeReference): string {
-    if (typeof type !== 'string') {
-        return type.registryType;
-    }
-    return getFundType(type)?.registryType ?? type;
+function toFundTypeKey(type: FundTypeReference): string {
+    return typeof type === 'string' ? type : type.key;
 }
 
 /**
@@ -51,8 +47,8 @@ function toRegistryType(type: FundTypeReference): string {
  *
  * @example
  * const registry = new FundTokensRegistry({ network: 'chipnet' });
- * const instance = await registry.getCurrentInstance(TokenBasket);
- * const v = TokenBasket.resolve(instance);
+ * const instance = await registry.getCurrentInstance(FixedBasket);
+ * const v = FixedBasket.resolve(instance);
  * const system = v.parseSystemParameters(instance.parameters);
  */
 export class FundTokensRegistry {
@@ -119,7 +115,7 @@ export class FundTokensRegistry {
     /** All instances on this registry's network, optionally only those of one fund type. */
     async getInstances(filter: { type?: FundTypeReference | undefined } = {}): Promise<RegistryInstance[]> {
         const { instances } = await this.#loadInstances();
-        const type = filter.type === undefined ? undefined : toRegistryType(filter.type);
+        const type = filter.type === undefined ? undefined : toFundTypeKey(filter.type);
         return clone(instances.filter(instance => type === undefined || instance.type === type));
     }
 
@@ -139,12 +135,12 @@ export class FundTokensRegistry {
      * `REGISTRY_NOT_FOUND` when the registry has no current instance for it.
      */
     async getCurrentInstance(type: FundTypeReference): Promise<RegistryInstance> {
-        const registryType = toRegistryType(type);
+        const key = toFundTypeKey(type);
         const { current, instances } = await this.#loadInstances();
-        const id = current[registryType];
+        const id = current[key];
         const instance = id === null || id === undefined ? undefined : instances.find(candidate => candidate.id === id);
         if (!instance) {
-            throw new RegistryError('REGISTRY_NOT_FOUND', `The registry has no current '${registryType}' instance`, {
+            throw new RegistryError('REGISTRY_NOT_FOUND', `The registry has no current '${key}' instance`, {
                 url: this.#resolve('api/instances'),
             });
         }

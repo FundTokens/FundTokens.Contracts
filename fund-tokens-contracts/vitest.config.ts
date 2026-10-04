@@ -9,9 +9,9 @@ const root = path.dirname(fileURLToPath(import.meta.url));
  * as does naming one in a filter, e.g. `yarn test stress`.
  */
 const longRunning = [
-    'src/fund-types/token-basket/v1/tests/stress.test.ts',
-    'src/fund-types/token-basket/v1/tests/audit.vmDensity.test.ts',
-    'src/fund-types/token-basket/v1/tests/audit.chunkSize.test.ts',
+    'src/fund-types/fixed-basket/v1/tests/stress.test.ts',
+    'src/fund-types/fixed-basket/v1/tests/audit.vmDensity.test.ts',
+    'src/fund-types/fixed-basket/v1/tests/audit.chunkSize.test.ts',
 ];
 
 const filters = process.argv.slice(2).filter(arg => !arg.startsWith('-'));

@@ -1,9 +1,9 @@
 # Integration Guide & Examples
 
 Step-by-step examples for integrating FundTokens into an application with
-`@fundtokens/builders`. The examples use the token basket fund type (v1); other fund types
+`@fundtokens/builders`. The examples use the fixed basket fund type (v1); other fund types
 resolve the same way and differ in their builders. For the full API, see the
-[Library API](LIBRARY_API.md) and the [token basket v1 builders](fund-types/token-basket/v1/BUILDERS.md).
+[Library API](LIBRARY_API.md) and the [fixed basket v1 builders](fund-types/fixed-basket/v1/BUILDERS.md).
 
 ## Table of Contents
 
@@ -31,13 +31,13 @@ provider:
 
 ```ts
 import { ElectrumNetworkProvider, Network } from 'cashscript';
-import { FundTokensRegistry, FundTypeResolver, TokenBasket } from '@fundtokens/builders';
+import { FundTokensRegistry, FundTypeResolver, FixedBasket } from '@fundtokens/builders';
 
 const provider = new ElectrumNetworkProvider(Network.CHIPNET);
 const registry = new FundTokensRegistry({ network: 'chipnet' });
 const resolver = new FundTypeResolver({ provider });
 
-const tb = resolver.resolve(await registry.getCurrentInstance(TokenBasket));
+const tb = resolver.resolve(await registry.getCurrentInstance(FixedBasket));
 const { system } = tb; // parsed parameters; tb.contracts holds the system contracts
 ```
 
@@ -49,8 +49,8 @@ Once more fund types exist, check which one you resolved before using its builde
 
 ```ts
 const instance = resolver.resolve(registryInstance);
-if (instance.key === 'token-basket' && instance.version === 'v1') {
-    // instance is a TokenBasket.v1.TokenBasketInstance
+if (instance.key === 'fixed-basket' && instance.version === 'v1') {
+    // instance is a FixedBasket.v1.FixedBasketInstance
 }
 ```
 
@@ -220,7 +220,7 @@ Fee options can be inspected before choosing `payBy`:
 
 ```ts
 const { feeContract } = tb.getFundContracts(fund);
-const fees = await TokenBasket.v1.getAvailableFees({ feeContract, fee: tb.system.fees.execute });
+const fees = await FixedBasket.v1.getAvailableFees({ feeContract, fee: tb.system.fees.execute });
 // { '<category>': { category, amount } }; the all-zero BitcoinCategory key means BCH
 ```
 
@@ -245,7 +245,7 @@ describe('my fund', () => {
 A full mint or redeem on a `MockNetworkProvider` needs an initialised instance: its
 control tokens, threads and fee UTXOs. The library repository's test fixtures show how
 to create one: `bootstrapInstance` and `createFund` in
-[tests/support/bootstrap.ts](../fund-tokens-contracts/src/fund-types/token-basket/v1/tests/support/bootstrap.ts).
+[tests/support/bootstrap.ts](../fund-tokens-contracts/src/fund-types/fixed-basket/v1/tests/support/bootstrap.ts).
 They aren't part of the published package. Otherwise, test against chipnet.
 
 ## Best Practices
@@ -264,4 +264,4 @@ They aren't part of the published package. Otherwise, test against chipnet.
 
 - [Overview](OVERVIEW.md): concepts and lifecycle
 - [Library API](LIBRARY_API.md): registry, resolver, errors
-- [Token basket v1](fund-types/token-basket/v1/README.md): contracts, [system tokens](fund-types/token-basket/v1/TOKENS.md), [builders](fund-types/token-basket/v1/BUILDERS.md)
+- [Fixed basket v1](fund-types/fixed-basket/v1/README.md): contracts, [system tokens](fund-types/fixed-basket/v1/TOKENS.md), [builders](fund-types/fixed-basket/v1/BUILDERS.md)

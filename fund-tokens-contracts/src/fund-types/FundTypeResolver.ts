@@ -1,19 +1,19 @@
 import type { NetworkProvider } from 'cashscript';
 import { FundTokensError } from '../core/errors.js';
-import { fundTypes, type TokenBasket, type WeightedBchUsd } from './catalog.js';
+import { fundTypes, type FixedBasket, type BchUsdTargetBlend } from './catalog.js';
 import { resolveVersion } from './resolve.js';
 import type { FundTypeDescriptor, InstanceData, InstanceReference } from './types.js';
 
 type CreatedBy<Versions> = Versions extends { createInstance(options: never): infer R } ? R : never;
 
 /**
- * A resolved instance of any supported fund type version, e.g. `TokenBasket.v1.TokenBasketInstance`.
+ * A resolved instance of any supported fund type version, e.g. `FixedBasket.v1.FixedBasketInstance`.
  * Narrow on `key` (and `version`) when a caller needs a specific one. Planned
  * versions never return from `createInstance`, so they drop out of the union.
  */
 export type ResolvedInstance =
-    | CreatedBy<(typeof TokenBasket.versions)[keyof typeof TokenBasket.versions]>
-    | CreatedBy<(typeof WeightedBchUsd.versions)[keyof typeof WeightedBchUsd.versions]>;
+    | CreatedBy<(typeof FixedBasket.versions)[keyof typeof FixedBasket.versions]>
+    | CreatedBy<(typeof BchUsdTargetBlend.versions)[keyof typeof BchUsdTargetBlend.versions]>;
 
 /** A registry fund resolved against its instance: parsed, with contracts and a builder factory. */
 export type ResolvedFund = ReturnType<ResolvedInstance['forFund']> & { readonly instance: ResolvedInstance };
@@ -25,7 +25,7 @@ export interface FundData {
 }
 
 function fundTypeOf(instance: InstanceReference): FundTypeDescriptor {
-    const fundType = fundTypes.find(type => type.registryType === instance.type);
+    const fundType = fundTypes.find(type => type.key === instance.type);
     if (!fundType) {
         throw new FundTokensError('UNSUPPORTED_FUND_TYPE', `Fund type '${instance.type}' is not known to this library`);
     }
@@ -39,7 +39,7 @@ function fundTypeOf(instance: InstanceReference): FundTypeDescriptor {
  *
  * @example
  * const resolver = new FundTypeResolver({ provider });
- * const instance = resolver.resolve(await registry.getCurrentInstance(TokenBasket));
+ * const instance = resolver.resolve(await registry.getCurrentInstance(FixedBasket));
  * const builder = instance.createFundTokenBuilder(fund);
  *
  * const record = await registry.getFund(category);
