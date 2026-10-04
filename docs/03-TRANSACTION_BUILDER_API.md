@@ -263,12 +263,16 @@ UTXO that collects the redeemed tokens. It releases custody UTXOs, largest first
 cover `units × satoshis` BCH and `units × asset.amount` of each asset, and returns
 change to custody. BCH change is never left below dust. The caller adds inputs
 supplying `units × fund.amount` fund tokens and the fee's BCH, outputs receiving the
-released BCH and assets, and change.
+released BCH and assets, and change. With validation on (the default), it refuses a
+redemption that cannot fit in a 100,000-byte standard transaction even with the fewest
+inputs and outputs the caller must add (one input, one output per released asset), and
+names the most units that fit.
 
 **Errors**: `INVALID_TRANSACTION_STATE` (misaligned inputs/outputs), `INVALID_ARGUMENT`
 (bad `units`, amounts overflowing 2⁶³−1, BCH locked below dust with the minimum
 units named, or a fund of more than `MaxFundAssets` assets), `MISSING_UTXO` (no thread: the fund isn't created; no fee thread for
-`payBy`), `INSUFFICIENT_FUNDS` (supply or custody can't cover the request).
+`payBy`), `INSUFFICIENT_FUNDS` (supply or custody can't cover the request),
+`TRANSACTION_TOO_LARGE` (a redemption releasing too many custody UTXOs; redeem fewer units).
 
 ### Encoding
 
@@ -332,6 +336,7 @@ constructor arguments and `unlock.*()` calls are type-checked.
 | `INVALID_TRANSACTION_STATE` | Unequal inputs/outputs; missing genesis input; wrong output 0 | Add inputs/outputs in matching numbers; genesis input first |
 | `MISSING_UTXO` | Fund not created yet; no thread; no fee thread for `payBy` | Create the fund; wait for threads; pay in BCH |
 | `INSUFFICIENT_FUNDS` | Unminted supply or custody can't cover the units | Use fewer units |
+| `TRANSACTION_TOO_LARGE` | A redemption releases so many custody UTXOs it can't fit in a standard transaction | Redeem at most the units the message names, over several transactions |
 | `UNSUPPORTED_FUND_TYPE` | Registry instance version unknown to this library | Upgrade the library, or pick a version explicitly |
 | `NOT_IMPLEMENTED` | Planned fund type | |
 | `REGISTRY_REQUEST_FAILED`, `REGISTRY_NOT_FOUND`, `REGISTRY_INVALID_RESPONSE` | Registry unreachable/erroring; unknown record; unexpected payload | Check `getHealth()` and the registry URL |
@@ -353,7 +358,7 @@ constructor arguments and `unlock.*()` calls are type-checked.
 | FundStartup `start()` | 144 assets | Each asset costs about 60,000; the fund it is passed adds 32,000 of budget per asset |
 
 Pass `padding` (bytes) to `addBroadcast`, `addInflow` or `addOutflow`, or `startupPadding` to `addBroadcast`, to buy more: each byte adds 800 to that input's budget, for about 1 satoshi of fee at 1 sat/byte. For example, an 80-asset broadcast with `padding: 100` uses 569,220 of its 644,000 budget. A standard unlocking bytecode is at most 10,000 bytes, which the fund encoding, padding and the contract's own bytecode share in FundStartup and the TransactionManager.
-5. **Fund size**: the builders refuse funds of more than `MaxFundAssets` (100) assets, because every redemption releases every asset and must fit in a 100,000-byte standard transaction. At 100 assets, redeeming two custody UTXOs of every asset into one output per asset takes 600 bytes of `addOutflow` padding and about 96,600 bytes; paying each asset out in two outputs exceeds the limit. When custody is split across many UTXOs, redeem smaller amounts, which release fewer of them (largest first). The contracts set no limit: with `validate: false`, FundStartup creates funds of up to 189 assets (its padding and the fund encoding then fill its unlocking bytecode), but redeeming them exceeds the standard transaction size.
+5. **Fund size**: the builders refuse funds of more than `MaxFundAssets` (100) assets, because every redemption releases every asset and must fit in a 100,000-byte standard transaction. At 100 assets, redeeming two custody UTXOs of every asset into one output per asset takes 600 bytes of `addOutflow` padding and about 96,600 bytes; paying each asset out in two outputs exceeds the limit. When custody is split across many UTXOs, redeem smaller amounts, which release fewer of them (largest first): `addOutflow` refuses a redemption that cannot fit (`TRANSACTION_TOO_LARGE`) and names the most units that do. The contracts set no limit: with `validate: false`, FundStartup creates funds of up to 189 assets (its padding and the fund encoding then fill its unlocking bytecode), but redeeming them exceeds the standard transaction size.
 
 **Measured sizes** (from the test suite):
 

@@ -1,8 +1,8 @@
-import { TransactionBuilder, type NetworkProvider, type Output, type UnlockableUtxo, type SpendableUtxo } from 'cashscript';
-import { MaxTokenAmount } from '../../../core/constants.js';
+import { TransactionBuilder, isContractUnlocker, type NetworkProvider, type Output, type UnlockableUtxo, type SpendableUtxo } from 'cashscript';
+import { MaxStandardTransactionSize, MaxTokenAmount } from '../../../core/constants.js';
 import { FundTokensError } from '../../../core/errors.js';
 import { silentLogger, type Logger } from '../../../core/logger.js';
-import { dustThreshold, withDust } from '../../../core/outputs.js';
+import { dustThreshold, outputSize, withDust } from '../../../core/outputs.js';
 import { pickRandom, shuffle } from '../../../core/random.js';
 import { assertInRange, toBigInt, type BigIntish } from '../../../core/validation.js';
 import { deriveFundContracts, type AssetManagerContract, type FundContracts } from './contracts.js';
@@ -38,6 +38,28 @@ export interface FundFlowOptions {
      * cost budget by 800: needed only by funds too large to process within the default budget.
      */
     padding?: number | undefined;
+}
+
+interface Release {
+    readonly inputs: UnlockableUtxo[];
+    readonly changeOutputs: Output[];
+}
+
+/** A signed P2PKH input: outpoint, sequence, and a 65-byte Schnorr signature and 33-byte public key with their pushes. */
+const P2pkhInputSize = 32 + 4 + 1 + (1 + 65 + 1 + 33) + 4;
+/** Stands in for the redeemer's address when sizing their outputs. */
+const P2pkhLockingBytecode = new Uint8Array([0x76, 0xa9, 0x14, ...new Uint8Array(20), 0x88, 0xac]);
+/** Contract unlockers without signature parameters don't read the transaction they unlock. */
+const UnsignedContext = { transaction: { version: 2, inputs: [], outputs: [], locktime: 0 }, sourceOutputs: [], inputIndex: 0 };
+
+const varIntSize = (n: number): number => (n < 0xfd ? 1 : n <= 0xffff ? 3 : 5);
+
+function inputSize({ unlocker }: UnlockableUtxo): number {
+    if (!isContractUnlocker(unlocker)) {
+        return P2pkhInputSize;
+    }
+    const length = unlocker.generateUnlockingBytecode(UnsignedContext).length;
+    return 32 + 4 + varIntSize(length) + length + 4;
 }
 
 interface Selection<T> {
@@ -224,7 +246,55 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                 `The fund contract has no UTXO to collect redeemed tokens into; send a dust UTXO to ${fundContract.tokenAddress} and retry`);
         }
 
-        const releaseInputs: UnlockableUtxo[] = [];
+        const contractInputs: UnlockableUtxo[] = [
+            { ...outflowUtxo, unlocker: managerContract.unlock.outflow(getFundBin(this.fund), paddingBytes) },
+            { ...fee.utxo, unlocker: feeContract.unlock.pay() },
+            { ...fundUtxo, unlocker: fundContract.unlock.redeem() },
+        ];
+        const contractOutputs: Output[] = [
+            withDust({ to: managerContract.tokenAddress, token: outflowUtxo.token }),
+            ...fee.outputs,
+            withDust({
+                to: fundContract.tokenAddress,
+                token: { category: this.fund.category, amount: (fundUtxo.token?.amount ?? 0n) + redeemAmount },
+            }),
+        ];
+        const release = (redeemed: bigint) => this.#planRelease(redeemed, satoshiUtxos, assetUtxos);
+        const { inputs: releaseInputs, changeOutputs } = release(count);
+
+        if (this.#validate) {
+            const sizeOf = (redeemed: bigint, planned: Release) =>
+                this.#estimateSize(redeemed, [...contractInputs, ...planned.inputs], [...contractOutputs, ...planned.changeOutputs]);
+            const size = sizeOf(count, { inputs: releaseInputs, changeOutputs });
+            if (size > MaxStandardTransactionSize) {
+                // Fewer units release no more custody UTXOs (largest first), so the largest that fits is found by bisection.
+                const fits = (redeemed: bigint) => sizeOf(redeemed, release(redeemed)) <= MaxStandardTransactionSize;
+                let low = 0n;
+                let high = count - 1n;
+                while (low < high) {
+                    const middle = (low + high + 1n) / 2n;
+                    if (fits(middle)) {
+                        low = middle;
+                    } else {
+                        high = middle - 1n;
+                    }
+                }
+                throw new FundTokensError('TRANSACTION_TOO_LARGE',
+                    `Redeeming ${count} unit(s) releases ${releaseInputs.length} custody UTXOs, for a transaction of at least ${size} bytes, `
+                    + `over the ${MaxStandardTransactionSize}-byte standard size; `
+                    + (low > 0n ? `redeem at most ${low} unit(s) per transaction` : 'even one unit does not fit'));
+            }
+        }
+
+        this.addInputs([...contractInputs, ...releaseInputs]).addOutputs([...contractOutputs, ...changeOutputs]);
+
+        return this;
+    }
+
+    /** The custody UTXOs released (largest first) to cover `count` units, and the change returned to custody. */
+    #planRelease(count: bigint, satoshiUtxos: readonly SpendableUtxo[], assetUtxos: readonly (readonly SpendableUtxo[])[]): Release {
+        const { assetContracts, satoshiAssetContract } = this.contracts;
+        const inputs: UnlockableUtxo[] = [];
         const changeOutputs: Output[] = [];
 
         if (satoshiAssetContract) {
@@ -240,7 +310,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                 throw new FundTokensError('INSUFFICIENT_FUNDS',
                     `The fund's BCH custody cannot release ${needed} satoshis (with change of 0 or at least ${dust})`);
             }
-            releaseInputs.push(...selection.utxos.map(u => ({ ...u, unlocker: satoshiAssetContract.unlock.release() })));
+            inputs.push(...selection.utxos.map(u => ({ ...u, unlocker: satoshiAssetContract.unlock.release() })));
             if (selection.total > needed) {
                 changeOutputs.push({ to: satoshiAssetContract.tokenAddress, amount: selection.total - needed });
             }
@@ -258,7 +328,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             if (!selection) {
                 throw new FundTokensError('INSUFFICIENT_FUNDS', `The fund's custody cannot release ${needed} of asset ${asset.category}`);
             }
-            releaseInputs.push(...selection.utxos.map(u => ({ ...u, unlocker: contract.unlock.release() })));
+            inputs.push(...selection.utxos.map(u => ({ ...u, unlocker: contract.unlock.release() })));
             if (selection.total > needed) {
                 changeOutputs.push(withDust({
                     to: contract.tokenAddress,
@@ -267,22 +337,38 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             }
         });
 
-        this.addInputs([
-            { ...outflowUtxo, unlocker: managerContract.unlock.outflow(getFundBin(this.fund), paddingBytes) },
-            { ...fee.utxo, unlocker: feeContract.unlock.pay() },
-            { ...fundUtxo, unlocker: fundContract.unlock.redeem() },
-            ...releaseInputs,
-        ]).addOutputs([
-            withDust({ to: managerContract.tokenAddress, token: outflowUtxo.token }),
-            ...fee.outputs,
-            withDust({
-                to: fundContract.tokenAddress,
-                token: { category: this.fund.category, amount: (fundUtxo.token?.amount ?? 0n) + redeemAmount },
-            }),
-            ...changeOutputs,
-        ]);
+        return { inputs, changeOutputs };
+    }
 
-        return this;
+    /**
+     * The smallest the finished redemption can be: the contract inputs and outputs, plus what the
+     * caller has added or, if larger, the least they must add: an input with the fund tokens and an
+     * output for the released BCH and each released asset. The caller's other inputs and outputs
+     * (fees, change) only add to it.
+     */
+    #estimateSize(count: bigint, inputs: readonly UnlockableUtxo[], outputs: readonly Output[]): number {
+        const released: Output[] = this.fund.assets.map(asset => ({
+            to: P2pkhLockingBytecode,
+            amount: 0n,
+            token: { category: asset.category, amount: asset.amount * count },
+        }));
+        if (this.fund.satoshis > 0n) {
+            released.push({ to: P2pkhLockingBytecode, amount: this.fund.satoshis * count });
+        }
+        const least = { inputs: 1, bytes: P2pkhInputSize + released.reduce((sum, o) => sum + outputSize(o), 0), outputs: released.length };
+        const added = {
+            inputs: this.inputs.length,
+            bytes: this.inputs.reduce((sum, u) => sum + inputSize(u), 0) + this.outputs.reduce((sum, o) => sum + outputSize(o), 0),
+            outputs: this.outputs.length,
+        };
+        const caller = added.bytes >= least.bytes ? added : least;
+
+        const inputCount = inputs.length + caller.inputs;
+        const outputCount = outputs.length + caller.outputs;
+        return 4 + varIntSize(inputCount) + varIntSize(outputCount) + 4 // version, counts, locktime
+            + inputs.reduce((sum, u) => sum + inputSize(u), 0)
+            + outputs.reduce((sum, o) => sum + outputSize(o), 0)
+            + caller.bytes;
     }
 
     #units(units: BigIntish): bigint {

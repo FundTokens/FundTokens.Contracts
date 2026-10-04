@@ -9,6 +9,8 @@ export type FundTokensErrorCode =
     | 'INSUFFICIENT_FUNDS'
     /** The builder's existing inputs/outputs don't satisfy an operation's preconditions. */
     | 'INVALID_TRANSACTION_STATE'
+    /** The transaction would exceed the standard transaction size, so nodes would not relay it. */
+    | 'TRANSACTION_TOO_LARGE'
     /** No fund type or version matches, or the match is not usable yet. */
     | 'UNSUPPORTED_FUND_TYPE'
     /** The feature is declared but not built yet. */

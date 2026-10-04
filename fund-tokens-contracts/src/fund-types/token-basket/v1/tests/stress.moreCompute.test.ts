@@ -63,14 +63,16 @@ describe(`stress: the largest fund the builders accept (${MaxFundAssets} assets)
     };
 
     // Every asset moves through several UTXOs: each deposit pays each asset from `inputsPerAsset`
-    // UTXOs and leaves its own custody UTXO per asset, the redemption needs every custody UTXO of
-    // every asset, and pays each asset out in `outputsPerAsset` outputs. (Two outputs per asset take
-    // that redemption past the 100,000-byte standard transaction size at this many assets.)
+    // UTXOs and leaves its own custody UTXO per asset, and the redemption releases
+    // `releasedPerAsset` custody UTXOs of every asset into `outputsPerAsset` outputs per asset.
+    // At this many assets, releasing every deposit's custody (three per asset), or paying each asset
+    // out in two outputs, takes a redemption past the 100,000-byte standard transaction size.
     const inputsPerAsset = 2;
     const outputsPerAsset = 1;
-    const deposits = 2;
+    const deposits = 3;
     const unitsPerDeposit = 3n;
-    const redeemedUnits = unitsPerDeposit * BigInt(deposits - 1) + 1n; // more than all but one deposit's custody
+    const releasedPerAsset = 2;
+    const redeemedUnits = unitsPerDeposit * BigInt(releasedPerAsset - 1) + 1n; // more than one deposit's custody
 
     it('should initialize control tokens', async ({ expect }) => {
         const inflowGenesisUtxo = provider.addUtxo(ownerWallet.tokenAddress, randomUtxo({ ...genesisPartial, txid: system.inflow }));
@@ -205,7 +207,15 @@ describe(`stress: the largest fund the builders accept (${MaxFundAssets} assets)
         console.log('inflow tx size', transaction.build().length / 2);
     }, 300_000);
 
-    it(`should complete an outflow tx releasing ${deposits} custody UTXOs per asset into ${outputsPerAsset} outputs per asset`, async ({ expect }) => {
+    it(`should refuse to build a redemption releasing all ${deposits} custody UTXOs per asset, naming the units that fit`, async () => {
+        const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
+        await expect(transaction.addOutflow({ units: unitsPerDeposit * BigInt(deposits - 1) + 1n, padding: 600 })).rejects.toMatchObject({
+            code: 'TRANSACTION_TOO_LARGE',
+            message: expect.stringContaining(`redeem at most ${unitsPerDeposit * BigInt(releasedPerAsset)} unit(s)`),
+        });
+    });
+
+    it(`should complete an outflow tx releasing ${releasedPerAsset} custody UTXOs per asset into ${outputsPerAsset} outputs per asset`, async ({ expect }) => {
         const feeUtxo = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         const fundTokenUtxos = (await provider.getUtxos(holder.tokenAddress)).filter(u => u.token?.category === fund.category);
         const fundTokens = fundTokenUtxos.reduce((sum, u) => sum + u.token!.amount, 0n);
@@ -243,7 +253,7 @@ describe(`stress: the largest fund the builders accept (${MaxFundAssets} assets)
         const padding = 600;
         const transaction = await outflow(padding);
         const custody = new Set(transaction.getContracts().assetContracts.map(contract => contract.lockingBytecode));
-        expect(transaction.inputs.filter(u => custody.has(u.lockingBytecode))).toHaveLength(numberOfFundAssets * deposits);
+        expect(transaction.inputs.filter(u => custody.has(u.lockingBytecode))).toHaveLength(numberOfFundAssets * releasedPerAsset);
 
         await expect(transaction).toBeAccepted();
         console.log(`outflow() with ${padding} bytes of padding, ${transaction.inputs.length} inputs, ${transaction.outputs.length} outputs: tx size ${transaction.build().length / 2}`);
