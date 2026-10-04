@@ -137,27 +137,29 @@ The instance is two NFTs created in one transaction: a mutable proof token (`ins
 
 #### `burn()`
 
-Permanently retires an instance by verifying its data and burning both instance tokens. The parameters stay recoverable from transaction history.
+Permanently retires an instance by verifying its data and burning both instance tokens. The parameters stay recoverable from transaction history. Only a deprecated or vulnerable instance can be burned, so an instance is always publicly marked retired before it disappears.
 
 Validates:
+- The instance is deprecated (0x04) or vulnerable (0x08)
 - This input is the proof token and the next input is the data token from this vault
 - The concatenated data hashes to the encoded hash
 - No output carries an instance token (complete burn)
 - An authorization token with bit 0x0080 (burn instance tokens) is present, not held by this vault
 
-**Usage**: Signal that an instance is permanently closed
+**Usage**: Signal that a deprecated or vulnerable instance is permanently closed
 
 #### `update()`
 
-Changes the instance's lifecycle state, the system's public signal of whether to use the instance.
+Changes the instance's lifecycle state, the system's public signal of whether to use the instance. Vulnerable is terminal: once an instance is marked vulnerable its state never changes again, so the warning cannot be withdrawn.
 
 Validates:
+- The current state is not vulnerable (0x08)
 - An authorization token with bit 0x0040 (update instance state) is present, not held by this vault
 - The new state is a defined lifecycle state: 0x01 pre-release, 0x02 main, 0x04 deprecated or 0x08 vulnerable
 - Type, library version, hash and data are unchanged, and the data hashes to the encoded hash
 - Both tokens return to this vault with their fungible token amounts, the data token unchanged
 
-**Usage**: Mark an instance deprecated or vulnerable (or promote a pre-release)
+**Usage**: Mark an instance deprecated or vulnerable (or promote a pre-release, or return a deprecated instance to main)
 
 #### `proof()`
 

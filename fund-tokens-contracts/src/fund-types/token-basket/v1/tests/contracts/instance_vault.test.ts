@@ -347,19 +347,96 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
         expect(transaction).toFailRequire();
     });
 
-    it('Authorized user can burn data and tokens', async () => {
-        const transaction = new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true });
-        transaction
-            .addInput(instanceUtxos[0], systemUnderTest.unlock.burn())
-            .addInput(instanceUtxos[1], systemUnderTest.unlock.data())
-            .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH()) // contains auth and sats
-            .addOutputs([
-                {
-                    to: ownerWallet.address,
-                    amount: DustAmount,
-                }
-            ]);
-        expect(transaction).not.toFailRequire();
+    describe('lifecycle state', () => {
+        const PreRelease = 0x01;
+        const Main = 0x02;
+        const Deprecated = 0x04;
+        const Vulnerable = 0x08;
+
+        /** A fresh pair of instance UTXOs, the main NFT in `state`. */
+        const instanceIn = (state: number) => {
+            const txid = randomCategory();
+            const commitment = '00' + state.toString(16).padStart(2, '0') + instanceCommitment.slice(4);
+            return instanceUtxos.map((u, vout) => provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
+                txid, vout, satoshis: 3000n,
+                token: vout === 0 ? { ...u.token!, nft: { ...u.token!.nft!, commitment: commitment.slice(0, 256) } } : u.token!,
+            })));
+        };
+
+        /** An authorized update() of an instance in state `from` to state `to`. */
+        const update = (from: number, to: number) => {
+            const [main, data] = instanceIn(from);
+            const commitment = main!.token!.nft!.commitment;
+            return new TransactionBuilder({ provider })
+                .addInput(main!, systemUnderTest.unlock.update())
+                .addInput(data!, systemUnderTest.unlock.data())
+                .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    {
+                        to: systemUnderTest.tokenAddress,
+                        amount: DustAmount,
+                        token: { ...main!.token!, nft: { ...main!.token!.nft!, commitment: '00' + to.toString(16).padStart(2, '0') + commitment.slice(4) } },
+                    },
+                    { to: systemUnderTest.tokenAddress, amount: DustAmount, token: data!.token },
+                    { to: ownerWallet.address, amount: DustAmount, token: authUtxo.token },
+                ]);
+        };
+
+        /** An authorized burn() of an instance in `state`. */
+        const burn = (state: number) => {
+            const [main, data] = instanceIn(state);
+            return new TransactionBuilder({ provider, allowImplicitFungibleTokenBurn: true })
+                .addInput(main!, systemUnderTest.unlock.burn())
+                .addInput(data!, systemUnderTest.unlock.data())
+                .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+                .addOutput({ to: ownerWallet.address, amount: DustAmount });
+        };
+
+        it('lets a deprecated instance return to main (control)', () => {
+            expect(update(Deprecated, Main)).not.toFailRequire();
+        });
+
+        it.each([
+            ['pre-release', PreRelease],
+            ['main', Main],
+            ['deprecated', Deprecated],
+        ])('rejects taking a vulnerable instance back to %s', (_, to) => {
+            expect(update(Vulnerable, to)).toFailRequireWith('A vulnerable instance cannot change state');
+        });
+
+        it('rejects updating a vulnerable instance at all', () => {
+            expect(update(Vulnerable, Vulnerable)).toFailRequireWith('A vulnerable instance cannot change state');
+        });
+
+        it('still proves a vulnerable instance', () => {
+            const [main, data] = instanceIn(Vulnerable);
+            const userWallet = generateWallet();
+            const funding = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
+            const transaction = new TransactionBuilder({ provider })
+                .addInput(main!, systemUnderTest.unlock.proof())
+                .addInput(data!, systemUnderTest.unlock.data())
+                .addInput(funding, userWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    { to: systemUnderTest.tokenAddress, amount: DustAmount, token: main!.token },
+                    { to: systemUnderTest.tokenAddress, amount: DustAmount, token: data!.token },
+                    { to: userWallet.address, amount: DustAmount },
+                ]);
+            expect(transaction).not.toFailRequire();
+        });
+
+        it.each([
+            ['deprecated', Deprecated],
+            ['vulnerable', Vulnerable],
+        ])('lets an authorized user burn a %s instance', (_, state) => {
+            expect(burn(state)).not.toFailRequire();
+        });
+
+        it.each([
+            ['pre-release', PreRelease],
+            ['main', Main],
+        ])('rejects burning a %s instance', (_, state) => {
+            expect(burn(state)).toFailRequireWith('Only a deprecated or vulnerable instance can be burned');
+        });
     });
 
     describe('fungible tokens on the instance NFTs', () => {

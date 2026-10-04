@@ -40,8 +40,8 @@ Each bit in the permission flags represents a specific authorization capability.
 | 0x0008 | AuthHeadVault | Burn AuthHead Identity | Authorize burning authhead identities to signal permanent identity closure or rotation |
 | 0x0010 | FeeMinter | Fee Minting | Authorize FeeMinter to create new fee token NFTs with encoded fee parameters |
 | 0x0020 | FeeManager | Close Fee | Authorize closing/archiving fee management structures (FeeManager `close()`). A close cannot send outputs back to the fee contract, so consolidating fees takes a separate transaction to pay a new default fee UTXO |
-| 0x0040 | InstanceVault | Update Instance State | Authorize InstanceVault `update()` to change an instance's lifecycle state (pre-release, main, deprecated, vulnerable) |
-| 0x0080 | InstanceVault | Burn Instance Tokens | Authorize burning on-chain instance encoded data |
+| 0x0040 | InstanceVault | Update Instance State | Authorize InstanceVault `update()` to change an instance's lifecycle state (pre-release, main, deprecated, vulnerable); a vulnerable instance can never change state |
+| 0x0080 | InstanceVault | Burn Instance Tokens | Authorize burning on-chain instance encoded data of a deprecated or vulnerable instance |
 | 0x0100 | PublicFundVault | Delist Public Fund | Authorize delisting public funds, ending their data streams and preventing further proofs or UTXO discovery (i.e. tx lookup must be used) |
 | 0xFE00 | — | RESERVED (MULTI) | Reserved for future usage |
 

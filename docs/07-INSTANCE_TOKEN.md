@@ -51,6 +51,8 @@ The 235 byte structure is split across two CashTokens NFT w/ limit of 128bytes p
 
 The state can only be set to one of these values, through InstanceVault `update()` with authorization bit 0x0040 (update instance state). The type, library version, hash and data never change.
 
+Vulnerable is terminal: once an instance is marked vulnerable, `update()` refuses to change its state again, so the warning can never be withdrawn. An instance can only be burned (`burn()`, authorization bit 0x0080) once it is deprecated or vulnerable.
+
 ## See Also
 
 - [01-SYSTEM_ARCHITECTURE.md](01-SYSTEM_ARCHITECTURE.md) - System design overview

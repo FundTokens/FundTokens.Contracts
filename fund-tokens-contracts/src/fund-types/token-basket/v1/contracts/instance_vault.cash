@@ -24,8 +24,11 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      * - Instance parameters data can be recovered from transaction history even after burning
      * - Intended to signal for rare closure event only
      * - Requires authorization token with bit 0x0080 (instance deprecation permission)
+     * - A pre-release or main instance must be marked deprecated or vulnerable first, so the
+     *   instance is always seen retired before it disappears
      * 
      * Ensures:
+     * - The instance state is deprecated (0x04) or vulnerable (0x08)
      * - Both inputs must be processed sequentially
      * - Authorization token (bit 0x0080) must be present somewhere in the transaction
      * - No instance tokens allowed in any output (complete token burn)
@@ -33,8 +36,11 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
     function burn() {
         // ensure only spends for expected token
         require(tx.inputs[this.activeInputIndex].tokenCategory == (instance + 0x01));
+        // only a retired instance can be burned
+        bytes meta, bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(4);
+        bytes state = meta.slice(1, 2);
+        require(state == 0x04 || state == 0x08, 'Only a deprecated or vulnerable instance can be burned');
         // build data
-        bytes hashAndData = tx.inputs[this.activeInputIndex].nftCommitment.split(4)[1]; // skip validating meta
         bytes hash, bytes data = hashAndData.split(32);
         require(tx.inputs.length >= this.activeInputIndex + 2);
         int dataIndex = this.activeInputIndex + 1;
@@ -69,6 +75,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      * - The next input must be in matching criteria
      * - Commitment data has mutable limitations
      * - Authorization token with bit 0x0040 (update instance state) is present
+     * - The current state is not vulnerable: a vulnerable instance is terminal and can never change state
      * - The new state is a defined lifecycle state (pre-release, main, deprecated or vulnerable)
      */
     function update() {
@@ -84,7 +91,8 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         //
         // Start splitting the input token and validate against the mutable output
         bytes type, bytes stateAndRest = tx.inputs[this.activeInputIndex].nftCommitment.split(1);
-        bytes versionAndRest = stateAndRest.split(1)[1]; // No need to validate the input's type or state
+        bytes state, bytes versionAndRest = stateAndRest.split(1); // No need to validate the input's type
+        require(state != 0x08, 'A vulnerable instance cannot change state');
         bytes o_type, bytes o_stateAndRest = tx.outputs[this.activeInputIndex].nftCommitment.split(1);
         require(o_type == type); // type cannot change
         bytes o_state, bytes o_versionAndRest = o_stateAndRest.split(1);
