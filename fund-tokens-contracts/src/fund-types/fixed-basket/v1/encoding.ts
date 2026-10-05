@@ -73,6 +73,9 @@ export function getPadding(bytes: number): Uint8Array {
     return new Uint8Array(bytes);
 }
 
+/** The commitment of a fund's inflow and outflow threads: type byte, fund category (byte-reversed), fund hash. */
+export const getThreadCommitment = (fund: Fund): string => CommitmentType + swapEndianness(fund.category) + hashFund(fund);
+
 /** The full public fund commitment: type byte, fund hash, then the fund encoding. */
 export function getFundCommitment(fund: Fund): string {
     const fundHex = getFundHex(fund);

@@ -1,7 +1,8 @@
 /** Hand-built fund creations, for tests that need to place or replace the fee inputs and outputs. */
 import { swapEndianness } from '@bitauth/libauth';
-import { randomUtxo, type Output, type Unlocker, type SpendableUtxo } from 'cashscript';
+import { type Output, type Unlocker, type SpendableUtxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 import { MaxTokenAmount } from '../../../../../core/constants.js';
 import { withDust } from '../../../../../core/outputs.js';
 import { deriveFundContracts } from '../../contracts.js';

@@ -11,9 +11,9 @@
  *
  * The contracts must reject the drain.
  */
-import { randomUtxo, type SpendableUtxo } from 'cashscript';
+import { type SpendableUtxo } from 'cashscript';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
 import { withDust } from '../../../../core/outputs.js';

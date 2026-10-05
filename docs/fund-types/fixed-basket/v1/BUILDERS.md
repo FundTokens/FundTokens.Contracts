@@ -65,6 +65,11 @@ Validation rules (the contracts' rules, plus checks for unusable funds):
 - at most `MaxFundAssets` assets
 - no duplicate assets, no asset with the BCH (all-zero) category, no asset that is the fund's own token
 
+`validateFund` does not verify asset categories beyond these rules. It does not look them up
+on-chain or compare them with the instance's system categories, so an asset that doesn't
+exist, has no fungible supply, or is a system token (inflow, outflow, public fund, fee NFTs)
+passes, and makes a fund nobody can mint. Check assets yourself before creating a fund.
+
 ## PublicFundTransactionBuilder
 
 Creates funds. Extends CashScript's `TransactionBuilder`.
@@ -123,7 +128,9 @@ new FundTokenTransactionBuilder({
 | `addOutflow({ units, payBy?, padding? })` | Adds the contract side of redeeming `units` units |
 
 Both need equal input and output counts when called. `padding` (bytes, default 0) buys the
-TransactionManager more compute.
+TransactionManager more compute. The thread is picked at random among the TransactionManager's
+immutable NFTs of the `inflow` / `outflow` category carrying the fund's thread commitment
+(`getThreadCommitment`); anything else at that address is ignored.
 
 **`addInflow`** adds the fund's inflow thread, an execute fee UTXO and enough FundManager
 supply to cover `units × fund.amount` (picked randomly to spread concurrent users), plus
@@ -151,6 +158,7 @@ named, too many assets), `MISSING_UTXO` (no thread: the fund isn't created; no f
 | `getFundHex(fund)` / `getFundBin(fund)` | The fund encoding the contracts read (47 bytes + 40 per asset). Assets are sorted first |
 | `hashFund(fund)` | hash256 of the encoding, hex |
 | `getFundCommitment(fund)` | `02 · hash · encoding`, the published definition |
+| `getThreadCommitment(fund)` | `02 · category · hash`, the commitment of the fund's inflow and outflow threads |
 | `decodeFund(hex)` / `decodeFundCommitment(hex)` | Inverses; the latter verifies the hash. Throw `INVALID_ENCODING` |
 | `categoryAscending`, `sortAssets` | The contracts' asset order |
 | `getPadding(bytes)`, `MaxPaddingBytes` | Padding argument bytes (0 to 10,000) |
@@ -164,10 +172,12 @@ Encoding does not validate: validate first (the builders do). Layouts:
 | --- | --- |
 | `encodeFee({ category?, amount, destination? })` | Enforced fee NFT commitment; `category` defaults to BCH |
 | `decodeFee({ hex, network? \| prefix? })` | Inverse; `network` picks the destination address prefix |
-| `getBestFee({ feeContract, feeVaultContract, fee, payBy? })` | The cheapest fee UTXO payable in `payBy` (default BCH), ties broken randomly, with its two outputs |
+| `getBestFee({ feeContract, feeVaultContract, fee, payBy? })` | The cheapest fee UTXO payable in `payBy` (default BCH), ties broken randomly, with its two outputs. Skips BCH fees paying less than the dust minimum (the contract requires the exact amount, and relays refuse the output); `MISSING_UTXO` if none is left |
 | `getAvailableFees({ feeContract, fee })` | Cheapest amount per payment category |
 
-Default fee UTXOs (no NFT) cost `fee.value` in BCH. Voluntary and malformed fee NFTs are skipped.
+Default fee UTXOs (no NFT) cost `fee.value` in BCH. Voluntary and malformed fee NFTs are
+skipped, and so, by `getBestFee`, are BCH fees below the dust minimum (a `fee.value` of 0, or
+an enforced BCH fee under it).
 
 ## BCMR templates
 

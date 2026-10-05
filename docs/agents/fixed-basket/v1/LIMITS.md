@@ -42,10 +42,18 @@ redeem script share the 10,000-byte unlocking bytecode limit.
 
 ## Fund size cap
 
-The library refuses funds of more than `MaxFundAssets` = 100 assets (`validateFund`,
-`INVALID_ARGUMENT`). Every redemption releases every asset and must fit in 100,000 bytes.
-The contracts set no cap: with `validate: false`, funds of up to 189 assets can be created,
-but they cannot be redeemed in a standard transaction.
+**The protocol has no limit on a fund's asset count.** The contracts accept any fund that
+fits in FundStartup's unlocking bytecode: up to 189 assets, created by anyone (with the
+library's `validate: false`, or without the library). Every redemption releases every asset,
+so a fund of more than 100 assets accepts deposits it cannot redeem in a standard
+(100,000-byte) transaction. Its holders can only redeem through a miner willing to include a
+non-standard transaction.
+
+Clients are expected to act reasonably and not create or deposit into such funds. The
+library does this: it refuses funds of more than `MaxFundAssets` = 100 assets (`validateFund`,
+`INVALID_ARGUMENT`) when creating, minting and redeeming. Wallets, registries and other
+clients should apply the same cap, or one measured for their own transactions, before
+listing a fund or offering deposits.
 
 At 100 assets:
 

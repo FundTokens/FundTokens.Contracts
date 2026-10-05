@@ -9,9 +9,8 @@
  * The contracts must reject this transaction.
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { randomUtxo } from 'cashscript';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
 import { FundTokenTransactionBuilder, hashFund, normalizeFund, type Fund } from '../index.js';

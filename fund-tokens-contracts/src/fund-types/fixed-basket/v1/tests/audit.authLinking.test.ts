@@ -13,9 +13,9 @@
  * The contracts must reject this transaction.
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { Contract, MockNetworkProvider, TransactionBuilder, randomUtxo, type SpendableUtxo } from 'cashscript';
+import { Contract, MockNetworkProvider, TransactionBuilder, type SpendableUtxo } from 'cashscript';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
 import simpleVaultArtifact from '../artifacts/simple_vault.js';

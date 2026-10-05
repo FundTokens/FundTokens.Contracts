@@ -5,10 +5,10 @@
  *
  * The contracts must reject this transaction.
  */
-import { randomToken, randomUtxo } from 'cashscript';
+import { randomToken } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 import { withDust } from '../../../../core/outputs.js';
 import { FundTokenTransactionBuilder, getFundBin, normalizeFund, type Fund } from '../index.js';

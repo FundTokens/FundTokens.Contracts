@@ -23,14 +23,18 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
      * 
      * Ensures:
      * - Transaction includes authToken with bit 0x0020 (fee close permission)
-     * - All fee NFT tokens must be implicitly burned
+     * - All fee NFT tokens must be implicitly burned: no output carries the fee category,
+     *   whatever its capability
      */
     function close() {
         //
         // Verify all fee tokens are implicitly burned
         int outputIndex = 0;
         do {
-            require(tx.outputs[outputIndex].tokenCategory != feeToken);
+            bytes outputCategory = tx.outputs[outputIndex].tokenCategory;
+            if(outputCategory != 0x) {
+                require(outputCategory.slice(0, 32) != feeToken); // mutable and minting NFTs append a capability byte
+            }
             // Nothing returns to this contract, so a FeeManager input that does return ran pay()
             require(tx.outputs[outputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode);
             outputIndex = outputIndex + 1;

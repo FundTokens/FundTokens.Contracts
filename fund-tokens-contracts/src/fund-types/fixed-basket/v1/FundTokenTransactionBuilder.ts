@@ -6,7 +6,7 @@ import { dustThreshold, outputSize, withDust } from '../../../core/outputs.js';
 import { pickRandom, shuffle } from '../../../core/random.js';
 import { assertInRange, toBigInt, type BigIntish } from '../../../core/validation.js';
 import { deriveFundContracts, type AssetManagerContract, type FundContracts } from './contracts.js';
-import { getFundBin, getPadding } from './encoding.js';
+import { getFundBin, getPadding, getThreadCommitment } from './encoding.js';
 import { getBestFee } from './fees.js';
 import { normalizeFund, validateFund } from './fund.js';
 import { parseSystemParameters } from './parameters.js';
@@ -151,7 +151,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             getBestFee({ feeContract, feeVaultContract, fee: this.system.fees.execute, payBy }),
         ]);
 
-        const inflowUtxo = pickRandom(managerUtxos.filter(u => u.token?.category === this.system.inflow));
+        const inflowUtxo = pickRandom(managerUtxos.filter(u => this.#isThread(u, this.system.inflow)));
         if (!inflowUtxo) {
             throw new FundTokensError('MISSING_UTXO',
                 `No inflow thread found for fund ${this.fund.category} at ${managerContract.tokenAddress}; has the fund been created?`);
@@ -233,7 +233,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             Promise.all(assetContracts.map(contract => contract.getUtxos())),
         ]);
 
-        const outflowUtxo = pickRandom(managerUtxos.filter(u => u.token?.category === this.system.outflow));
+        const outflowUtxo = pickRandom(managerUtxos.filter(u => this.#isThread(u, this.system.outflow)));
         if (!outflowUtxo) {
             throw new FundTokensError('MISSING_UTXO',
                 `No outflow thread found for fund ${this.fund.category} at ${managerContract.tokenAddress}; has the fund been created?`);
@@ -289,6 +289,15 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         this.addInputs([...contractInputs, ...releaseInputs]).addOutputs([...contractOutputs, ...changeOutputs]);
 
         return this;
+    }
+
+    /**
+     * Whether `utxo` is a usable thread of `category` for this fund: an immutable NFT carrying the
+     * fund's thread commitment. Anything else at the manager's address fails the contract.
+     */
+    #isThread(utxo: SpendableUtxo, category: string): boolean {
+        const nft = utxo.token?.nft;
+        return utxo.token?.category === category && nft?.capability === 'none' && nft.commitment === getThreadCommitment(this.fund);
     }
 
     /** The custody UTXOs released (largest first) to cover `count` units, and the change returned to custody. */

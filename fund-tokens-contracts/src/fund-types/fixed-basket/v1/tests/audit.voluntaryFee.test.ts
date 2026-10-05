@@ -7,9 +7,10 @@
  *
  * The contracts must reject this transaction.
  */
-import { randomUtxo, type SpendableUtxo } from 'cashscript';
+import { type SpendableUtxo } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { withDust } from '../../../../core/outputs.js';
 import { buildManualBroadcast } from './support/broadcast.js';

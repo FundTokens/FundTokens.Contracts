@@ -26,7 +26,12 @@ category to any output. So every NFT a contract returns to itself keeps its fung
 amount, and every NFT a contract mints must carry amount 0.
 
 **Return checks never cover satoshi value**. A returned contract UTXO may come back with a
-different value (standardness still requires dust).
+different value (standardness still requires dust). This is by design: the satoshis on
+threads, minting NFTs, fee UTXOs, the FundManager supply and other returned UTXOs are
+operational dust, not custody, and whoever spends one may recreate it at the dust minimum
+(the builders always do) and keep any excess. BCH backing is custody, and is accounted
+exactly by the TransactionManager (BCH custody outputs and change). Don't fund contract
+UTXOs above dust.
 
 **Function ordering in the artifact**. CashScript selects functions by index in declaration
 order. The unlocker names below are the function names.
@@ -147,7 +152,8 @@ category and outpoint transaction hash.
 
 - `in[a].tokenCategory == publicFund`
 - `hasAuthority(authorization, 0x0100)`
-- no output has category exactly `publicFund`
+- no output carries the `publicFund` category, whatever its capability (the first 32 bytes
+  of each token-bearing output's category are compared)
 - the consecutive `publicFund` inputs from `a` concatenate to a valid fund commitment
 
 ---
@@ -344,7 +350,8 @@ could otherwise mint a minting NFT of the new fund's category onto it
 
 `close()`:
 
-- no output has category exactly `feeToken`
+- no output carries the `feeToken` category, whatever its capability (the first 32 bytes of
+  each token-bearing output's category are compared)
 - no output is locked by this contract, so a FeeManager input whose output returns to it
   must have run `pay()` (FundStartup and the TransactionManager rely on this)
 - `hasAuthority(authToken, 0x0020)`
@@ -360,9 +367,21 @@ Facts about v1 that are easy to miss when changing builders or reviewing:
   valid fund encoding. Fund creation is the same transaction plus PublicFund. The library has
   no builder for adding threads alone.
 - **Startup trusts asset categories**. It does not reject an all-zero (BCH) asset category or
-  the fund's own category; `validateFund` does.
-- **Outflow loops assume the layout**. `outflow()` reads `in[i]` / `out[i]` while matching,
-  so a malformed layout fails the script rather than being skipped.
+  the fund's own category; `validateFund` does. Neither checks that an asset exists, has
+  fungible supply, or isn't a system category.
+- **No asset cap**. The protocol accepts funds of any asset count that fits in FundStartup's
+  unlocking bytecode (189). Funds over 100 assets can't be redeemed in a standard
+  transaction; clients are expected not to create or deposit into them
+  ([LIMITS.md](LIMITS.md#fund-size-cap)).
+- **Outflow loops assume the layout**. Two of `outflow()`'s loops read the next output with
+  no bounds check: the FundManager output run and the BCH change run continue while
+  `out[i]` matches, so if either run reaches the last output, the next read is past the end
+  and the script fails. A redemption is therefore rejected (never mis-accounted) unless
+  some output follows the FundManager outputs and the BCH change. In practice one always
+  does: the redeemer's outputs come after custody change (the builders add them there).
+  The FundManager input loop has the same shape, but custody inputs always follow it; the
+  custody input loops and the asset change loop are bounded. `inflow()`'s loops are all
+  bounded.
 - **No revocation**. An authorization NFT is valid until burned; there is no revocation list.
 - **Custody accepts what is sent**. Anything sent to an AssetManager's address (e.g. an
   immutable NFT of the asset category) is held; only `release()` paths spend it.

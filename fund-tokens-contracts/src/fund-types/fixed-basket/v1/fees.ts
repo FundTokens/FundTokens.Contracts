@@ -11,7 +11,7 @@ import type { Output, SpendableUtxo } from 'cashscript';
 import { BitcoinCategory, MaxTokenAmount } from '../../../core/constants.js';
 import { FundTokensError } from '../../../core/errors.js';
 import { getAddressPrefix } from '../../../core/network.js';
-import { lockingBytecodeHexOf, withDust } from '../../../core/outputs.js';
+import { dustThreshold, lockingBytecodeHexOf, withDust } from '../../../core/outputs.js';
 import { pickRandom } from '../../../core/random.js';
 import { assertCategory, assertInRange, isHex, toBigInt, type BigIntish } from '../../../core/validation.js';
 import type { FeeManagerContract, SimpleVaultContract } from './contracts.js';
@@ -136,13 +136,21 @@ export async function getBestFee({ feeContract, feeVaultContract, fee, payBy }: 
         .map(utxo => toFeeOption(utxo, fee, feeContract.provider.network, feeVaultContract.tokenAddress))
         .filter((option): option is FeeOption => option !== undefined && option.category === payByCategory);
 
+    const currency = payByCategory === BitcoinCategory ? 'BCH' : `token ${payByCategory}`;
     if (!options.length) {
-        const currency = payByCategory === BitcoinCategory ? 'BCH' : `token ${payByCategory}`;
         throw new FundTokensError('MISSING_UTXO', `No fee thread accepts payment in ${currency} at ${feeContract.tokenAddress}`);
     }
 
-    const lowest = options.reduce((min, option) => (option.amount < min ? option.amount : min), options[0]!.amount);
-    const best = pickRandom(options.filter(option => option.amount === lowest))!;
+    // The fee contract requires the exact amount, so a BCH payment below dust can't be topped up:
+    // the transaction would be valid, but relays would refuse it.
+    const payable = options.filter(option => !option.isBitcoin || option.amount >= dustThreshold({ to: option.destination }));
+    if (!payable.length) {
+        throw new FundTokensError('MISSING_UTXO',
+            `Every fee thread accepting ${currency} at ${feeContract.tokenAddress} pays less than the dust minimum, which relays refuse`);
+    }
+
+    const lowest = payable.reduce((min, option) => (option.amount < min ? option.amount : min), payable[0]!.amount);
+    const best = pickRandom(payable.filter(option => option.amount === lowest))!;
 
     const returned = withDust({ to: feeContract.tokenAddress, token: best.utxo.token });
     const payment: Output = best.isBitcoin

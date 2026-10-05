@@ -1,14 +1,14 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { randomUtxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
 import { dustThreshold } from '../../../../core/outputs.js';
 import {
     FundTokenTransactionBuilder,
     PublicFundTransactionBuilder,
+    getThreadCommitment,
     type FundInput,
 } from '../index.js';
 import { bootstrapInstance, createFund, randomSystem, type TestInstance } from './support/bootstrap.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 const asset = (amount: bigint) => ({ category: randomCategory(), amount });
 
@@ -101,6 +101,49 @@ describe('FundTokenTransactionBuilder', () => {
             const managerOutput = b.outputs[0]!;
             expect(managerOutput.token?.nft?.commitment).toHaveLength(2 + 64 * 2);
             expect(managerOutput.amount).toBe(dustThreshold({ to: String(managerOutput.to), token: managerOutput.token }));
+        });
+    });
+
+    describe('thread selection', () => {
+        it('picks only immutable threads carrying the fund\'s commitment', async () => {
+            const own = await createFund(instance, { amount: 10n, satoshis: 1000n, assets: [asset(2n)] });
+            const b = builder({ fund: own });
+            const { managerContract } = b.contracts;
+            const commitment = getThreadCommitment(b.fund);
+            const decoys = [instance.system.inflow, instance.system.outflow].flatMap(category => [
+                { category, amount: 0n, nft: { capability: 'none' as const, commitment: getThreadCommitment({ ...b.fund, amount: 11n }) } },
+                { category, amount: 0n, nft: { capability: 'mutable' as const, commitment } },
+            ]);
+            for (const token of decoys) {
+                instance.provider.addUtxo(managerContract.tokenAddress, randomUtxo({ token }));
+            }
+
+            // A deposit, so there is custody to redeem against.
+            const user = generateWallet();
+            const deposit = await builder({ fund: own }).addInflow({ units: 1n });
+            await deposit
+                .addInputs([
+                    instance.provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n })),
+                    instance.provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: b.fund.assets[0]!.category, amount: 2n } })),
+                ], user.signatureTemplate.unlockP2PKH())
+                .addOutput({ to: user.tokenAddress, amount: 1000n, token: { category: b.fund.category, amount: 10n } })
+                .send();
+
+            for (let i = 0; i < 10; i++) {
+                const inflow = await builder({ fund: own }).addInflow({ units: 1n });
+                expect(inflow.inputs[0]!.token).toEqual({ category: instance.system.inflow, amount: 0n, nft: { capability: 'none', commitment } });
+                const outflow = await builder({ fund: own }).addOutflow({ units: 1n });
+                expect(outflow.inputs[0]!.token).toEqual({ category: instance.system.outflow, amount: 0n, nft: { capability: 'none', commitment } });
+            }
+        });
+
+        it('reports a fund whose manager holds no usable thread', async () => {
+            // Never created: its manager's address holds only a thread carrying another fund's commitment.
+            const b = builder({ fund: { ...fund, category: randomCategory() } });
+            instance.provider.addUtxo(b.contracts.managerContract.tokenAddress, randomUtxo({
+                token: { category: instance.system.inflow, amount: 0n, nft: { capability: 'none', commitment: getThreadCommitment(builder().fund) } },
+            }));
+            await expect(b.addInflow({ units: 1n })).rejects.toMatchObject({ code: 'MISSING_UTXO' });
         });
     });
 

@@ -2,10 +2,10 @@ import {
     MockNetworkProvider,
     Network,
     randomToken,
-    randomUtxo,
 } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { SystemFixture } from './support/system.js';
 import {

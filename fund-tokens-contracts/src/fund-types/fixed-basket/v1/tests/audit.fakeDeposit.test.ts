@@ -9,9 +9,9 @@
  * T-1 (correction): with the manager at input 0, the fund input cannot sit at index 1 (the fee
  * slot), so there is no shape in which FundManager.mint() is bypassed.
  */
-import { randomUtxo } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { withDust } from '../../../../core/outputs.js';
 import { FundTokenTransactionBuilder, getFundBin, normalizeFund, type Fund } from '../index.js';

@@ -12,9 +12,9 @@
  * is in audit.chunkSize.)
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { TransactionBuilder, randomUtxo, type SpendableUtxo } from 'cashscript';
+import { TransactionBuilder, type SpendableUtxo } from 'cashscript';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
 
 import { FundTokenTransactionBuilder, hashFund, normalizeFund, type Fund } from '../index.js';

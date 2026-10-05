@@ -3,7 +3,6 @@ import {
     MockNetworkProvider,
     Network,
     randomToken,
-    randomUtxo,
     TransactionBuilder,
     Contract,
 } from 'cashscript';
@@ -15,6 +14,7 @@ import {
     binToHex,
 } from '@bitauth/libauth';
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 import systemUnderTestJson from '../../artifacts/simple_minter.js';
 
 const DustAmount = 1000n;

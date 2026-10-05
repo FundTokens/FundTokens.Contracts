@@ -15,9 +15,9 @@
  * The contracts must reject each of these transactions.
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { TransactionBuilder, randomUtxo } from 'cashscript';
+import { TransactionBuilder } from 'cashscript';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
 import { withDust } from '../../../../core/outputs.js';
