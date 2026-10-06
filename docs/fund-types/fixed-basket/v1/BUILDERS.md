@@ -105,7 +105,7 @@ every check and lookup succeeds. Exact layout:
 [TRANSACTIONS.md](../../../agents/fixed-basket/v1/TRANSACTIONS.md#fund-creation).
 
 `padding` and `startupPadding` (bytes, default 0) buy PublicFund and FundStartup more compute
-for funds of more than 78 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
+for funds of more than 81 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
 
 ## FundTokenTransactionBuilder
 

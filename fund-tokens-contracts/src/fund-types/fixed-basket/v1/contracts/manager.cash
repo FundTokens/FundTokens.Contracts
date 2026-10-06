@@ -55,28 +55,18 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
 
         int fundInputAmount = 0;
         int fundInputIndex = this.activeInputIndex + 2;
-        bool break = false;
-        while(tx.inputs.length > fundInputIndex && !break) {
-            if(tx.inputs[fundInputIndex].lockingBytecode == fundManager) {
-                require(tx.inputs[fundInputIndex].tokenCategory == 0x || tx.inputs[fundInputIndex].tokenCategory == fundCategory);
-                fundInputAmount = fundInputAmount + tx.inputs[fundInputIndex].tokenAmount;
-                fundInputIndex = fundInputIndex + 1;
-            } else {
-                break = true;
-            }
+        while(tx.inputs.length > fundInputIndex && tx.inputs[fundInputIndex % tx.inputs.length].lockingBytecode == fundManager) {
+            require(tx.inputs[fundInputIndex].tokenCategory == 0x || tx.inputs[fundInputIndex].tokenCategory == fundCategory);
+            fundInputAmount = fundInputAmount + tx.inputs[fundInputIndex].tokenAmount;
+            fundInputIndex = fundInputIndex + 1;
         }
 
         int fundOutputAmount = 0;
         int fundOutputIndex = this.activeInputIndex + 3;
-        break = false;
-        while(tx.outputs.length > fundOutputIndex && !break) {
-            if(tx.outputs[fundOutputIndex].lockingBytecode == fundManager) {
-                require(tx.outputs[fundOutputIndex].tokenCategory == 0x || tx.outputs[fundOutputIndex].tokenCategory == fundCategory);
-                fundOutputAmount = fundOutputAmount + tx.outputs[fundOutputIndex].tokenAmount;
-                fundOutputIndex = fundOutputIndex + 1;
-            } else {
-                break = true;
-            }
+        while(tx.outputs.length > fundOutputIndex && tx.outputs[fundOutputIndex % tx.outputs.length].lockingBytecode == fundManager) {
+            require(tx.outputs[fundOutputIndex].tokenCategory == 0x || tx.outputs[fundOutputIndex].tokenCategory == fundCategory);
+            fundOutputAmount = fundOutputAmount + tx.outputs[fundOutputIndex].tokenAmount;
+            fundOutputIndex = fundOutputIndex + 1;
         }
 
         //
@@ -239,18 +229,13 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
             linkedAssetPush = 0x23 + satoshiLockingBytecode;
             int satoshiReleaseAmount = 0;
-            bool hasNext = true;
 
             require(tx.inputs[assetInputIndex].lockingBytecode == satoshiLockingBytecode);
             do {
                 require(tx.inputs[assetInputIndex].tokenCategory == 0x);
                 satoshiReleaseAmount = satoshiReleaseAmount + tx.inputs[assetInputIndex].value;
                 assetInputIndex = assetInputIndex + 1;
-                hasNext = assetInputIndex < tx.inputs.length;
-                if(hasNext) {
-                    hasNext = tx.inputs[assetInputIndex].lockingBytecode == satoshiLockingBytecode;
-                }
-            } while(hasNext);
+            } while(assetInputIndex < tx.inputs.length && tx.inputs[assetInputIndex % tx.inputs.length].lockingBytecode == satoshiLockingBytecode);
 
             // BCH change, bounded as above; change carrying a token could never be released, so it is refused
             while(tx.outputs.length > assetOutputIndex && tx.outputs[assetOutputIndex % tx.outputs.length].lockingBytecode == satoshiLockingBytecode) {
@@ -272,18 +257,13 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
             bytes assetLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x20 + nft_assetCategory + assetTail));
             linkedAssetPush = 0x23 + assetLockingBytecode;
             int assetReleaseAmount = 0;
-            bool hasNext = true;
 
             require(tx.inputs[assetInputIndex].lockingBytecode == assetLockingBytecode);
             do {
                 require(tx.inputs[assetInputIndex].tokenCategory == nft_assetCategory);
                 assetReleaseAmount = assetReleaseAmount + tx.inputs[assetInputIndex].tokenAmount;
                 assetInputIndex = assetInputIndex + 1;
-                hasNext = assetInputIndex < tx.inputs.length;
-                if (hasNext) {
-                    hasNext = tx.inputs[assetInputIndex].lockingBytecode == assetLockingBytecode;
-                }
-            } while (hasNext);
+            } while (assetInputIndex < tx.inputs.length && tx.inputs[assetInputIndex % tx.inputs.length].lockingBytecode == assetLockingBytecode);
 
             // Asset change, bounded like the BCH change; change in another category could never be released, so it is refused
             while(tx.outputs.length > assetOutputIndex && tx.outputs[assetOutputIndex % tx.outputs.length].lockingBytecode == assetLockingBytecode) {

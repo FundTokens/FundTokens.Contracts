@@ -378,12 +378,12 @@ Facts about v1 that are easy to miss when changing builders or reviewing:
   unlocking bytecode (189). Funds over 100 assets can't be redeemed in a standard
   transaction; clients are expected not to create or deposit into them
   ([LIMITS.md](LIMITS.md#fund-size-cap)).
-- **Bounded output loops**. Every loop over outputs stops at the last output, so a run may
-  end the transaction. CashScript evaluates both sides of `&&`, so `outflow()`'s FundManager
-  output, BCH change and asset change loops read `out[i % length]` (always in range) beside
-  the `i < length` check, rather than branching per output. The FundManager *input* loop is not
-  bounded: custody inputs must follow it, so if it reaches the last input the redemption
-  fails either way (`tests/audit.outflowBounds.test.ts`, AUD-015).
+- **Bounded loops**. The TransactionManager's loops over runs of inputs or outputs stop at the
+  last one, so a run may end the transaction. CashScript evaluates both sides of `&&`, so they
+  read `in[i % length]` / `out[i % length]` (always in range) beside the `i < length` check,
+  rather than branching or keeping a flag per element. The exception is `outflow()`'s
+  FundManager *input* loop: custody inputs must follow it, so if it reaches the last input the
+  redemption fails either way (`tests/audit.outflowBounds.test.ts`, AUD-015).
 - **No revocation**. An authorization NFT is valid until burned; there is no revocation list.
 - **Custody accepts what is sent**. Anything sent to an AssetManager's address (e.g. an
   immutable NFT of the asset category) is held; only `release()` paths spend it.

@@ -83,7 +83,7 @@ published NFTs and returning them unchanged.
 - Funds of up to **100 assets** (plus BCH) are accepted by the library: the most whose
   redemption fits in a standard transaction. The protocol itself sets no limit, so larger
   funds can exist; clients are expected not to create or deposit into them.
-- Large funds need extra compute, bought with padding: fund creation beyond 78 assets.
+- Large funds need extra compute, bought with padding: fund creation beyond 81 assets.
   Redemptions fit without padding. See [LIMITS](../../../agents/fixed-basket/v1/LIMITS.md).
 - A redemption that would release too many custody UTXOs to fit is refused; redeem fewer
   units per transaction.

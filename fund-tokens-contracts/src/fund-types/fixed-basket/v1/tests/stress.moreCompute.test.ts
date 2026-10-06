@@ -157,7 +157,7 @@ describe(`stress: the largest fund the builders accept (${MaxFundAssets} assets)
         const PublicFundInput = 5;
 
         // An input's operation cost budget is (41 + its unlocking bytecode length) × 800. PublicFund's
-        // unlocking bytecode doesn't grow with the fund, so past 78 assets broadcast() runs out of compute
+        // unlocking bytecode doesn't grow with the fund, so past 81 assets broadcast() runs out of compute
         await expect(await broadcast(0)).toBeRejected(/operation cost density limit/);
 
         // Buy more: each byte of padding in PublicFund's unlocking bytecode adds 800 to its budget

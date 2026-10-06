@@ -10,6 +10,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
  */
 const longRunning = [
     'src/fund-types/fixed-basket/v1/tests/stress.test.ts',
+    'src/fund-types/fixed-basket/v1/tests/stress.custodyUtxos.test.ts',
     'src/fund-types/fixed-basket/v1/tests/audit.vmDensity.test.ts',
     'src/fund-types/fixed-basket/v1/tests/audit.chunkSize.test.ts',
 ];
