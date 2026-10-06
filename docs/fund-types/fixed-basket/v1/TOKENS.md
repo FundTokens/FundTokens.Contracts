@@ -33,6 +33,9 @@ parameters, so anyone can recover and verify them on-chain.
 - **Vulnerable is permanent**: once set, the state can never change again.
 - The instance NFTs can be burned (permission `0x0080`) only once deprecated or vulnerable.
   The parameters stay recoverable from transaction history.
+- The deployment must create exactly these two instance NFTs, and one minting NFT for each
+  system category; the contracts trust this and cannot check it
+  ([trust assumptions](../../../agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions)).
 
 ## Threads
 

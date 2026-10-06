@@ -33,6 +33,11 @@ operational dust, not custody, and whoever spends one may recreate it at the dus
 exactly by the TransactionManager (BCH custody outputs and change). Don't fund contract
 UTXOs above dust.
 
+The BCH on a *token* custody UTXO is carrier value too (AUD-008): the TransactionManager
+accounts only the reserve's fungible units, so a redemption that releases a custody UTXO's
+tokens may claim the BCH it carries (change returned to custody needs only dust). Releasing
+custody at all still requires redeeming fund tokens (`tests/audit.carrierDrain.test.ts`).
+
 **Function ordering in the artifact**. CashScript selects functions by index in declaration
 order. The unlocker names below are the function names.
 
@@ -386,4 +391,47 @@ Facts about v1 that are easy to miss when changing builders or reviewing:
   redemption fails either way (`tests/audit.outflowBounds.test.ts`, AUD-015).
 - **No revocation**. An authorization NFT is valid until burned; there is no revocation list.
 - **Custody accepts what is sent**. Anything sent to an AssetManager's address (e.g. an
-  immutable NFT of the asset category) is held; only `release()` paths spend it.
+  immutable NFT of the asset category) is held; only `release()` paths spend it, and the
+  redemption that releases it decides where its BCH and any attached NFT go.
+
+---
+
+## Trust assumptions
+
+What the contracts cannot check and rely on the instance's deployment for. A client that
+does not trust the deployer can verify each one on-chain.
+
+**System token genesis (AUD-045).** Every identity rule reduces to "the holder of an NFT of
+this category": FundStartup trusts the inflow and outflow minting NFTs by category, the mint
+contracts and PublicFund trust their own, and every authorization check trusts the
+authorization category. Nothing on-chain proves those categories were created as intended,
+and nothing can afterwards. The deployment is trusted to have created, for each system
+category, in an uncovenanted genesis transaction:
+
+| Category | Expected genesis |
+| --- | --- |
+| `inflow`, `outflow`, `publicFund` | Exactly one minting NFT (a type-0x00 counter), held by that category's SimpleMinter; no fungible supply |
+| `fees.create.nft`, `fees.execute.nft` | Exactly one minting NFT, held by that fee's FeeMinter; no fungible supply |
+| `authorization` | NFTs held only by the steward and the steward's own contracts; no fungible supply |
+| instance | The proof and data NFTs only (below) |
+
+A deployer that created a second minting NFT of a system category could forge threads,
+system minters or fee NFTs. To verify an instance: look up each category's genesis
+transaction (the one spending output 0 of the transaction whose id is the category), check
+its token outputs against the table, and check that each minting NFT has only moved through
+its holding contract since.
+
+**Instance NFTs (AUD-046).** InstanceVault's `proof()`, `update()` and `burn()` cover two
+inputs: the proof NFT and the data NFT after it. `data()` only checks that its input follows
+another from the same transaction at the vault, and constrains no output. The deployment is
+trusted to create **exactly two** instance-category UTXOs, in one transaction, at the
+InstanceVault: the mutable proof NFT and the immutable data NFT. A third instance UTXO from
+that transaction at the vault could be spent through `data()` without authorization, and the
+record could then no longer be proven, updated or burned. No code in this repository creates
+the instance NFTs; verify the creating transaction's instance-category outputs.
+
+**Registry.** `FundTokensRegistry` reads instances, their parameters and state from the
+registry service over HTTPS and does not reconcile them with the chain. Clients that need
+more than transport trust should verify the parameters against the instance NFTs (their hash
+covers the parameters, [ENCODINGS.md](ENCODINGS.md#instance-nfts)) and the genesis checks
+above.

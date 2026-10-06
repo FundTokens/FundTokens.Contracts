@@ -40,6 +40,11 @@ The contract version id (`v1`) is independent of the npm package version.
 [src/registry/FundTokensRegistry.ts](../fund-tokens-contracts/src/registry/FundTokensRegistry.ts).
 A read-only client for the FundTokens registry service.
 
+It trusts the service and its HTTPS transport: instances, parameters and states are not
+reconciled with the chain. To verify an instance yourself, see the trust assumptions of its
+fund type version (fixed basket v1:
+[CONTRACTS.md](agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions)).
+
 ```ts
 new FundTokensRegistry({
     network?: string,        // default 'chipnet'; URL becomes https://<network>-registry.fundtokens.cash/
