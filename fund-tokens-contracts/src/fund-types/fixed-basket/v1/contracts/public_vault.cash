@@ -38,10 +38,9 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         // Ensure all tokens are implicitly burned
         int outputIndex = 0;
         do {
-            bytes outputCategory = tx.outputs[outputIndex].tokenCategory;
-            if(outputCategory != 0x) {
-                require(outputCategory.slice(0, 32) != publicFund); // mutable and minting NFTs append a capability byte
-            }
+            // Compare the category's first 32 bytes: mutable and minting NFTs append a capability byte
+            // A tokenless output compares the authorization category, which is never the publicFund category
+            require(bytes(tx.outputs[outputIndex].tokenCategory + authorization).split(32)[0] != publicFund);
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
 

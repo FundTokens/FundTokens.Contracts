@@ -271,14 +271,19 @@ addresses are derived from the fund, see [TRANSACTIONS.md](TRANSACTIONS.md#contr
 
 - the same fund, thread (`outflowToken`) and fee checks
 - FundManager inputs: the run from `a + 2` (zero or more), each tokenless or holding
-  `fundCategory`; FundManager outputs: the run from `a + 3`, each holding `fundCategory`
+  `fundCategory`; FundManager outputs: the run from `a + 3` (at least one), each holding
+  `fundCategory`
 - collected = outputs − inputs; `collected % fundAmount == 0`; `units = collected / fundAmount > 0`
 - reserve inputs start right after the FundManager inputs, one contiguous run per reserve in
   reserve order (at least one UTXO each):
   - BCH: tokenless UTXOs of the BCH AssetManager
   - assets: UTXOs of that asset's AssetManager holding exactly its category
 - change outputs start right after the FundManager outputs, in the same reserve order, zero
-  or more per reserve (BCH change tokenless; asset change in the asset's category)
+  or more per reserve. BCH change: the run of outputs locked by the BCH AssetManager, each
+  required tokenless (token-bearing BCH custody could never be released). Asset change: the
+  run of outputs locked by that asset's AssetManager, each required to hold exactly its
+  category (custody in another category could never be released)
+- any of these runs may end the transaction
 - per reserve: inputs − change == `units × satoshis` (BCH) or `units × amount` (asset)
 - `out[a]` returns `in[a]`
 
@@ -373,15 +378,12 @@ Facts about v1 that are easy to miss when changing builders or reviewing:
   unlocking bytecode (189). Funds over 100 assets can't be redeemed in a standard
   transaction; clients are expected not to create or deposit into them
   ([LIMITS.md](LIMITS.md#fund-size-cap)).
-- **Outflow loops assume the layout**. Two of `outflow()`'s loops read the next output with
-  no bounds check: the FundManager output run and the BCH change run continue while
-  `out[i]` matches, so if either run reaches the last output, the next read is past the end
-  and the script fails. A redemption is therefore rejected (never mis-accounted) unless
-  some output follows the FundManager outputs and the BCH change. In practice one always
-  does: the redeemer's outputs come after custody change (the builders add them there).
-  The FundManager input loop has the same shape, but custody inputs always follow it; the
-  custody input loops and the asset change loop are bounded. `inflow()`'s loops are all
-  bounded.
+- **Bounded output loops**. Every loop over outputs stops at the last output, so a run may
+  end the transaction. CashScript evaluates both sides of `&&`, so `outflow()`'s FundManager
+  output, BCH change and asset change loops read `out[i % length]` (always in range) beside
+  the `i < length` check, rather than branching per output. The FundManager *input* loop is not
+  bounded: custody inputs must follow it, so if it reaches the last input the redemption
+  fails either way (`tests/audit.outflowBounds.test.ts`, AUD-015).
 - **No revocation**. An authorization NFT is valid until burned; there is no revocation list.
 - **Custody accepts what is sent**. Anything sent to an AssetManager's address (e.g. an
   immutable NFT of the asset category) is held; only `release()` paths spend it.

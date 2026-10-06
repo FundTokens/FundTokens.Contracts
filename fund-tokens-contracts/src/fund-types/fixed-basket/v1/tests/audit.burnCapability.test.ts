@@ -61,7 +61,7 @@ describe('audit: complete burns cover every capability of the category (AUD-025)
         });
 
         it.each(Capabilities)('rejects a close that carries a %s fee NFT forward', async capability => {
-            await expect(await close(capability, false)).toBeRejected(/outputCategory\.slice\(0, 32\) != feeToken/);
+            await expect(await close(capability, false)).toBeRejected(/split\(32\)\[0\] != feeToken/);
         });
     });
 
@@ -82,7 +82,7 @@ describe('audit: complete burns cover every capability of the category (AUD-025)
         });
 
         it.each(Capabilities)('rejects a delist that carries a %s publicFund NFT forward', async capability => {
-            await expect(await delist(capability, false)).toBeRejected(/outputCategory\.slice\(0, 32\) != publicFund/);
+            await expect(await delist(capability, false)).toBeRejected(/split\(32\)\[0\] != publicFund/);
         });
     });
 });

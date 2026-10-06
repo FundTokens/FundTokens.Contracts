@@ -31,10 +31,9 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
         // Verify all fee tokens are implicitly burned
         int outputIndex = 0;
         do {
-            bytes outputCategory = tx.outputs[outputIndex].tokenCategory;
-            if(outputCategory != 0x) {
-                require(outputCategory.slice(0, 32) != feeToken); // mutable and minting NFTs append a capability byte
-            }
+            // Compare the category's first 32 bytes: mutable and minting NFTs append a capability byte
+            // A tokenless output compares the authorization category, which is never the fee category
+            require(bytes(tx.outputs[outputIndex].tokenCategory + authToken).split(32)[0] != feeToken);
             // Nothing returns to this contract, so a FeeManager input that does return ran pay()
             require(tx.outputs[outputIndex].lockingBytecode != tx.inputs[this.activeInputIndex].lockingBytecode);
             outputIndex = outputIndex + 1;

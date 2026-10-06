@@ -36,7 +36,7 @@ redeem script share the 10,000-byte unlocking bytecode limit.
 | Function | Without padding | Notes |
 | --- | --- | --- |
 | PublicFund `broadcast()` | 78 assets | Fixed budget of about 563,000; about 6,000 per asset. 80 assets with `padding: 100` uses 569,220 of 644,000 |
-| TransactionManager `outflow()` | 108 assets | About 48,000 per asset; the fund argument adds 32,000 of budget per asset. 144 assets with about 1,000 bytes of padding |
+| TransactionManager `outflow()` | never runs out (up to 189 assets) | The fund argument adds 32,000 of budget per asset. Releasing one custody UTXO per asset costs about 29,300 per asset, so it always fits. Releasing two costs about 37,450 per asset: measured at 3, 20 and 40 assets, the fixed headroom runs out only near 227 assets, past the 189 FundStartup accepts. More custody UTXOs per asset can need padding, but at 100 assets three per asset already exceeds the standard size |
 | TransactionManager `inflow()` | never runs out | 73.5% of its budget at 189 assets |
 | FundStartup `start()` | 144 assets | About 60,000 per asset, 32,000 of budget per asset from the fund argument. 189 assets at most (fund encoding + padding fill its unlocking bytecode) |
 
@@ -57,8 +57,8 @@ listing a fund or offering deposits.
 
 At 100 assets:
 
-- redeeming two custody UTXOs of every asset into one output per asset needs 600 bytes of
-  `addOutflow` padding and takes about 96,600 bytes
+- redeeming two custody UTXOs of every asset into one output per asset needs no padding and
+  takes 96,194 bytes (209 inputs, 207 outputs)
 - paying each asset out in two outputs exceeds the limit
 
 `addOutflow` (with validation on) estimates the transaction with the fewest caller inputs

@@ -1,25 +1,20 @@
 /**
  * Audit finding AUD-015: two of TransactionManager.outflow()'s loops read the next output with no
- * bounds check, the FundManager output run and the BCH change run:
+ * bounds check, the FundManager output run and the BCH change run. When either run ended at the
+ * last output, the next read was past the end and the script failed, so a valid redemption was
+ * rejected ("Program attempted to read from an invalid transaction output index"). The
+ * redeemer's outputs normally follow the custody change (the builders put them there), which hid
+ * this; here they come before the manager instead.
  *
- *   while(tx.outputs[fundOutputIndex].lockingBytecode == managerContract) { ... }
- *   while(tx.outputs[assetOutputIndex].lockingBytecode == satoshiLockingBytecode && ...) { ... }
+ * Both loops are bounded now, and these redemptions must be accepted. Each control differs only by
+ * one more output at the end.
  *
- * When either run ends at the last output, the next read is past the end and the script fails,
- * so a valid redemption is rejected. The redeemer's outputs normally follow the custody change
- * (the builders put them there), which hides this; here they come before the manager instead.
- *
- * The redemptions below are valid, so the contracts should accept them. Until the loops are
- * bounded, the "as it stands" tests fail:
- *
- *   - no custody change: "Program attempted to read from an invalid transaction output index.
- *     Transaction output count: 6; requested index: 6", at tx.outputs[fundOutputIndex]
- *   - BCH change last: "... output count: 7; requested index: 7", at tx.outputs[assetOutputIndex]
- *
- * Each control differs only by one more output at the end, and is accepted.
+ * The bounded change loops also refuse custody that could never be spent again: BCH change
+ * carrying a token (the BCH AssetManager releases only tokenless UTXOs), and another category at
+ * an asset's custody address right after its change (an AssetManager releases only its own).
  */
 import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
-import { randomUtxo } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 import { withDust } from '../../../../core/outputs.js';
 import { FundTokenTransactionBuilder, getFundBin, normalizeFund, type Fund } from '../index.js';
@@ -52,8 +47,10 @@ describe('audit: outflow loops reading past the last output (AUD-015)', () => {
     /**
      * Redeems `units` with the redeemer's inputs and outputs (0 and 1) before the manager (2), so
      * the manager's runs end the transaction, unless `trailing` adds one more output at the end.
+     * With `token`, the redeemer also spends a fungible token (input 6) and pays it onto the BCH
+     * change or the trailing output.
      */
-    async function redeem(units: bigint, trailing: boolean) {
+    async function redeem(units: bigint, trailing: boolean, token?: 'change' | 'trailing') {
         const { provider, system } = instance;
         const tx = new FundTokenTransactionBuilder({ provider, system, fund });
         const { managerContract, fundContract, satoshiAssetContract, feeContract, feeVaultContract } = tx.getContracts();
@@ -65,6 +62,7 @@ describe('audit: outflow loops reading past the last output (AUD-015)', () => {
         const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n }));
         const change = custody.satoshis - units * UnitSatoshis;
         const tokenChange = fundTokens.token!.amount - units * fund.amount;
+        const stray = { category: randomCategory(), amount: 5n };
 
         tx
             .addInputs([funding, fundTokens], user.signatureTemplate.unlockP2PKH())                       // 0, 1
@@ -82,11 +80,16 @@ describe('audit: outflow loops reading past the last output (AUD-015)', () => {
                 { to: feeVaultContract.tokenAddress, amount: system.fees.execute.value },               // 4
                 withDust({ to: fundContract.tokenAddress, token: { category: fund.category, amount: fundUtxo.token!.amount + units * fund.amount } }), // 5
             ]);
+        if (token) {
+            tx.addInput(provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 10_000n, token: stray })), user.signatureTemplate.unlockP2PKH()); // 6
+        }
         if (change > 0n) {
-            tx.addOutput({ to: satoshiAssetContract!.tokenAddress, amount: change });                   // 6: BCH change
+            tx.addOutput(token === 'change'                                                             // 6: BCH change
+                ? { to: satoshiAssetContract!.tokenAddress, amount: change, token: stray }
+                : { to: satoshiAssetContract!.tokenAddress, amount: change });
         }
         if (trailing) {
-            tx.addOutput({ to: user.tokenAddress, amount: DustAmount });
+            tx.addOutput(token === 'trailing' ? { to: user.tokenAddress, amount: DustAmount, token: stray } : { to: user.tokenAddress, amount: DustAmount });
         }
         return tx;
     }
@@ -96,7 +99,7 @@ describe('audit: outflow loops reading past the last output (AUD-015)', () => {
             await expect(await redeem(2n, true)).toBeAccepted();
         });
 
-        it('accepts the redemption as it stands', async () => {
+        it('accepts the redemption ending at the last output', async () => {
             await expect(await redeem(2n, false)).toBeAccepted();
         });
     });
@@ -106,8 +109,61 @@ describe('audit: outflow loops reading past the last output (AUD-015)', () => {
             await expect(await redeem(1n, true)).toBeAccepted();
         });
 
-        it('accepts the redemption as it stands', async () => {
+        it('accepts the redemption ending at the last output', async () => {
             await expect(await redeem(1n, false)).toBeAccepted();
+        });
+    });
+
+    describe('asset change followed by another category at the same custody address', () => {
+        /** Redeems one unit of a one-asset fund with the builder; a stray token goes to the asset's custody right after its change, or to the redeemer. */
+        async function redeemAsset(strayTo: 'custody' | 'redeemer') {
+            const { provider, system } = instance;
+            const assetFund = normalizeFund(await createFund(instance, { amount: 10n, satoshis: 0n, assets: [{ category: randomCategory(), amount: 4n }] }));
+            const asset = assetFund.assets[0]!;
+            const deposit = new FundTokenTransactionBuilder({ provider, system, fund: assetFund });
+            await deposit.addInflow({ units: 2n });
+            await deposit
+                .addInputs([
+                    provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n })),
+                    provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category: asset.category, amount: 2n * asset.amount } })),
+                ], user.signatureTemplate.unlockP2PKH())
+                .addOutput({ to: user.tokenAddress, amount: DustAmount, token: { category: assetFund.category, amount: 2n * assetFund.amount } })
+                .addOutput({ to: user.tokenAddress, amount: 800_000n })
+                .send();
+
+            const tx = new FundTokenTransactionBuilder({ provider, system, fund: assetFund });
+            await tx.addOutflow({ units: 1n });
+            const { assetContracts } = tx.getContracts();
+            const stray = { category: randomCategory(), amount: 5n };
+            const fundTokens = (await provider.getUtxos(user.tokenAddress)).find(u => u.token?.category === assetFund.category)!;
+            return tx
+                .addInputs([
+                    provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 1_000_000n })),
+                    fundTokens,
+                    provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 10_000n, token: stray })),
+                ], user.signatureTemplate.unlockP2PKH())
+                .addOutput(withDust({ to: strayTo === 'custody' ? assetContracts[0]!.tokenAddress : user.tokenAddress, token: stray })) // right after the asset change
+                .addOutput(withDust({ to: user.tokenAddress, token: { category: asset.category, amount: asset.amount } }))
+                .addOutput(withDust({ to: user.tokenAddress, token: { category: assetFund.category, amount: assetFund.amount } }))
+                .addOutput({ to: user.tokenAddress, amount: 800_000n });
+        }
+
+        it('accepts the stray token paid to the redeemer (control)', async () => {
+            await expect(await redeemAsset('redeemer')).toBeAccepted();
+        });
+
+        it('rejects it at the asset custody address, where it could never be released', async () => {
+            await expect(await redeemAsset('custody')).toBeRejected(/tx\.outputs\[assetOutputIndex\]\.tokenCategory == nft_assetCategory/);
+        });
+    });
+
+    describe('BCH change carrying a token', () => {
+        it('accepts the token paid to the redeemer (control)', async () => {
+            await expect(await redeem(1n, true, 'trailing')).toBeAccepted();
+        });
+
+        it('rejects the token paid onto the BCH change, where it could never be released', async () => {
+            await expect(await redeem(1n, true, 'change')).toBeRejected(/tx\.outputs\[assetOutputIndex\]\.tokenCategory == 0x/);
         });
     });
 });
