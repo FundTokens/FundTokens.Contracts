@@ -11,10 +11,10 @@
  *
  * The contracts must reject each of these transactions.
  */
-import { randomUtxo, Network, MockNetworkProvider, randomToken, Contract, TransactionBuilder } from 'cashscript';
+import { Network, MockNetworkProvider, randomToken, Contract, TransactionBuilder } from 'cashscript';
 import { swapEndianness, binToHex, hash256, hexToBin } from '@bitauth/libauth';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
 import { BitcoinCategory, MaxTokenAmount } from '../../../../core/constants.js';

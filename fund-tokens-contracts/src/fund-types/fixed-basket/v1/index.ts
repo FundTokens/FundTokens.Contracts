@@ -42,6 +42,7 @@ export {
     getFundCommitment,
     getFundHex,
     getPadding,
+    getThreadCommitment,
     hashFund,
     MaxPaddingBytes,
     sortAssets,

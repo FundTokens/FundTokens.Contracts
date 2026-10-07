@@ -1,88 +1,85 @@
 /**
- * Audit finding (v0.1.0-rc2): TransactionManager.outflow()'s token accounting covers only the
- * fungible amount. The satoshis carried by a token reserve UTXO, and an immutable NFT riding the
- * same category, are outside it even when every reserve input is inside the manager's accounted
- * run. A zero-unit outflow that preserves every fund token and every fungible reserve unit can
- * still strip both.
+ * Audit finding AUD-008: TransactionManager.outflow() accounts a token reserve's fungible units
+ * only, not the BCH each custody UTXO carries with them.
  *
- * Such a reserve can be deposited through inflow() today (the deposit output's value and NFT are
- * not pinned) or simply paid to the asset contract; it is seeded directly here so the test holds
- * whichever side the fix lands on.
- *
- * The contracts must reject the drain.
+ * Policy: that BCH is carrier value (the dust a deposit puts on each custody UTXO), not backing.
+ * A redemption that releases all of a custody UTXO's tokens may claim its BCH. What the contracts
+ * do enforce is that custody is released only by redeeming fund tokens: taking the same custody
+ * UTXO without redeeming any is refused.
  */
-import { randomUtxo, type SpendableUtxo } from 'cashscript';
-
-import { randomCategory } from '@test-utils/random.js';
-import { generateWallet } from '@test-utils/wallet.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
+import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
 
 import { withDust } from '../../../../core/outputs.js';
 import { FundTokenTransactionBuilder, getFundBin, normalizeFund, type Fund } from '../index.js';
 import { bootstrapInstance, createFund, type TestInstance } from './support/bootstrap.js';
 
-const CarrierValue = 50_000n;
-const NftCommitment = 'cafe';
+const DustAmount = 1000n;
 
-describe('audit: carrier value and immutable NFT drained by a zero-unit outflow', () => {
+describe('audit: carrier BCH on token custody (AUD-008)', () => {
     let instance: TestInstance;
     let fund: Fund;
-    let reserve: SpendableUtxo;
-
-    const nftToken = (amount: bigint) =>
-        ({ category: fund.assets[0]!.category, amount, nft: { capability: 'none' as const, commitment: NftCommitment } });
+    let holder: TestWallet;
 
     beforeEach(async () => {
         instance = await bootstrapInstance();
         fund = normalizeFund(await createFund(instance, { amount: 10n, satoshis: 0n, assets: [{ category: randomCategory(), amount: 4n }] }));
-        const { assetContracts } = new FundTokenTransactionBuilder({ provider: instance.provider, system: instance.system, fund }).getContracts();
-        reserve = instance.provider.addUtxo(assetContracts[0]!.tokenAddress, randomUtxo({ satoshis: CarrierValue, token: nftToken(fund.assets[0]!.amount) }));
+        holder = generateWallet();
+
+        // An honest one-unit deposit: one custody UTXO holding the unit's 4 tokens and its carrier BCH
+        const { provider, system } = instance;
+        const deposit = new FundTokenTransactionBuilder({ provider, system, fund });
+        await deposit.addInflow({ units: 1n });
+        await deposit
+            .addInputs([
+                provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 400_000n })),
+                provider.addUtxo(holder.tokenAddress, randomUtxo({ token: { category: fund.assets[0]!.category, amount: fund.assets[0]!.amount } })),
+            ], holder.signatureTemplate.unlockP2PKH())
+            .addOutput({ to: holder.tokenAddress, amount: DustAmount, token: { category: fund.category, amount: fund.amount } })
+            .addOutput({ to: holder.tokenAddress, amount: 200_000n })
+            .send();
     });
 
-    /** An outflow of zero units spending the reserve as the only accounted custody input. */
-    async function buildOutflow(outputs: (contracts: ReturnType<FundTokenTransactionBuilder['getContracts']>, attacker: string) => Parameters<FundTokenTransactionBuilder['addOutputs']>[0]) {
+    /** Releases the custody UTXO whole to the holder, redeeming the unit's fund tokens or (`redeemed: false`) none. */
+    async function release(redeemed: boolean) {
         const { provider, system } = instance;
-        const attacker = generateWallet();
         const tx = new FundTokenTransactionBuilder({ provider, system, fund });
-        const contracts = tx.getContracts();
-        const { managerContract, fundContract, assetContracts, feeContract, feeVaultContract } = contracts;
-        const outflowThread = (await managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
-        const supply = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
+        const { managerContract, fundContract, assetContracts, feeContract, feeVaultContract } = tx.getContracts();
+        const thread = (await managerContract.getUtxos()).find(u => u.token?.category === system.outflow)!;
         const feeUtxo = (await feeContract.getUtxos()).find(u => !u.token)!;
-        const funding = provider.addUtxo(attacker.tokenAddress, randomUtxo({ satoshis: 400_000n }));
+        const supply = (await fundContract.getUtxos()).find(u => u.token?.category === fund.category)!;
+        const [custody] = await assetContracts[0]!.getUtxos();
+        const fundTokens = (await provider.getUtxos(holder.tokenAddress)).find(u => u.token?.category === fund.category)!;
+        const funding = provider.addUtxo(holder.tokenAddress, randomUtxo({ satoshis: 400_000n }));
 
         tx
-            .addInput(outflowThread, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))  // 0
-            .addInput(feeUtxo, feeContract.unlock.pay())                                // 1
-            .addInput(supply, fundContract.unlock.redeem())                             // 2
-            .addInput(reserve, assetContracts[0]!.unlock.release())                     // 3 accounted reserve
-            .addInput(funding, attacker.signatureTemplate.unlockP2PKH())                // 4
+            .addInput(thread, managerContract.unlock.outflow(getFundBin(fund), new Uint8Array()))
+            .addInput(feeUtxo, feeContract.unlock.pay())
+            .addInput(supply, fundContract.unlock.redeem())
+            .addInput(custody!, assetContracts[0]!.unlock.release())
+            .addInputs(redeemed ? [funding, fundTokens] : [funding], holder.signatureTemplate.unlockP2PKH())
             .addOutputs([
-                withDust({ to: managerContract.tokenAddress, token: outflowThread.token }),
+                withDust({ to: managerContract.tokenAddress, token: thread.token }),
                 withDust({ to: feeContract.tokenAddress }),
                 { to: feeVaultContract.tokenAddress, amount: system.fees.execute.value },
-                withDust({ to: fundContract.tokenAddress, token: { category: fund.category, amount: supply.token!.amount } }), // fund tokens unchanged
-                ...outputs(contracts, attacker.tokenAddress),
+                withDust({ to: fundContract.tokenAddress, token: { category: fund.category, amount: supply.token!.amount + (redeemed ? fund.amount : 0n) } }),
+                // the released tokens, and the custody UTXO's BCH on top of the holder's change
+                withDust({ to: holder.tokenAddress, token: { category: fund.assets[0]!.category, amount: custody!.token!.amount } }),
+                { to: holder.tokenAddress, amount: 200_000n + custody!.satoshis },
             ]);
-        return { tx, contracts, attacker };
+        return { tx, custody: custody!, assetContract: assetContracts[0]! };
     }
 
-    it('rejects taking the reserve units without redeeming fund tokens (control)', async () => {
-        const { tx } = await buildOutflow((_, attacker) => [
-            withDust({ to: attacker, token: nftToken(fund.assets[0]!.amount) }),
-            { to: attacker, amount: 200_000n },
-        ]);
-        await expect(tx).toBeRejected();
+    it('lets a redemption releasing all of a custody UTXO\'s tokens claim its BCH', async () => {
+        const { tx, custody, assetContract } = await release(true);
+        expect(custody.token!.amount).toBe(fund.assets[0]!.amount);
+        expect(custody.satoshis).toBeGreaterThan(0n);
+        await expect(tx).toBeAccepted();
+        expect(await assetContract.getUtxos()).toHaveLength(0);
     });
 
-    it('rejects stripping the carrier value and immutable NFT while keeping every reserve unit', async () => {
-        const { tx, contracts, attacker } = await buildOutflow(({ assetContracts }, to) => [
-            withDust({ to: assetContracts[0]!.tokenAddress, token: { category: fund.assets[0]!.category, amount: fund.assets[0]!.amount } }), // units kept, NFT and carrier gone
-            withDust({ to, token: nftToken(0n) }),
-            { to, amount: 300_000n + CarrierValue },
-        ]);
-
-        await expect(tx).toBeRejected();
-        expect(await contracts.assetContracts[0]!.getUtxos()).toContainEqual(reserve);
-        expect((await instance.provider.getUtxos(attacker.tokenAddress)).filter(u => u.token)).toHaveLength(0);
+    it('rejects releasing the custody UTXO and its BCH without redeeming fund tokens', async () => {
+        const { tx } = await release(false);
+        await expect(tx).toBeRejected(/fundLockingAmount > 0/);
     });
 });

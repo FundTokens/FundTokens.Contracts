@@ -55,6 +55,8 @@ held by the fund's TransactionManager:
 0x02 · fundCategory (32) · fundHash (32)
 ```
 
+Library: `getThreadCommitment`. The builders select only threads carrying it.
+
 ## System token types
 
 The first commitment byte is the token type. Serial numbers are VM numbers.

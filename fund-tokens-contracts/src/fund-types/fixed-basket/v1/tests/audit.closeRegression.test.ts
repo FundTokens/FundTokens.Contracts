@@ -14,9 +14,9 @@
  *
  * The contracts must reject both transactions.
  */
-import { randomUtxo } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { withDust } from '../../../../core/outputs.js';
 import { PublicFundTransactionBuilder } from '../index.js';

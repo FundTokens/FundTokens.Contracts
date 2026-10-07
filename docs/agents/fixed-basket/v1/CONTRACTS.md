@@ -26,7 +26,17 @@ category to any output. So every NFT a contract returns to itself keeps its fung
 amount, and every NFT a contract mints must carry amount 0.
 
 **Return checks never cover satoshi value**. A returned contract UTXO may come back with a
-different value (standardness still requires dust).
+different value (standardness still requires dust). This is by design: the satoshis on
+threads, minting NFTs, fee UTXOs, the FundManager supply and other returned UTXOs are
+operational dust, not custody, and whoever spends one may recreate it at the dust minimum
+(the builders always do) and keep any excess. BCH backing is custody, and is accounted
+exactly by the TransactionManager (BCH custody outputs and change). Don't fund contract
+UTXOs above dust.
+
+The BCH on a *token* custody UTXO is carrier value too (AUD-008): the TransactionManager
+accounts only the reserve's fungible units, so a redemption that releases a custody UTXO's
+tokens may claim the BCH it carries (change returned to custody needs only dust). Releasing
+custody at all still requires redeeming fund tokens (`tests/audit.carrierDrain.test.ts`).
 
 **Function ordering in the artifact**. CashScript selects functions by index in declaration
 order. The unlocker names below are the function names.
@@ -147,7 +157,8 @@ category and outpoint transaction hash.
 
 - `in[a].tokenCategory == publicFund`
 - `hasAuthority(authorization, 0x0100)`
-- no output has category exactly `publicFund`
+- no output carries the `publicFund` category, whatever its capability (the first 32 bytes
+  of each token-bearing output's category are compared)
 - the consecutive `publicFund` inputs from `a` concatenate to a valid fund commitment
 
 ---
@@ -265,14 +276,19 @@ addresses are derived from the fund, see [TRANSACTIONS.md](TRANSACTIONS.md#contr
 
 - the same fund, thread (`outflowToken`) and fee checks
 - FundManager inputs: the run from `a + 2` (zero or more), each tokenless or holding
-  `fundCategory`; FundManager outputs: the run from `a + 3`, each holding `fundCategory`
+  `fundCategory`; FundManager outputs: the run from `a + 3` (at least one), each holding
+  `fundCategory`
 - collected = outputs − inputs; `collected % fundAmount == 0`; `units = collected / fundAmount > 0`
 - reserve inputs start right after the FundManager inputs, one contiguous run per reserve in
   reserve order (at least one UTXO each):
   - BCH: tokenless UTXOs of the BCH AssetManager
   - assets: UTXOs of that asset's AssetManager holding exactly its category
 - change outputs start right after the FundManager outputs, in the same reserve order, zero
-  or more per reserve (BCH change tokenless; asset change in the asset's category)
+  or more per reserve. BCH change: the run of outputs locked by the BCH AssetManager, each
+  required tokenless (token-bearing BCH custody could never be released). Asset change: the
+  run of outputs locked by that asset's AssetManager, each required to hold exactly its
+  category (custody in another category could never be released)
+- any of these runs may end the transaction
 - per reserve: inputs − change == `units × satoshis` (BCH) or `units × amount` (asset)
 - `out[a]` returns `in[a]`
 
@@ -344,7 +360,8 @@ could otherwise mint a minting NFT of the new fund's category onto it
 
 `close()`:
 
-- no output has category exactly `feeToken`
+- no output carries the `feeToken` category, whatever its capability (the first 32 bytes of
+  each token-bearing output's category are compared)
 - no output is locked by this contract, so a FeeManager input whose output returns to it
   must have run `pay()` (FundStartup and the TransactionManager rely on this)
 - `hasAuthority(authToken, 0x0020)`
@@ -360,9 +377,61 @@ Facts about v1 that are easy to miss when changing builders or reviewing:
   valid fund encoding. Fund creation is the same transaction plus PublicFund. The library has
   no builder for adding threads alone.
 - **Startup trusts asset categories**. It does not reject an all-zero (BCH) asset category or
-  the fund's own category; `validateFund` does.
-- **Outflow loops assume the layout**. `outflow()` reads `in[i]` / `out[i]` while matching,
-  so a malformed layout fails the script rather than being skipped.
+  the fund's own category; `validateFund` does. Neither checks that an asset exists, has
+  fungible supply, or isn't a system category.
+- **No asset cap**. The protocol accepts funds of any asset count that fits in FundStartup's
+  unlocking bytecode (189). Funds over 100 assets can't be redeemed in a standard
+  transaction; clients are expected not to create or deposit into them
+  ([LIMITS.md](LIMITS.md#fund-size-cap)).
+- **Bounded loops**. The TransactionManager's loops over runs of inputs or outputs stop at the
+  last one, so a run may end the transaction. CashScript evaluates both sides of `&&`, so they
+  read `in[i % length]` / `out[i % length]` (always in range) beside the `i < length` check,
+  rather than branching or keeping a flag per element. The exception is `outflow()`'s
+  FundManager *input* loop: custody inputs must follow it, so if it reaches the last input the
+  redemption fails either way (`tests/audit.outflowBounds.test.ts`, AUD-015).
 - **No revocation**. An authorization NFT is valid until burned; there is no revocation list.
 - **Custody accepts what is sent**. Anything sent to an AssetManager's address (e.g. an
-  immutable NFT of the asset category) is held; only `release()` paths spend it.
+  immutable NFT of the asset category) is held; only `release()` paths spend it, and the
+  redemption that releases it decides where its BCH and any attached NFT go.
+
+---
+
+## Trust assumptions
+
+What the contracts cannot check and rely on the instance's deployment for. A client that
+does not trust the deployer can verify each one on-chain.
+
+**System token genesis (AUD-045).** Every identity rule reduces to "the holder of an NFT of
+this category": FundStartup trusts the inflow and outflow minting NFTs by category, the mint
+contracts and PublicFund trust their own, and every authorization check trusts the
+authorization category. Nothing on-chain proves those categories were created as intended,
+and nothing can afterwards. The deployment is trusted to have created, for each system
+category, in an uncovenanted genesis transaction:
+
+| Category | Expected genesis |
+| --- | --- |
+| `inflow`, `outflow`, `publicFund` | Exactly one minting NFT (a type-0x00 counter), held by that category's SimpleMinter; no fungible supply |
+| `fees.create.nft`, `fees.execute.nft` | Exactly one minting NFT, held by that fee's FeeMinter; no fungible supply |
+| `authorization` | NFTs held only by the steward and the steward's own contracts; no fungible supply |
+| instance | The proof and data NFTs only (below) |
+
+A deployer that created a second minting NFT of a system category could forge threads,
+system minters or fee NFTs. To verify an instance: look up each category's genesis
+transaction (the one spending output 0 of the transaction whose id is the category), check
+its token outputs against the table, and check that each minting NFT has only moved through
+its holding contract since.
+
+**Instance NFTs (AUD-046).** InstanceVault's `proof()`, `update()` and `burn()` cover two
+inputs: the proof NFT and the data NFT after it. `data()` only checks that its input follows
+another from the same transaction at the vault, and constrains no output. The deployment is
+trusted to create **exactly two** instance-category UTXOs, in one transaction, at the
+InstanceVault: the mutable proof NFT and the immutable data NFT. A third instance UTXO from
+that transaction at the vault could be spent through `data()` without authorization, and the
+record could then no longer be proven, updated or burned. No code in this repository creates
+the instance NFTs; verify the creating transaction's instance-category outputs.
+
+**Registry.** `FundTokensRegistry` reads instances, their parameters and state from the
+registry service over HTTPS and does not reconcile them with the chain. Clients that need
+more than transport trust should verify the parameters against the instance NFTs (their hash
+covers the parameters, [ENCODINGS.md](ENCODINGS.md#instance-nfts)) and the genesis checks
+above.

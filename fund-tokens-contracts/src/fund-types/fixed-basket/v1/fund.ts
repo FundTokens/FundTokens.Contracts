@@ -41,6 +41,11 @@ export function normalizeFund(input: FundInput | Fund): Fund {
 /**
  * Checks a fund against the rules the contracts enforce, plus a few they cannot
  * express but that would make a fund unusable. Throws `INVALID_ARGUMENT`.
+ *
+ * Asset categories are only checked against each other, BCH and the fund's own category. They
+ * are not verified on-chain or against the instance's system categories: an asset that does not
+ * exist, has no fungible supply, or is a system token (inflow, outflow, public fund, fee NFTs)
+ * passes, and makes a fund that cannot be minted.
  */
 export function validateFund(fund: Fund): Fund {
     assertInRange(fund.amount, 'fund.amount', 1n, MaxTokenAmount);

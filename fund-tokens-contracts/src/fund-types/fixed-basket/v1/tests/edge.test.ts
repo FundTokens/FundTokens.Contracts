@@ -2,7 +2,6 @@ import {
     MockNetworkProvider,
     Network,
     randomToken,
-    randomUtxo,
     type SpendableUtxo,
 } from 'cashscript';
 import { it, expect, test } from 'vitest';
@@ -13,6 +12,7 @@ import {
 } from '@bitauth/libauth';
 
 import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { lockingBytecodeHexOf } from '../../../../core/outputs.js';
 import { SystemFixture } from './support/system.js';

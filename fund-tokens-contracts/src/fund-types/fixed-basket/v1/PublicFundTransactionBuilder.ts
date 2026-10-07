@@ -1,5 +1,5 @@
 import { swapEndianness } from '@bitauth/libauth';
-import { TransactionBuilder, type NetworkProvider, type Output } from 'cashscript';
+import { TransactionBuilder, type NetworkProvider, type Output, type SpendableUtxo } from 'cashscript';
 import { MaxTokenAmount } from '../../../core/constants.js';
 import { FundTokensError } from '../../../core/errors.js';
 import { silentLogger, type Logger } from '../../../core/logger.js';
@@ -147,16 +147,19 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
             }
             return utxo;
         };
-        const startupUtxo = required(pickRandom(startupUtxos), 'startup', startupContract.tokenAddress);
+        // Anyone can send UTXOs to these addresses: pick only the ones the contracts can spend, a
+        // token-free startup UTXO and a minting NFT of each system category.
+        const minting = (category: string) => (u: SpendableUtxo) => u.token?.category === category && u.token.nft?.capability === 'minting';
+        const startupUtxo = required(pickRandom(startupUtxos.filter(u => !u.token)), 'token-free startup', startupContract.tokenAddress);
         const inflowUtxo = required(
-            pickRandom(mintInflowUtxos.filter(u => u.token?.category === this.system.inflow)),
+            pickRandom(mintInflowUtxos.filter(minting(this.system.inflow))),
             'inflow minting', mintInflowContract.tokenAddress);
         const outflowUtxo = required(
-            pickRandom(mintOutflowUtxos.filter(u => u.token?.category === this.system.outflow)),
+            pickRandom(mintOutflowUtxos.filter(minting(this.system.outflow))),
             'outflow minting', mintOutflowContract.tokenAddress);
         const publicFundUtxo = required(
-            pickRandom(publicFundUtxos.filter(u => u.token?.category === this.system.publicFund)),
-            'public fund', publicFundContract.tokenAddress);
+            pickRandom(publicFundUtxos.filter(minting(this.system.publicFund))),
+            'public fund minting', publicFundContract.tokenAddress);
 
         const { managerContract, fundContract } = deriveFundContracts(this.provider, this.system, definition);
         const threadCommitment = '02' + swapEndianness(genesisUtxo.txid) + hashFund(definition);
@@ -171,7 +174,7 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
             { ...fee.utxo, unlocker: createFundFeeContract.unlock.pay() },
             { ...publicFundUtxo, unlocker: publicFundContract.unlock.broadcast(paddingBytes) },
         ]).addOutputs([
-            { to: startupContract.tokenAddress, amount: startupUtxo.satoshis, ...(startupUtxo.token && { token: startupUtxo.token }) },
+            { to: startupContract.tokenAddress, amount: startupUtxo.satoshis },
             { to: mintInflowContract.tokenAddress, amount: inflowUtxo.satoshis, ...(inflowUtxo.token && { token: inflowUtxo.token }) },
             { to: mintOutflowContract.tokenAddress, amount: outflowUtxo.satoshis, ...(outflowUtxo.token && { token: outflowUtxo.token }) },
             ...fee.outputs,

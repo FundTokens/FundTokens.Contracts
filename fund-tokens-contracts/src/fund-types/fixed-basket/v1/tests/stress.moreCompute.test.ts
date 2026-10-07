@@ -157,7 +157,7 @@ describe(`stress: the largest fund the builders accept (${MaxFundAssets} assets)
         const PublicFundInput = 5;
 
         // An input's operation cost budget is (41 + its unlocking bytecode length) × 800. PublicFund's
-        // unlocking bytecode doesn't grow with the fund, so past 78 assets broadcast() runs out of compute
+        // unlocking bytecode doesn't grow with the fund, so past 81 assets broadcast() runs out of compute
         await expect(await broadcast(0)).toBeRejected(/operation cost density limit/);
 
         // Buy more: each byte of padding in PublicFund's unlocking bytecode adds 800 to its budget
@@ -209,7 +209,7 @@ describe(`stress: the largest fund the builders accept (${MaxFundAssets} assets)
 
     it(`should refuse to build a redemption releasing all ${deposits} custody UTXOs per asset, naming the units that fit`, async () => {
         const transaction = new FundTokenTransactionBuilder({ provider, system, fund });
-        await expect(transaction.addOutflow({ units: unitsPerDeposit * BigInt(deposits - 1) + 1n, padding: 600 })).rejects.toMatchObject({
+        await expect(transaction.addOutflow({ units: unitsPerDeposit * BigInt(deposits - 1) + 1n })).rejects.toMatchObject({
             code: 'TRANSACTION_TOO_LARGE',
             message: expect.stringContaining(`redeem at most ${unitsPerDeposit * BigInt(releasedPerAsset)} unit(s)`),
         });
@@ -246,11 +246,8 @@ describe(`stress: the largest fund the builders accept (${MaxFundAssets} assets)
                     amount: DustAmount,
                 });
         };
-        // Releasing more than one custody UTXO per asset costs more than the fund adds to the
-        // TransactionManager's budget, so it buys compute the same way
-        await expect(await outflow(0)).toBeRejected(/operation cost density limit/);
-
-        const padding = 600;
+        // Releasing two custody UTXOs per asset fits the TransactionManager's budget without padding
+        const padding = 0;
         const transaction = await outflow(padding);
         const custody = new Set(transaction.getContracts().assetContracts.map(contract => contract.lockingBytecode));
         expect(transaction.inputs.filter(u => custody.has(u.lockingBytecode))).toHaveLength(numberOfFundAssets * releasedPerAsset);

@@ -21,7 +21,25 @@ export function verifyTransaction(tx: TransactionBuilder, sourceLockingBytecodes
     if (typeof transaction === 'string') {
         return `Invalid transaction encoding: ${transaction}`;
     }
-    const sourceOutputs = tx.inputs.map((utxo, i): Output => ({
+    const result = vm.verify({ sourceOutputs: sourceOutputsOf(tx, sourceLockingBytecodes), transaction });
+    return result === true ? true : String(result);
+}
+
+/**
+ * An input's operation cost and its budget ((41 + unlocking bytecode length) × 800), evaluated
+ * with libauth. Much faster than cashscript's `getVmResourceUsage()` on large transactions.
+ */
+export function operationCost(tx: TransactionBuilder, inputIndex: number): { cost: number; budget: number } {
+    const transaction = decodeTransaction(hexToBin(tx.build()));
+    if (typeof transaction === 'string') {
+        throw new Error(`Invalid transaction encoding: ${transaction}`);
+    }
+    const state = vm.evaluate({ inputIndex, sourceOutputs: sourceOutputsOf(tx), transaction });
+    return { cost: state.metrics.operationCost, budget: (41 + transaction.inputs[inputIndex]!.unlockingBytecode.length) * 800 };
+}
+
+function sourceOutputsOf(tx: TransactionBuilder, sourceLockingBytecodes?: readonly string[]): Output[] {
+    return tx.inputs.map((utxo, i): Output => ({
         lockingBytecode: sourceLockingBytecodes ? hexToBin(sourceLockingBytecodes[i]!) : hexToBin(utxo.lockingBytecode),
         valueSatoshis: utxo.satoshis,
         ...(utxo.token && {
@@ -32,6 +50,4 @@ export function verifyTransaction(tx: TransactionBuilder, sourceLockingBytecodes
             },
         }),
     }));
-    const result = vm.verify({ sourceOutputs, transaction });
-    return result === true ? true : String(result);
 }

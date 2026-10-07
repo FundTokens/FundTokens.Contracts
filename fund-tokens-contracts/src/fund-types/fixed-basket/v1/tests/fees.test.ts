@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { MockNetworkProvider, randomUtxo, type Utxo } from 'cashscript';
+import { MockNetworkProvider, type Utxo } from 'cashscript';
 import { generateWallet } from '@test-utils/wallet.js';
 import { BitcoinCategory } from '../../../../core/constants.js';
+import { dustThreshold } from '../../../../core/outputs.js';
 import { decodeFee, deriveSystemContracts, encodeFee, getAvailableFees, getBestFee } from '../index.js';
 import { randomSystem } from './support/bootstrap.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 describe('fee encoding', () => {
     const token = randomCategory();
@@ -96,6 +97,27 @@ describe('fee selection', () => {
             .rejects.toMatchObject({ code: 'MISSING_UTXO' });
         await expect(getBestFee({ feeContract, feeVaultContract, fee, payBy: 'not-a-category' }))
             .rejects.toMatchObject({ code: 'INVALID_ARGUMENT' });
+    });
+
+    it('skips BCH fees whose payment would be below the dust minimum', async () => {
+        const { feeContract, feeVaultContract, fee, add } = setup();
+        const destination = generateWallet().tokenAddress;
+        const dust = dustThreshold({ to: destination });
+        add(); // default: fee.value
+        add(encodeFee({ amount: dust - 1n, destination }));
+        const atDust = add(encodeFee({ amount: dust, destination }));
+
+        for (let i = 0; i < 8; i++) {
+            expect((await getBestFee({ feeContract, feeVaultContract, fee })).utxo.txid).toBe(atDust.txid);
+        }
+    });
+
+    it('reports when every BCH fee is below the dust minimum', async () => {
+        const { feeContract, feeVaultContract, fee, add } = setup();
+        add(); // default, configured at zero
+        add(encodeFee({ amount: 1n }));
+        await expect(getBestFee({ feeContract, feeVaultContract, fee: { ...fee, value: 0n } }))
+            .rejects.toMatchObject({ code: 'MISSING_UTXO', message: expect.stringMatching(/dust minimum/) });
     });
 
     it('lists the cheapest fee per payment category', async () => {

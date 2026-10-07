@@ -1,11 +1,11 @@
 /** Stands up a fixed basket v1 instance (and optionally a fund) on a mock network, for tests. */
-import { MockNetworkProvider, randomUtxo } from 'cashscript';
+import { MockNetworkProvider } from 'cashscript';
 import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
 import { PublicFundTransactionBuilder } from '../../PublicFundTransactionBuilder.js';
 import { parseSystemParameters } from '../../parameters.js';
 import type { FundInput, SystemParameters } from '../../types.js';
 import { SystemFixture } from './system.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 export const randomSystem = (): SystemParameters => parseSystemParameters({
     inflow: randomCategory(),

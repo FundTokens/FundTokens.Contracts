@@ -8,9 +8,9 @@
  * bytecode is passed as a custom unlocker and the transaction is verified against an assumed source.
  */
 import { binToHex, hash256, hexToBin, swapEndianness } from '@bitauth/libauth';
-import { Contract, MockNetworkProvider, TransactionBuilder, randomUtxo, type Unlocker } from 'cashscript';
+import { Contract, MockNetworkProvider, TransactionBuilder, type Unlocker } from 'cashscript';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
 import { lockingBytecodeHexOf } from '../../../../core/outputs.js';

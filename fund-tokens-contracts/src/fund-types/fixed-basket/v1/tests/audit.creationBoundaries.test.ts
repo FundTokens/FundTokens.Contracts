@@ -5,9 +5,9 @@
  *      The literal 2100000000000001 compiles to OP_WITHIN, whose upper bound is exclusive.
  *  D-7: a fund with neither satoshi backing nor assets is rejected at creation.
  */
-import { randomUtxo } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { MaxSatoshis } from '../../../../core/constants.js';
 import { PublicFundTransactionBuilder } from '../index.js';

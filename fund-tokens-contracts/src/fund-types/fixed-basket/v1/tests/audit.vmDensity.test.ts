@@ -10,12 +10,14 @@
  *       reserve UTXOs per asset fails; at 30 assets, a 64-input redemption fails.
  *  (Negative result: PublicFundVault.proof() is not a ceiling up to 60 assets.)
  *
- * The invariant: whatever a fund accepts as a deposit, it can redeem. A fix may instead reject
- * such funds at creation or deposit, which also satisfies these tests.
+ * The invariant: whatever a fund accepts as a deposit, it can redeem. The contracts accept these
+ * funds and deposits (they set no asset cap), so each test requires the setup to succeed and the
+ * redemption to be accepted.
  */
-import { TransactionBuilder, randomUtxo } from 'cashscript';
+import { TransactionBuilder } from 'cashscript';
 
 import { generateWallet, type TestWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { FundTokenTransactionBuilder, PublicFundTransactionBuilder, normalizeFund, type Fund } from '../index.js';
 import { bootstrapInstance, type TestInstance } from './support/bootstrap.js';
@@ -83,7 +85,7 @@ async function redeem({ provider, system }: TestInstance, fund: Fund, holder: Te
 
 /**
  * Broadcasts a fund and makes the given deposits. Undefined if the contracts refuse the fund or
- * any deposit, which is an acceptable fix: then nothing is locked in.
+ * any deposit.
  */
 async function fundWithDeposits(assetCount: number, deposits: bigint[], satoshis?: bigint) {
     const instance = await bootstrapInstance();
@@ -105,15 +107,15 @@ describe('audit: large funds stay redeemable (V-1)', () => {
 
     it('40 assets: a fund that accepts a deposit can redeem it', async () => {
         const setup = await fundWithDeposits(40, [3n]);
-        if (!setup) return;
-        await expect(setup.redeem(1n)).toBeAccepted();
-        await expect(setup.redeem(2n)).toBeAccepted();
+        expect(setup).toBeDefined();
+        await expect(setup!.redeem(1n)).toBeAccepted();
+        await expect(setup!.redeem(2n)).toBeAccepted();
     }, Timeout);
 
     it('40 assets without satoshi backing: a fund that accepts a deposit can redeem it', async () => {
         const setup = await fundWithDeposits(40, [3n], 0n);
-        if (!setup) return;
-        await expect(setup.redeem(1n)).toBeAccepted();
+        expect(setup).toBeDefined();
+        await expect(setup!.redeem(1n)).toBeAccepted();
     }, Timeout);
 });
 
@@ -148,13 +150,13 @@ describe('audit: redemptions spanning several reserve UTXOs (V-2)', () => {
 
     it('38 assets: a single redemption spanning two reserve UTXOs per asset', async () => {
         const setup = await fundWithDeposits(38, [3n, 3n]);
-        if (!setup) return;
-        await expect(setup.redeem(4n)).toBeAccepted();
+        expect(setup).toBeDefined();
+        await expect(setup!.redeem(4n)).toBeAccepted();
     }, Timeout);
 
     it('30 assets: a 64-input redemption', async () => {
         const setup = await fundWithDeposits(30, [3n, 3n]);
-        if (!setup) return;
-        await expect(setup.redeem(4n)).toBeAccepted();
+        expect(setup).toBeDefined();
+        await expect(setup!.redeem(4n)).toBeAccepted();
     }, Timeout);
 });

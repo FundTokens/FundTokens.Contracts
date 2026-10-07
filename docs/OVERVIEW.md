@@ -71,6 +71,11 @@ Each instance publishes a **lifecycle state** on-chain, mirrored by the registry
 - **No admin keys over funds.** Authorization tokens manage system threads, fees and listings only.
 - **Lockout prevention.** Default BCH fees and permissionless threads keep every fund usable.
 - **Frozen versions.** Contracts never change after release.
+- **Verifiable deployment.** Each instance is seeded once with its system tokens: one minting
+  NFT per system category and the two instance NFTs. The contracts rely on that seeding but
+  cannot check it themselves; clients can, on-chain, from each category's genesis transaction
+  and the instance NFTs, instead of trusting the deployer or the registry:
+  [trust assumptions](agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions).
 
 ## Technology
 

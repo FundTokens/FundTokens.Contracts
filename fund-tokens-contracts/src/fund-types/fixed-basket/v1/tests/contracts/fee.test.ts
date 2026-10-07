@@ -3,7 +3,6 @@ import { test } from 'vitest';
 import {
     MockNetworkProvider,
     randomToken,
-    randomUtxo,
     TransactionBuilder,
     Contract,
 } from 'cashscript';
@@ -16,6 +15,7 @@ import {
 } from '@bitauth/libauth';
 
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import systemUnderTestJson from '../../artifacts/fee.js';
 

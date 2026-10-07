@@ -4,9 +4,9 @@
  * assets: AssetManager keys on the thread commitment's fund hash, never on the category alone.
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { TransactionBuilder, randomUtxo } from 'cashscript';
+import { TransactionBuilder } from 'cashscript';
 
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
 import { FundTokenTransactionBuilder, hashFund, normalizeFund, type Fund } from '../index.js';

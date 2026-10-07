@@ -6,7 +6,7 @@ import { dustThreshold, outputSize, withDust } from '../../../core/outputs.js';
 import { pickRandom, shuffle } from '../../../core/random.js';
 import { assertInRange, toBigInt, type BigIntish } from '../../../core/validation.js';
 import { deriveFundContracts, type AssetManagerContract, type FundContracts } from './contracts.js';
-import { getFundBin, getPadding } from './encoding.js';
+import { getFundBin, getPadding, getThreadCommitment } from './encoding.js';
 import { getBestFee } from './fees.js';
 import { normalizeFund, validateFund } from './fund.js';
 import { parseSystemParameters } from './parameters.js';
@@ -53,6 +53,14 @@ const P2pkhLockingBytecode = new Uint8Array([0x76, 0xa9, 0x14, ...new Uint8Array
 const UnsignedContext = { transaction: { version: 2, inputs: [], outputs: [], locktime: 0 }, sourceOutputs: [], inputIndex: 0 };
 
 const varIntSize = (n: number): number => (n < 0xfd ? 1 : n <= 0xffff ? 3 : 5);
+
+/**
+ * Whether `utxo` holds `category` in a form the contracts can spend: they compare the bare 32-byte
+ * category, which a mutable or minting NFT extends with its capability. Anyone can send such a
+ * UTXO to a contract address; it can never be spent there, so selection skips it.
+ */
+const holds = (utxo: SpendableUtxo, category: string): boolean =>
+    utxo.token?.category === category && (utxo.token.nft?.capability ?? 'none') === 'none';
 
 function inputSize({ unlocker }: UnlockableUtxo): number {
     if (!isContractUnlocker(unlocker)) {
@@ -151,14 +159,14 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             getBestFee({ feeContract, feeVaultContract, fee: this.system.fees.execute, payBy }),
         ]);
 
-        const inflowUtxo = pickRandom(managerUtxos.filter(u => u.token?.category === this.system.inflow));
+        const inflowUtxo = pickRandom(managerUtxos.filter(u => this.#isThread(u, this.system.inflow)));
         if (!inflowUtxo) {
             throw new FundTokensError('MISSING_UTXO',
                 `No inflow thread found for fund ${this.fund.category} at ${managerContract.tokenAddress}; has the fund been created?`);
         }
 
         // Shuffled so concurrent mints tend to pick different supply UTXOs.
-        const supplyUtxos = shuffle(fundUtxos.filter(u => u.token?.category === this.fund.category));
+        const supplyUtxos = shuffle(fundUtxos.filter(u => holds(u, this.fund.category)));
         const supply: SpendableUtxo[] = [];
         let supplyTotal = 0n;
         for (const utxo of supplyUtxos) {
@@ -225,25 +233,26 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         }
         this.#logger.debug('FundTokenTransactionBuilder: adding outflow', { units: count, payBy });
 
-        const [managerUtxos, fundUtxos, fee, satoshiUtxos, assetUtxos] = await Promise.all([
+        const [managerUtxos, collectors, fee, satoshiUtxos, assetUtxos] = await Promise.all([
             managerContract.getUtxos(),
-            fundContract.getUtxos(),
+            this.getCollectorUtxos(),
             getBestFee({ feeContract, feeVaultContract, fee: this.system.fees.execute, payBy }),
             satoshiAssetContract ? satoshiAssetContract.getUtxos() : Promise.resolve([]),
             Promise.all(assetContracts.map(contract => contract.getUtxos())),
         ]);
 
-        const outflowUtxo = pickRandom(managerUtxos.filter(u => u.token?.category === this.system.outflow));
+        const outflowUtxo = pickRandom(managerUtxos.filter(u => this.#isThread(u, this.system.outflow)));
         if (!outflowUtxo) {
             throw new FundTokensError('MISSING_UTXO',
                 `No outflow thread found for fund ${this.fund.category} at ${managerContract.tokenAddress}; has the fund been created?`);
         }
 
-        // Prefer a UTXO already holding fund tokens; any UTXO at the fund contract can collect them.
-        const fundUtxo = pickRandom(fundUtxos.filter(u => u.token?.category === this.fund.category)) ?? pickRandom(fundUtxos);
+        // Prefer a UTXO already holding fund tokens; a token-free one can collect them too.
+        const fundUtxo = pickRandom(collectors.filter(u => u.token)) ?? pickRandom(collectors);
         if (!fundUtxo) {
             throw new FundTokensError('MISSING_UTXO',
-                `The fund contract has no UTXO to collect redeemed tokens into; send a dust UTXO to ${fundContract.tokenAddress} and retry`);
+                `The fund contract has no UTXO to collect redeemed tokens into (one holding only fund tokens, or no token); `
+                + `send a token-free dust UTXO to ${fundContract.tokenAddress} and retry`);
         }
 
         const contractInputs: UnlockableUtxo[] = [
@@ -291,6 +300,27 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         return this;
     }
 
+    /**
+     * The FundManager UTXOs a redemption can collect the redeemed fund tokens into: those holding
+     * the fund's tokens, and token-free ones. Anything else sent to the fund contract (another
+     * category, or a mutable or minting NFT) is refused by the contract. Empty when no redemption
+     * can be built: `addOutflow` then throws `MISSING_UTXO`, and sending a token-free dust UTXO to
+     * the fund contract fixes it.
+     */
+    async getCollectorUtxos(): Promise<SpendableUtxo[]> {
+        const utxos = await this.contracts.fundContract.getUtxos();
+        return utxos.filter(u => !u.token || holds(u, this.fund.category));
+    }
+
+    /**
+     * Whether `utxo` is a usable thread of `category` for this fund: an immutable NFT carrying the
+     * fund's thread commitment. Anything else at the manager's address fails the contract.
+     */
+    #isThread(utxo: SpendableUtxo, category: string): boolean {
+        const nft = utxo.token?.nft;
+        return utxo.token?.category === category && nft?.capability === 'none' && nft.commitment === getThreadCommitment(this.fund);
+    }
+
     /** The custody UTXOs released (largest first) to cover `count` units, and the change returned to custody. */
     #planRelease(count: bigint, satoshiUtxos: readonly SpendableUtxo[], assetUtxos: readonly (readonly SpendableUtxo[])[]): Release {
         const { assetContracts, satoshiAssetContract } = this.contracts;
@@ -321,7 +351,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
             const contract = this.#assetContract(assetContracts, i);
             const needed = asset.amount * count;
             const selection = selectLargestFirst(
-                (assetUtxos[i] ?? []).filter(u => u.token?.category === asset.category),
+                (assetUtxos[i] ?? []).filter(u => holds(u, asset.category)),
                 u => u.token?.amount ?? 0n,
                 needed,
             );

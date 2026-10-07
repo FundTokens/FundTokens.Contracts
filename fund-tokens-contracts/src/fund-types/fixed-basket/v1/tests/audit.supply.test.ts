@@ -8,9 +8,10 @@
  * and new fungible supply needs a consumed genesis (vout 0) outpoint.
  */
 import { swapEndianness } from '@bitauth/libauth';
-import { randomUtxo, TransactionBuilder, type Utxo } from 'cashscript';
+import { TransactionBuilder, type Utxo } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
+import { randomUtxo } from '@test-utils/random.js';
 
 import { withDust } from '../../../../core/outputs.js';
 import { FundTokenTransactionBuilder, PublicFundTransactionBuilder, getFundBin, hashFund, normalizeFund, type Fund } from '../index.js';

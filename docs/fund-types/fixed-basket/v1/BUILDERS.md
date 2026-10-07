@@ -65,6 +65,11 @@ Validation rules (the contracts' rules, plus checks for unusable funds):
 - at most `MaxFundAssets` assets
 - no duplicate assets, no asset with the BCH (all-zero) category, no asset that is the fund's own token
 
+`validateFund` does not verify asset categories beyond these rules. It does not look them up
+on-chain or compare them with the instance's system categories, so an asset that doesn't
+exist, has no fungible supply, or is a system token (inflow, outflow, public fund, fee NFTs)
+passes, and makes a fund nobody can mint. Check assets yourself before creating a fund.
+
 ## PublicFundTransactionBuilder
 
 Creates funds. Extends CashScript's `TransactionBuilder`.
@@ -96,11 +101,13 @@ new PublicFundTransactionBuilder({
 It adds the FundStartup, both thread minting, create fee and PublicFund inputs; returns them;
 pays the fee; mints the fund's threads, its whole supply and its published definition. The
 caller adds BCH (or `payBy` tokens) for the create fee, and change. Nothing is added unless
-every check and lookup succeeds. Exact layout:
+every check and lookup succeeds. It spends only what the contracts can: a token-free FundStartup
+UTXO, and a minting NFT at each of the mint contracts and PublicFund; anything else sent to
+those addresses is ignored. Exact layout:
 [TRANSACTIONS.md](../../../agents/fixed-basket/v1/TRANSACTIONS.md#fund-creation).
 
 `padding` and `startupPadding` (bytes, default 0) buy PublicFund and FundStartup more compute
-for funds of more than 78 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
+for funds of more than 81 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
 
 ## FundTokenTransactionBuilder
 
@@ -121,9 +128,14 @@ new FundTokenTransactionBuilder({
 | `contracts` / `getContracts()` | `FundContracts`: `managerContract` (TransactionManager), `fundContract` (FundManager), `assetContracts` (one AssetManager per asset, ascending), `satoshiAssetContract` (when `satoshis > 0`), `feeContract` (execute fee), `feeVaultContract` |
 | `addInflow({ units, payBy?, padding? })` | Adds the contract side of minting `units` units |
 | `addOutflow({ units, payBy?, padding? })` | Adds the contract side of redeeming `units` units |
+| `getCollectorUtxos()` | The FundManager UTXOs a redemption can collect the redeemed tokens into: those holding the fund's tokens, and token-free ones. Empty means `addOutflow` will throw `MISSING_UTXO` |
 
 Both need equal input and output counts when called. `padding` (bytes, default 0) buys the
-TransactionManager more compute.
+TransactionManager more compute. The thread is picked at random among the TransactionManager's
+immutable NFTs of the `inflow` / `outflow` category carrying the fund's thread commitment
+(`getThreadCommitment`); anything else at that address is ignored. Likewise, FundManager
+supply and custody UTXOs carrying a mutable or minting NFT of their category are skipped: the
+contracts compare the bare category, so they can never spend them.
 
 **`addInflow`** adds the fund's inflow thread, an execute fee UTXO and enough FundManager
 supply to cover `units × fund.amount` (picked randomly to spread concurrent users), plus
@@ -132,7 +144,8 @@ custody. The caller adds inputs with those assets and the fee's BCH, an output r
 `units × fund.amount` fund tokens, and change.
 
 **`addOutflow`** adds the fund's outflow thread, an execute fee UTXO and a FundManager UTXO
-that collects the redeemed tokens, and releases custody UTXOs largest first to cover the
+that collects the redeemed tokens (from `getCollectorUtxos()`, preferring one that already holds
+fund tokens), and releases custody UTXOs largest first to cover the
 backing, returning change to custody (BCH change never below dust). The caller adds inputs
 with `units × fund.amount` fund tokens and the fee's BCH, outputs receiving the released BCH
 and assets, and change. With validation on, it refuses a redemption that cannot fit in a
@@ -141,7 +154,8 @@ standard transaction (`TRANSACTION_TOO_LARGE`) and names the most units that fit
 **Errors**: `INVALID_TRANSACTION_STATE` (misaligned inputs/outputs), `INVALID_ARGUMENT`
 (bad `units`, amounts overflowing 2⁶³−1, BCH locked below dust with the minimum units
 named, too many assets), `MISSING_UTXO` (no thread: the fund isn't created; no fee thread for
-`payBy`), `INSUFFICIENT_FUNDS` (supply or custody can't cover the request),
+`payBy`; no FundManager UTXO to collect a redemption into, which a token-free dust UTXO sent
+to the fund contract fixes), `INSUFFICIENT_FUNDS` (supply or custody can't cover the request),
 `TRANSACTION_TOO_LARGE`.
 
 ## Encoding
@@ -151,6 +165,7 @@ named, too many assets), `MISSING_UTXO` (no thread: the fund isn't created; no f
 | `getFundHex(fund)` / `getFundBin(fund)` | The fund encoding the contracts read (47 bytes + 40 per asset). Assets are sorted first |
 | `hashFund(fund)` | hash256 of the encoding, hex |
 | `getFundCommitment(fund)` | `02 · hash · encoding`, the published definition |
+| `getThreadCommitment(fund)` | `02 · category · hash`, the commitment of the fund's inflow and outflow threads |
 | `decodeFund(hex)` / `decodeFundCommitment(hex)` | Inverses; the latter verifies the hash. Throw `INVALID_ENCODING` |
 | `categoryAscending`, `sortAssets` | The contracts' asset order |
 | `getPadding(bytes)`, `MaxPaddingBytes` | Padding argument bytes (0 to 10,000) |
@@ -164,10 +179,12 @@ Encoding does not validate: validate first (the builders do). Layouts:
 | --- | --- |
 | `encodeFee({ category?, amount, destination? })` | Enforced fee NFT commitment; `category` defaults to BCH |
 | `decodeFee({ hex, network? \| prefix? })` | Inverse; `network` picks the destination address prefix |
-| `getBestFee({ feeContract, feeVaultContract, fee, payBy? })` | The cheapest fee UTXO payable in `payBy` (default BCH), ties broken randomly, with its two outputs |
+| `getBestFee({ feeContract, feeVaultContract, fee, payBy? })` | The cheapest fee UTXO payable in `payBy` (default BCH), ties broken randomly, with its two outputs. Skips BCH fees paying less than the dust minimum (the contract requires the exact amount, and relays refuse the output); `MISSING_UTXO` if none is left |
 | `getAvailableFees({ feeContract, fee })` | Cheapest amount per payment category |
 
-Default fee UTXOs (no NFT) cost `fee.value` in BCH. Voluntary and malformed fee NFTs are skipped.
+Default fee UTXOs (no NFT) cost `fee.value` in BCH. Voluntary and malformed fee NFTs are
+skipped, and so, by `getBestFee`, are BCH fees below the dust minimum (a `fee.value` of 0, or
+an enforced BCH fee under it).
 
 ## BCMR templates
 

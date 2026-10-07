@@ -4,7 +4,6 @@ import {
     MockNetworkProvider,
     Network,
     randomToken,
-    randomUtxo,
     TransactionBuilder,
     Contract,
 } from 'cashscript';
@@ -21,7 +20,7 @@ import {
 import { generateWallet } from '@test-utils/wallet.js';
 
 import systemUnderTestJson from '../../artifacts/instance_vault.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 const DustAmount = 2000n;
 

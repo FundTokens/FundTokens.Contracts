@@ -2,7 +2,6 @@ import {
     MockNetworkProvider,
     Network,
     randomToken,
-    randomUtxo,
 } from 'cashscript';
 
 import { generateWallet } from '@test-utils/wallet.js';
@@ -15,7 +14,7 @@ import {
     decodeFundCommitment,
     getFundCommitment,
 } from '../index.js';
-import { randomCategory } from '@test-utils/random.js';
+import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 const DustAmount = 1000n;
 const DataDustAmount = 1065n;
