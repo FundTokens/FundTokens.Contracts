@@ -206,7 +206,8 @@ try {
     if (isFundTokensError(error, 'INVALID_ARGUMENT')) {
         // A value was out of range, e.g. the BCH locked would be below dust; the message says the minimum
     } else if (isFundTokensError(error, 'MISSING_UTXO')) {
-        // The fund isn't created (or confirmed) yet, or no fee thread accepts payBy: retry, or pay in BCH
+        // The fund isn't created (or confirmed) yet, or no fee thread accepts payBy: retry, or pay in BCH;
+        // a redemption also needs a fund contract UTXO to collect into (see getCollectorUtxos())
     } else if (isFundTokensError(error, 'INSUFFICIENT_FUNDS')) {
         // Supply (mint) or custody (redeem) can't cover the units requested
     } else if (isFundTokensError(error, 'INVALID_TRANSACTION_STATE')) {

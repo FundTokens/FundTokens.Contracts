@@ -188,6 +188,58 @@ describe('FundTokenTransactionBuilder', () => {
             const held = await Promise.all(assetContracts.map(async c => (await c.getUtxos()).reduce((sum, u) => sum + (u.token?.amount ?? 0n), 0n)));
             expect(held).toEqual(builder().fund.assets.map(a => a.amount * 2n));
         });
+
+        it('skips custody UTXOs carrying a mutable or minting NFT, which the contract cannot release', async () => {
+            const own = await createFund(instance, { amount: 10n, satoshis: 0n, assets: [asset(2n)] });
+            const category = own.assets![0]!.category;
+            const user = generateWallet();
+            const unlock = user.signatureTemplate.unlockP2PKH();
+            await (await builder({ fund: own }).addInflow({ units: 2n }))
+                .addInputs([
+                    instance.provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n })),
+                    instance.provider.addUtxo(user.tokenAddress, randomUtxo({ token: { category, amount: 4n } })),
+                ], unlock)
+                .addOutput({ to: user.tokenAddress, amount: 1000n, token: { category: own.category, amount: 20n } })
+                .send();
+
+            // Larger than any honest custody UTXO, so largest-first selection would take them first
+            const { assetContracts } = builder({ fund: own }).contracts;
+            const strays = (['mutable', 'minting'] as const).map(capability => instance.provider.addUtxo(assetContracts[0]!.tokenAddress,
+                randomUtxo({ token: { category, amount: 1_000_000n, nft: { capability, commitment: '' } } })));
+
+            const tokens = (await instance.provider.getUtxos(user.tokenAddress)).find(u => u.token?.category === own.category)!;
+            const redeem = await builder({ fund: own }).addOutflow({ units: 1n });
+            expect(redeem.inputs.some(u => strays.some(s => s.txid === u.txid))).toBe(false);
+            await redeem
+                .addInputs([instance.provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 200_000n })), tokens], unlock)
+                .addOutput({ to: user.tokenAddress, amount: 1000n, token: { category, amount: 2n } })
+                .addOutput({ to: user.tokenAddress, amount: 1000n, token: { category: own.category, amount: 10n } })
+                .send();
+            expect((await assetContracts[0]!.getUtxos()).filter(u => u.token?.nft)).toHaveLength(2);
+        });
+    });
+
+    describe('getCollectorUtxos', () => {
+        it('lists the fund UTXOs a redemption can collect into, and addOutflow reports when there are none', async () => {
+            // A fund whose manager holds an outflow thread, but whose fund contract holds only what it cannot spend
+            const b = builder({ fund: { ...fund, category: randomCategory() } });
+            const { managerContract, fundContract } = b.contracts;
+            instance.provider.addUtxo(managerContract.tokenAddress, randomUtxo({
+                token: { category: instance.system.outflow, amount: 0n, nft: { capability: 'none', commitment: getThreadCommitment(b.fund) } },
+            }));
+            instance.provider.addUtxo(fundContract.tokenAddress, randomUtxo({ token: { category: randomCategory(), amount: 5n } }));
+            instance.provider.addUtxo(fundContract.tokenAddress, randomUtxo({
+                token: { category: b.fund.category, amount: 5n, nft: { capability: 'minting', commitment: '' } },
+            }));
+
+            expect(await b.getCollectorUtxos()).toEqual([]);
+            await expect(b.addOutflow({ units: 1n })).rejects.toMatchObject({ code: 'MISSING_UTXO', message: expect.stringMatching(/token-free dust UTXO/) });
+
+            // A token-free UTXO collects: the redemption gets past the collector to custody (empty here)
+            const tokenFree = instance.provider.addUtxo(fundContract.tokenAddress, randomUtxo({ satoshis: 1000n }));
+            expect(await b.getCollectorUtxos()).toEqual([tokenFree]);
+            await expect(b.addOutflow({ units: 1n })).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' });
+        });
     });
 });
 
@@ -249,6 +301,24 @@ describe('PublicFundTransactionBuilder', () => {
         const fromFundBuilder = new FundTokenTransactionBuilder({ provider: instance.provider, system: instance.system, fund }).contracts;
         expect(fromBroadcaster.managerContract.tokenAddress).toBe(fromFundBuilder.managerContract.tokenAddress);
         expect(fromBroadcaster.fundContract.tokenAddress).toBe(fromFundBuilder.fundContract.tokenAddress);
+    });
+
+    it('skips UTXOs sent to the system contracts that they cannot spend', async () => {
+        const own = await bootstrapInstance();
+        const { startupContract, mintInflowContract, mintOutflowContract, publicFundContract } = new PublicFundTransactionBuilder({ provider: own.provider, system: own.system }).getContracts();
+        // FundStartup spends only token-free UTXOs, and the mint contracts and PublicFund only their minting NFT
+        for (let i = 0; i < 10; i++) {
+            own.provider.addUtxo(startupContract.tokenAddress, randomUtxo({ token: { category: randomCategory(), amount: 1n } }));
+        }
+        for (const [contract, category] of [[mintInflowContract, own.system.inflow], [mintOutflowContract, own.system.outflow], [publicFundContract, own.system.publicFund]] as const) {
+            for (let i = 0; i < 10; i++) {
+                own.provider.addUtxo(contract.tokenAddress, randomUtxo({ token: { category, amount: 0n, nft: { capability: 'none', commitment: '01' } } }));
+            }
+        }
+
+        for (let i = 0; i < 5; i++) {
+            await expect(createFund(own, { amount: 1n, satoshis: 1000n })).resolves.toBeDefined();
+        }
     });
 
     it('builds against any instance parameters without network access', () => {

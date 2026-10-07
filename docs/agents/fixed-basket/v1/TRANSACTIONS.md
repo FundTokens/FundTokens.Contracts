@@ -110,7 +110,9 @@ Released fund tokens = FundManager inputs − FundManager outputs = `units × fu
 
 Released per reserve = its inputs − its change = `units × satoshis` or `units × amount`.
 The library releases custody UTXOs largest first, never leaves BCH change below dust, and
-refuses a redemption that cannot fit a standard transaction ([LIMITS.md](LIMITS.md)).
+refuses a redemption that cannot fit a standard transaction ([LIMITS.md](LIMITS.md)). It
+skips custody and FundManager UTXOs the contracts cannot spend: another category, or a mutable
+or minting NFT of their own (the contracts compare the bare 32-byte category).
 
 ---
 
