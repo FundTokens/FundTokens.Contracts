@@ -1,6 +1,6 @@
 {
   "name": "@fundtokens/builders",
-  "version": "0.1.0-rc15",
+  "version": "0.1.0-rc16",
   "description": "Transaction builders and registry client to create and interact with FundTokens.",
   "author": "Fun(d)Tokens",
   "license": "SEE LICENSE IN LICENSE",
