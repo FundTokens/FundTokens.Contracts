@@ -187,9 +187,10 @@ every additional pair of threads.
 - `in[s + 1].tokenCategory == inflowToken + 0x02`; `in[s + 2].tokenCategory == outflowToken + 0x02`
 - `in[s + 3]` is locked by `P2SH32(fee)` and `out[s + 3]` has the same locking bytecode
   (the fee returned, so it ran `pay()`)
-- outside outputs `s … s + 6`, and at the create fee payment `s + 4`, no output has a category
-  starting with `inflowToken` or `outflowToken` (R-2: a voluntary fee lets the payment carry
-  any immutable NFT, which the minting NFTs at `s + 1` and `s + 2` could otherwise forge onto it)
+- outside outputs `s … s + 6`, and at the create fee payment `s + 4` (checked once after the
+  scan), no output has a category starting with `inflowToken` or `outflowToken` (R-2: a
+  voluntary fee lets the payment carry any immutable NFT, which the minting NFTs at `s + 1`
+  and `s + 2` could otherwise forge onto it)
 - no input has category exactly `inflowToken` or `outflowToken` (no live thread is spent)
 - `in[s]` is tokenless and `out[s]` returns to the same locking bytecode, tokenless
 
@@ -239,8 +240,8 @@ The templates for the derived address are read from the mint contract's own
 - `out[p + 1]` and `out[p + 2]` commitments == `0x02 · fundCategory · fundHash`
 - `out[p + 3]` is the FundManager bound to the TransactionManager at `out[p + 1]`'s locking
   bytecode, holds the fund category with amount exactly 2⁶³−1 (the whole supply)
-- outside outputs `0` and `s … end of chunks`, and at the create fee payment `p`, no output
-  has a category starting with the fund category or `token` (R-2: no fake definition chunk
+- outside outputs `0` and `s … end of chunks`, and at the create fee payment `p` (checked
+  once after the scan), no output has a category starting with the fund category or `token` (R-2: no fake definition chunk
   or fund-category NFT on the payment)
 - `in[p].tokenCategory == token + 0x02`; `out[p + 4]` returns `in[p]` (locking bytecode,
   category, commitment, fungible amount)

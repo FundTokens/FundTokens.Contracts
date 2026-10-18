@@ -91,10 +91,9 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 
         //
         // Ensure no other outputs mint inflow/outflow tokens
-        // The create fee payment (+4) is checked too: a voluntary fee lets it carry any immutable NFT
         int outputIndex = 0;
         do {
-            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7) || outputIndex == feeContractInput + 1) {
+            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7)) {
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
                     // No other outputs can mint inflow or outflow tokens
                     bytes outputCategory = tx.outputs[outputIndex].tokenCategory.slice(0, 32);
@@ -104,6 +103,15 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+
+        //
+        // The create fee payment (+4) is inside the skipped outputs, and a voluntary fee lets it carry any immutable NFT
+        bytes feePaymentCategory = tx.outputs[feeContractInput + 1].tokenCategory;
+        if(feePaymentCategory != 0x) {
+            bytes feePaymentToken = feePaymentCategory.slice(0, 32);
+            require(feePaymentToken != inflowToken);
+            require(feePaymentToken != outflowToken);
+        }
 
         //
         // Ensure no live inflow/outflow thread shares this transaction (e.g. a TransactionManager operation)

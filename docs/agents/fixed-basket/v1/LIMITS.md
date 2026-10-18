@@ -35,10 +35,10 @@ redeem script share the 10,000-byte unlocking bytecode limit.
 
 | Function | Without padding | Notes |
 | --- | --- | --- |
-| PublicFund `broadcast()` | 81 assets | Fixed budget of 559,200 (its unlocking bytecode does not grow with the fund); about 6,000 per asset, in steps as each 128-byte data chunk is added. 81 assets uses 545,636; 82 runs out |
+| PublicFund `broadcast()` | 84 assets | Fixed budget of 579,200 (its unlocking bytecode does not grow with the fund); about 6,000 per asset, in steps as each 128-byte data chunk is added. 84 assets uses 571,610; 85 runs out |
 | TransactionManager `outflow()` | depends on custody fragmentation | The fund argument adds 32,000 of budget per asset. Releasing one custody UTXO per asset costs 27,000 to 30,000 per asset (rising slowly with fund size), and each further custody UTXO about 4,400 (token) or 3,300 (BCH). One or two per asset fits at every fund size the protocol accepts; heavily fragmented custody of a fund with few reserves can need padding ([below](#custody-fragmentation)) |
 | TransactionManager `inflow()` | never runs out | 73.5% of its budget at 189 assets |
-| FundStartup `start()` | 144 assets | About 60,000 per asset, 32,000 of budget per asset from the fund argument. 189 assets at most (fund encoding + padding fill its unlocking bytecode) |
+| FundStartup `start()` | 145 assets | About 60,000 per asset, 32,000 of budget per asset from the fund argument. 189 assets at most (fund encoding + padding fill its unlocking bytecode) |
 
 ## Custody fragmentation
 
@@ -50,12 +50,12 @@ grows only with the fund's asset count. Which limit is reached first:
 
 | Redemption | Largest measured standard | TransactionManager | Padding |
 | --- | --- | --- | --- |
-| 4 custody UTXOs per reserve | 60 assets: 252 inputs, 92,041 bytes | 2,442,398 of 3,156,000 | none |
-| 5 per reserve | 45 assets: 239 inputs, 85,794 bytes | 2,009,239 of 2,676,000 | none |
-| 6 per reserve | 40 assets: 256 inputs, 90,749 bytes | 1,963,671 of 2,516,000 | none |
+| 4 custody UTXOs per reserve | 60 assets: 252 inputs, 91,987 bytes | 2,442,991 of 3,112,800 | none |
+| 5 per reserve | 45 assets: 239 inputs, 85,740 bytes | 2,009,832 of 2,632,800 | none |
+| 6 per reserve | 40 assets: 256 inputs, 90,695 bytes | 1,964,264 of 2,472,800 | none |
 | BCH only, many custody UTXOs | 270 custody UTXOs, 92,453 bytes | 999,786 of 1,257,600 | none |
 | BCH and one token, many per reserve | 120 per reserve, 86,833 bytes | 1,049,756 of 1,290,400 | none |
-| **One token, many custody UTXOs** | 280 custody UTXOs, 87,779 bytes | runs out past about 264 | **116 bytes at 280** |
+| **One token, many custody UTXOs** | 280 custody UTXOs, 87,780 bytes | runs out past about 264 | **171 bytes at 280** |
 
 So padding is needed only when a fund with few reserves (in practice, a single token reserve)
 redeems more than about 264 custody UTXOs at once: its budget runs out while the transaction
@@ -82,7 +82,7 @@ listing a fund or offering deposits.
 At 100 assets:
 
 - redeeming two custody UTXOs of every asset into one output per asset needs no padding and
-  takes 90,263 bytes (209 inputs, 207 outputs)
+  takes 90,209 bytes (209 inputs, 207 outputs)
 - paying each asset out in two outputs exceeds the limit
 
 `addOutflow` (with validation on) estimates the transaction with the fewest caller inputs

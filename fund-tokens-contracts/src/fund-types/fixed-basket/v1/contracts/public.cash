@@ -87,10 +87,9 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
 
         //
         // Verify no unauthorized token minting, efficiently check by skipping verified outputs
-        // The create fee payment (output p) is checked too: a voluntary fee lets it carry any immutable NFT
         int outputIndex = 1; // 0 (authhead) already validated
         do {
-            if(!within(outputIndex, this.activeInputIndex - 4, broadcastOutputEnd) || outputIndex == this.activeInputIndex) { // skip the expected tx sequence
+            if(!within(outputIndex, this.activeInputIndex - 4, broadcastOutputEnd)) { // skip the expected tx sequence
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
                     //
                     // No minting fund tokens or system tokens outside of our tx
@@ -101,6 +100,15 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
             }
             outputIndex = outputIndex + 1;
         } while(outputIndex < tx.outputs.length);
+
+        //
+        // The create fee payment (output p) is inside the skipped outputs, and a voluntary fee lets it carry any immutable NFT
+        bytes feePaymentCategory = tx.outputs[this.activeInputIndex].tokenCategory;
+        if(feePaymentCategory != 0x) {
+            bytes feePaymentToken = feePaymentCategory.slice(0, 32);
+            require(feePaymentToken != tx.inputs[0].outpointTransactionHash);
+            require(feePaymentToken != token);
+        }
 
         //
         // Start parsing fund details and verify

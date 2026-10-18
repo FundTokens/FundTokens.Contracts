@@ -103,7 +103,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         // If fund supports satoshi backing then verify locking asset destination and amounts
         // Fund amounts are > 0 (startup), so a whole multiple is a product
         if(fundSats > 0) {
-            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
+            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x20 + toPaddedBytes(0, 32) + assetTail)); // push 32 bytes, bitcoin category (zeros)
             require(tx.outputs[assetOutputIndex].lockingBytecode == satoshiLockingBytecode);
             require(tx.outputs[assetOutputIndex].value == fundReleasedAmount * fundSats);
             require(tx.outputs[assetOutputIndex].tokenCategory == 0x);
@@ -226,7 +226,7 @@ contract TransactionManager(bytes32 fee, bytes32 inflowToken, bytes32 outflowTok
         //
         // If fund support satoshi backing then verify releasing asset location and aggregate amounts
         if(fundSats > 0) {
-            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x200000000000000000000000000000000000000000000000000000000000000000 + assetTail)); // push 32 bytes, bitcoin category (zeros)
+            bytes satoshiLockingBytecode = new LockingBytecodeP2SH32(hash256(linkedAssetPush + managerPush + 0x20 + toPaddedBytes(0, 32) + assetTail)); // push 32 bytes, bitcoin category (zeros)
             linkedAssetPush = 0x23 + satoshiLockingBytecode;
             int satoshiReleaseAmount = 0;
 

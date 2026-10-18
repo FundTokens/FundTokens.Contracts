@@ -78,21 +78,21 @@ describe('audit: system-category NFTs in the voluntary create fee payment (R-2)'
 
     it('rejects a forged inflow thread on the fee payment', async () => {
         const { tx } = await creation(() => immutable(instance.system.inflow, '02' + '11'.repeat(64)));
-        await expect(tx).toBeRejected(/outputCategory != inflowToken/);
+        await expect(tx).toBeRejected(/feePaymentToken != inflowToken/);
     });
 
     it('rejects a forged outflow thread on the fee payment', async () => {
         const { tx } = await creation(() => immutable(instance.system.outflow, '02' + '11'.repeat(64)));
-        await expect(tx).toBeRejected(/outputCategory != outflowToken/);
+        await expect(tx).toBeRejected(/feePaymentToken != outflowToken/);
     });
 
     it('rejects a fake public fund chunk on the fee payment', async () => {
         const { tx } = await creation(() => immutable(instance.system.publicFund, '02' + '22'.repeat(64)));
-        await expect(tx).toBeRejected(/category != token/);
+        await expect(tx).toBeRejected(/feePaymentToken != token/);
     });
 
     it('rejects a fund-category NFT on the fee payment', async () => {
         const { tx } = await creation(fundCategory => immutable(fundCategory, ''));
-        await expect(tx).toBeRejected(/category != tx.inputs\[0\].outpointTransactionHash/);
+        await expect(tx).toBeRejected(/feePaymentToken != tx.inputs\[0\].outpointTransactionHash/);
     });
 });
