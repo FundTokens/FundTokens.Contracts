@@ -79,8 +79,9 @@ Fee category NFTs. The create and execute fees each have their own category.
 | 0x01 | None | `0x01 · feeCategory (32) · feeAmount (8) · [destination]` | FeeManager | Enforced fee |
 | 0x02 | None | `0x02` | FeeManager | Voluntary fee |
 
-- `feeCategory`: all zeros for BCH (then `feeAmount` is satoshis), else the token category
-  paid (then `feeAmount` is a token amount, paid exactly).
+- `feeCategory`: exactly 32 zero bytes for BCH (then `feeAmount` is satoshis), else the
+  token category paid (then `feeAmount` is a token amount, paid exactly). The bytes are
+  compared, not their number value: `0x00…0080` (negative zero) is a token category.
 - `feeAmount` > 0 (FeeMinter).
 - `destination`: optional locking bytecode receiving the fee; the FeeManager's default (the
   fee vault) when absent.

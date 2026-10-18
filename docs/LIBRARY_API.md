@@ -41,9 +41,19 @@ The contract version id (`v1`) is independent of the npm package version.
 A read-only client for the FundTokens registry service.
 
 It trusts the service and its HTTPS transport: instances, parameters and states are not
-reconciled with the chain. To verify an instance yourself, see the trust assumptions of its
-fund type version (fixed basket v1:
-[CONTRACTS.md](agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions)).
+reconciled with the chain. To verify an instance through your own provider, use its fund
+type version's genesis checks. For fixed basket v1 that is `verifyGenesis({ deploymentTxid })`
+on the resolved instance, passing the registry instance's `txid`
+([builders](fund-types/fixed-basket/v1/BUILDERS.md#verifying-genesis),
+[trust assumptions](agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions)):
+
+```ts
+const record = await registry.getCurrentInstance(FixedBasket);
+const report = await resolver.resolve(record).verifyGenesis({ deploymentTxid: record.txid ?? undefined });
+if (!report.ok) throw new Error(report.checks.flatMap(c => c.problems).join('; '));
+```
+
+The registry lists public funds only.
 
 ```ts
 new FundTokensRegistry({

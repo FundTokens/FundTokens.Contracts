@@ -10,6 +10,7 @@ import {
 import {
     bigIntToBinUint64LEClamped,
     binToHex,
+    hexToBin,
     swapEndianness,
     utf8ToBin,
 } from '@bitauth/libauth';
@@ -221,5 +222,33 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 }
             ]);
         expect(transaction).toFailRequireWith("first output must be an OP_RETURN");
+    });
+
+    // AUD-034: the burned identity output is an OP_RETURN with no value; the control burns with 0
+    test.each([
+        { value: 0n, accepted: true },
+        { value: DustAmount, accepted: false },
+    ])('burns an identity into an OP_RETURN of value $value: accepted $accepted', ({ value, accepted }) => {
+        const transaction = new TransactionBuilder({ provider });
+        transaction
+            .addInput(bitcoinUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addInput(utxoUnderTest, systemUnderTest.unlock.burn())
+            .addInput(burnAuthUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
+            .addOutputs([
+                {
+                    to: hexToBin('6a'),
+                    amount: value,
+                },
+                {
+                    to: ownerWallet.tokenAddress,
+                    amount: DustAmount,
+                    token: burnAuthUtxo.token,
+                }
+            ]);
+        if (accepted) {
+            expect(transaction).not.toFailRequire();
+        } else {
+            expect(transaction).toFailRequireWith("no value allowed on burned authhead");
+        }
     });
 });

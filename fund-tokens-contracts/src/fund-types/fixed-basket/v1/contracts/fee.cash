@@ -92,7 +92,8 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
                 //
                 // Verify the fee is paid
                 int fee_amount = int(fee_amount_bytes);
-                if(int(fee_category) == 0) {
+                // BCH is exactly 32 zero bytes: as a number, a negative zero (0x00...0080) would also match
+                if(fee_category == toPaddedBytes(0, 32)) {
                     require(tx.outputs[feeOutput].value == fee_amount);
                     require(tx.outputs[feeOutput].tokenCategory == 0x);
                 } else {

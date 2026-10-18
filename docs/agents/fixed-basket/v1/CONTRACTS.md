@@ -21,7 +21,7 @@ input:
 The commitment's type byte is not checked. A commitment shorter than 3 bytes fails the
 script (fail closed). Permission bits are in [ENCODINGS.md](ENCODINGS.md#authorization-token).
 
-**Fungible tokens on NFTs**. A minting NFT in the transaction can add fungible tokens of its
+**Fungible tokens on NFTs**. A minting NFT in the transaction can move fungible tokens of its
 category to any output. So every NFT a contract returns to itself keeps its fungible token
 amount, and every NFT a contract mints must carry amount 0.
 
@@ -46,7 +46,8 @@ order. The unlocker names below are the function names.
 ## System contracts
 
 Deployed once per instance. SimpleMinter, FeeMinter and InstanceVault are maintenance
-contracts not derived by the library; the others come from `deriveSystemContracts`
+contracts the builders don't use; the library derives them (`deriveMinterContracts`,
+`deriveInstanceVault`) only to verify genesis. The others come from `deriveSystemContracts`
 ([contracts.ts](../../../../fund-tokens-contracts/src/fund-types/fixed-basket/v1/contracts.ts)).
 
 ### SimpleMinter
@@ -78,8 +79,9 @@ NFT and mints fee NFTs to `next` (the FeeManager for that fee).
 - Every output `i != a` whose category starts with `token`:
   - `lockingBytecode == next`, `tokenCategory == token` (immutable), `tokenAmount == 0`
   - commitment type is 0x01 or 0x02 (never 0x00):
-    - 0x01: the 32-byte fee category is present, and the 8-byte amount (VM number) is > 0. A
-      trailing destination is optional and not checked
+    - 0x01: the 32-byte fee category is present (the split fails otherwise; its value is not
+      checked), and the 8-byte amount (VM number) is > 0. A trailing destination is optional
+      and not checked
     - 0x02: nothing follows the type byte
 - `in[a].tokenCategory == token + 0x02` and `out[a]` returns to itself (category, locking
   bytecode, commitment, fungible amount)
@@ -101,7 +103,8 @@ which fund creation sends here as output 0.
 - `update()`: `hasAuthority(authToken, 0x0004)`; `a == 0`; `out[0]` has `in[0]`'s locking
   bytecode and no token. One identity per transaction.
 - `burn()`: `hasAuthority(authToken, 0x0008)`; `out[0]` is an OP_RETURN (`0x6a…`) with no
-  token. Several identities may be burned in one transaction.
+  token and value 0 (`'no value allowed on burned authhead'`, AUD-034). Several identities
+  may be burned in one transaction.
 
 ### InstanceVault
 
@@ -345,8 +348,10 @@ redeem). `defaultDestination` is the fee vault's locking bytecode. Holds tokenle
 - `in[a]` holds a `feeToken` NFT (category exactly `feeToken`):
   - type must be 0x01 or 0x02
   - 0x01 (enforced): `out[a + 1]` locked by the encoded destination, or `defaultDestination`
-    when none is encoded. BCH category (all zeros): value exactly the amount, tokenless.
-    Otherwise: category exactly the encoded one, amount exactly the encoded amount
+    when none is encoded. BCH category (exactly 32 zero bytes, compared as bytes): value
+    exactly the amount, tokenless. Otherwise: category exactly the encoded one, amount exactly
+    the encoded amount. A category that is zero only as a number (negative zero,
+    `0x00…0080`) is a token category, as `decodeFee` reads it (AUD-044)
   - 0x02 (voluntary): either `out[a + 1]` is locked by `defaultDestination` and holds a
     32-byte category (fungible tokens or an immutable NFT) or is tokenless with value > 0,
     or it is an OP_RETURN, tokenless, value 0
@@ -421,6 +426,27 @@ transaction (the one spending output 0 of the transaction whose id is the catego
 its token outputs against the table, and check that each minting NFT has only moved through
 its holding contract since.
 
+`verifySystemGenesis({ provider, system, deploymentTxid?, authorizationGenesisTxid?, maxSteps? })`
+([genesis.ts](../../../../fund-tokens-contracts/src/fund-types/fixed-basket/v1/genesis.ts),
+also `FixedBasketInstance.verifyGenesis`) does this through the caller's provider, using
+only `getUtxos` and `getRawTransaction`:
+
+- **Threads, public fund, fees.** The holder (`deriveMinterContracts`) must hold exactly one
+  minting NFT of the category. From it the check walks back: both minters return their
+  minting NFT at their own input index, so the previous holder UTXO is the input at the
+  output's index. Each step must be a minting NFT of the category at the holder, until a
+  transaction spends `category:0`. That genesis must create exactly one minting NFT, at the
+  holder, no other NFT of the category and no fungible supply. A minting NFT that reached the
+  holder from anywhere else fails, so a deployment must create each one straight into its
+  holder. A walk longer than `maxSteps` (default 1000) is `unverifiable`.
+- **Authorization.** Its genesis must create no fungible supply; who holds the NFTs can't be
+  judged. The genesis is looked for among the transactions the other checks fetched and
+  `authorizationGenesisTxid`; if none is found the check is `unverifiable`.
+- **Instance.** Below.
+
+Each check is `verified`, `failed` (with `problems`) or `unverifiable`; the report's `ok` is
+true only when all are `verified`. Provider errors propagate.
+
 **Instance NFTs (AUD-046).** InstanceVault's `proof()`, `update()` and `burn()` cover two
 inputs: the proof NFT and the data NFT after it. `data()` only checks that its input follows
 another from the same transaction at the vault, and constrains no output. The deployment is
@@ -430,8 +456,57 @@ that transaction at the vault could be spent through `data()` without authorizat
 record could then no longer be proven, updated or burned. No code in this repository creates
 the instance NFTs; verify the creating transaction's instance-category outputs.
 
+`verifySystemGenesis` does, given `deploymentTxid` (the registry instance's `txid`, the
+transaction that created the instance NFTs). The instance category is the one that
+transaction creates (an input spending `category:0`) with a mutable NFT at its own
+InstanceVault (`deriveInstanceVault`). The transaction must create exactly two NFTs of it,
+both at that vault: a mutable proof NFT of type 0x00 and version 1, and an immutable data
+NFT, with no fungible supply. The proof's hash must cover the data, and the data must be
+exactly `getInstanceDataHex(system)` ([ENCODINGS.md](ENCODINGS.md#instance-data)), so the
+parameters the client was given are the ones the instance published. Without
+`deploymentTxid` the check is `unverifiable`.
+
 **Registry.** `FundTokensRegistry` reads instances, their parameters and state from the
 registry service over HTTPS and does not reconcile them with the chain. Clients that need
-more than transport trust should verify the parameters against the instance NFTs (their hash
-covers the parameters, [ENCODINGS.md](ENCODINGS.md#instance-nfts)) and the genesis checks
-above.
+more than transport trust run `verifySystemGenesis` with the registry instance's
+`parameters` and `txid` through a provider they trust: a passing report proves the
+parameters are the instance's own and its system tokens were seeded as the table requires.
+The registry tracks only public funds.
+
+**Funds created without PublicFund (AUD-032).** FundStartup, FundInflowMint and
+FundOutflowMint run without PublicFund, so threads can exist for any valid fund encoding
+with any category (*Threads for any fund*, above). The contracts check the definition, not
+how the category's tokens came to exist. Only a public creation, run in the category's
+genesis transaction, guarantees:
+
+- the whole supply (2⁶³−1) is created into the fund's FundManager, and no other output
+  carries the category (PublicFund's scan)
+- the fund's identity output goes to the AuthHeadVault, so the steward, not the creator,
+  holds its BCMR authchain
+- the definition is published to the PublicFundVault, and the registry lists the fund
+
+For any other fund nothing on-chain rules out:
+
+- **Unbacked tokens.** The creator can create fund tokens outside the FundManager at
+  genesis. Those tokens redeem other depositors' backing like minted ones.
+- **An existing category.** The fund category can be any token that already exists. Its
+  holders can redeem whatever is deposited.
+- **Creator-controlled identity.** Whoever holds the genesis output's authchain publishes
+  the fund's BCMR metadata, including its name and symbol.
+
+Deposits into a fund are safe exactly when every fund token outside a FundManager was minted
+against backing, which holds when the genesis created every fund token into this fund's
+FundManager. Fungible tokens are only created at genesis, so that one transaction decides it.
+Other definitions with the same category don't break it. Their FundManagers hold only
+tokens taken out of circulation (redeemed into them or sent to them), so minting from them
+never puts more tokens in circulation than the genesis FundManager has released. NFTs of the
+fund category don't count, since the TransactionManager accounts fungible amounts only.
+
+`verifyFundGenesis({ provider, system, fund, genesisTxid })` (also
+`FixedBasketInstance.verifyFundGenesis(fund, genesisTxid)`) checks this:
+`genesisTxid` must spend `fund.category:0`, every fund token it creates must go to the
+fund's FundManager, and some must. For a public fund the genesis is its creation
+transaction (`RegistryFund.genesisTxid`); for any other fund it comes from the creator or an
+indexer, as the registry doesn't track them. The builders don't check genesis: a client
+that mints into a fund it didn't create, and that wasn't created publicly, should run this
+first.

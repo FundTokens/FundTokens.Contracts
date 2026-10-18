@@ -57,7 +57,10 @@ One transaction, built by `PublicFundTransactionBuilder.addBroadcast`:
   PublicFundVault in 128-byte pieces.
 - The create fee is paid.
 
-More thread pairs can be added later the same way, without PublicFund.
+More thread pairs can be added later the same way, without PublicFund. Threads can be added
+this way for a fund that was never created publicly. Only a public creation guarantees the
+fund's whole supply starts in its FundManager, so check any other fund with
+`verifyFundGenesis` before depositing ([system tokens](TOKENS.md#public-fund)).
 
 ### Mint (inflow)
 

@@ -50,12 +50,12 @@ grows only with the fund's asset count. Which limit is reached first:
 
 | Redemption | Largest measured standard | TransactionManager | Padding |
 | --- | --- | --- | --- |
-| 4 custody UTXOs per reserve | 60 assets: 252 inputs, 99,139 bytes | 2,457,764 of 3,179,200 | none |
-| 5 per reserve | 45 assets: 239 inputs, 92,486 bytes | 2,020,855 of 2,699,200 | none |
-| 6 per reserve | 40 assets: 256 inputs, 97,905 bytes | 1,974,037 of 2,539,200 | none |
+| 4 custody UTXOs per reserve | 60 assets: 252 inputs, 99,141 bytes | 2,457,764 of 3,179,200 | none |
+| 5 per reserve | 45 assets: 239 inputs, 92,488 bytes | 2,020,855 of 2,699,200 | none |
+| 6 per reserve | 40 assets: 256 inputs, 97,907 bytes | 1,974,037 of 2,539,200 | none |
 | BCH only, many custody UTXOs | 270 custody UTXOs, 92,453 bytes | 999,786 of 1,257,600 | none |
 | BCH and one token, many per reserve | 120 per reserve, 86,833 bytes | 1,049,756 of 1,290,400 | none |
-| **One token, many custody UTXOs** | 280 custody UTXOs, 95,893 bytes | runs out past about 264 | **88 bytes at 280** |
+| **One token, many custody UTXOs** | 280 custody UTXOs, 95,895 bytes | runs out past about 264 | **88 bytes at 280** |
 
 So padding is needed only when a fund with few reserves (in practice, a single token reserve)
 redeems more than about 264 custody UTXOs at once: its budget runs out while the transaction

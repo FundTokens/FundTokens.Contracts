@@ -1,3 +1,4 @@
+import { bigIntToBinUint64LEClamped, binToHex, swapEndianness } from '@bitauth/libauth';
 import { FundTokensError } from '../../../core/errors.js';
 import { assertCategory, assertInRange, assertObject, toBigInt } from '../../../core/validation.js';
 import { MaxTokenAmount } from '../../../core/constants.js';
@@ -39,4 +40,19 @@ export function parseSystemParameters(input: SystemParametersInput | SystemParam
     }
 
     return Object.freeze(parsed);
+}
+
+/**
+ * The instance data: `system` serialized as the contracts take it, the 208 bytes the instance
+ * NFTs hash (docs/agents/fixed-basket/v1/ENCODINGS.md#instance-data). Categories are in
+ * internal byte order, fee values 8-byte little-endian.
+ */
+export function getInstanceDataHex(system: SystemParameters): string {
+    const value = (amount: bigint) => binToHex(bigIntToBinUint64LEClamped(amount));
+    return swapEndianness(system.inflow)
+        + swapEndianness(system.outflow)
+        + swapEndianness(system.publicFund)
+        + swapEndianness(system.authorization)
+        + swapEndianness(system.fees.create.nft) + value(system.fees.create.value)
+        + swapEndianness(system.fees.execute.nft) + value(system.fees.execute.value);
 }

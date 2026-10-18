@@ -1,31 +1,37 @@
 import { Contract, type NetworkProvider } from 'cashscript';
 import { hexToBin, swapEndianness } from '@bitauth/libauth';
 import { BitcoinCategory } from '../../../core/constants.js';
-import { hashBytecode, lockingBytecodeHexOf } from '../../../core/outputs.js';
+import { hashBytecode, lockingBytecodeHexOf, lockingBytecodeOf } from '../../../core/outputs.js';
 import { hashFund, sortAssets } from './encoding.js';
 import type { FeeParameters, Fund, SystemParameters } from './types.js';
 
 import assetArtifact from './artifacts/asset.js';
 import authHeadVaultArtifact from './artifacts/authhead_vault.js';
 import feeArtifact from './artifacts/fee.js';
+import feeMinterArtifact from './artifacts/fee_minter.js';
 import fundArtifact from './artifacts/fund.js';
+import instanceVaultArtifact from './artifacts/instance_vault.js';
 import managerArtifact from './artifacts/manager.js';
 import mintInflowArtifact from './artifacts/mint_inflow.js';
 import mintOutflowArtifact from './artifacts/mint_outflow.js';
 import publicArtifact from './artifacts/public.js';
 import publicVaultArtifact from './artifacts/public_vault.js';
+import simpleMinterArtifact from './artifacts/simple_minter.js';
 import simpleVaultArtifact from './artifacts/simple_vault.js';
 import startupArtifact from './artifacts/startup.js';
 
 export type AssetManagerContract = Contract<typeof assetArtifact>;
 export type AuthHeadVaultContract = Contract<typeof authHeadVaultArtifact>;
 export type FeeManagerContract = Contract<typeof feeArtifact>;
+export type FeeMinterContract = Contract<typeof feeMinterArtifact>;
 export type FundManagerContract = Contract<typeof fundArtifact>;
+export type InstanceVaultContract = Contract<typeof instanceVaultArtifact>;
 export type TransactionManagerContract = Contract<typeof managerArtifact>;
 export type FundInflowMintContract = Contract<typeof mintInflowArtifact>;
 export type FundOutflowMintContract = Contract<typeof mintOutflowArtifact>;
 export type PublicFundContract = Contract<typeof publicArtifact>;
 export type PublicFundVaultContract = Contract<typeof publicVaultArtifact>;
+export type SimpleMinterContract = Contract<typeof simpleMinterArtifact>;
 export type SimpleVaultContract = Contract<typeof simpleVaultArtifact>;
 export type FundStartupContract = Contract<typeof startupArtifact>;
 
@@ -131,6 +137,38 @@ export function deriveSystemContracts(provider: NetworkProvider, system: SystemP
         authHeadVaultContract,
         publicFundVaultContract,
     });
+}
+
+/** The maintenance contracts that hold each system category's minting NFT. */
+export interface MinterContracts {
+    readonly inflowMinterContract: SimpleMinterContract;
+    readonly outflowMinterContract: SimpleMinterContract;
+    readonly publicFundMinterContract: SimpleMinterContract;
+    readonly createFeeMinterContract: FeeMinterContract;
+    readonly executeFeeMinterContract: FeeMinterContract;
+}
+
+/** The SimpleMinters and FeeMinters an instance's deployment seeds its minting NFTs into. */
+export function deriveMinterContracts(provider: NetworkProvider, system: SystemParameters): MinterContracts {
+    const contracts = deriveSystemContracts(provider, system);
+    const authorization = swapEndianness(system.authorization);
+    const simpleMinter = (token: string, destination: string) =>
+        new Contract(simpleMinterArtifact, [authorization, swapEndianness(token), lockingBytecodeOf(destination)], options(provider));
+    const feeMinter = (token: string, destination: string) =>
+        new Contract(feeMinterArtifact, [authorization, swapEndianness(token), lockingBytecodeOf(destination)], options(provider));
+
+    return Object.freeze({
+        inflowMinterContract: simpleMinter(system.inflow, contracts.mintInflowContract.tokenAddress),
+        outflowMinterContract: simpleMinter(system.outflow, contracts.mintOutflowContract.tokenAddress),
+        publicFundMinterContract: simpleMinter(system.publicFund, contracts.publicFundContract.tokenAddress),
+        createFeeMinterContract: feeMinter(system.fees.create.nft, contracts.createFundFeeContract.tokenAddress),
+        executeFeeMinterContract: feeMinter(system.fees.execute.nft, contracts.executeFundFeeContract.tokenAddress),
+    });
+}
+
+/** The InstanceVault holding the `instance` category's proof and data NFTs. */
+export function deriveInstanceVault(provider: NetworkProvider, system: SystemParameters, instance: string): InstanceVaultContract {
+    return new Contract(instanceVaultArtifact, [swapEndianness(instance), swapEndianness(system.authorization)], options(provider));
 }
 
 export function deriveFundContracts(provider: NetworkProvider, system: SystemParameters, fund: Fund): FundContracts {

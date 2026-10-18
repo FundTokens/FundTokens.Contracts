@@ -49,9 +49,8 @@ contract FeeMinter(bytes32 authorization, bytes32 token, bytes next)
                     require(fee_type == 0x01 || fee_type == 0x02); // minting type not allowed
 
                     if(fee_type == 0x01) {
-                        bytes fee_category, bytes fee_next1 = fee_next0.split(32);
-                        require(fee_category != 0x);
-                        
+                        // The split fails unless the 32-byte fee category is present
+                        bytes fee_next1 = fee_next0.split(32)[1];
                         bytes fee_amount = fee_next1.slice(0, 8);
                         require(int(fee_amount) > 0); // treat as int
                         

@@ -20,6 +20,8 @@ What `FundTypeResolver.resolve()` returns for a v1 instance (also `createInstanc
 | `getFundContracts(fund)` | `FundContracts` for `fund` |
 | `parseFund(input)`, `decodeFundCommitment(hex)` | Fund parsing and on-chain decoding |
 | `forFund(input)` | `{ fund, contracts, createBuilder(options?) }` |
+| `verifyGenesis(options?)` | `verifySystemGenesis` through the bound provider and parameters ([verifying genesis](#verifying-genesis)) |
+| `verifyFundGenesis(fund, genesisTxid)` | `verifyFundGenesis` for `fund` |
 
 ## System parameters
 
@@ -232,10 +234,35 @@ chunks, the instance's public fund category):
 | --- | --- |
 | `deriveSystemContracts(provider, system)` | `SystemContracts`, without network access |
 | `deriveFundContracts(provider, system, fund)` | `FundContracts` |
+| `deriveMinterContracts(provider, system)` | The SimpleMinters and FeeMinters holding each system category's minting NFT |
+| `deriveInstanceVault(provider, system, instance)` | The InstanceVault for the `instance` category |
 | `artifacts` | Typed artifacts by contract name: `transactionManager`, `fundManager`, `assetManager`, `feeManager`, `fundStartup`, `fundInflowMint`, `fundOutflowMint`, `publicFund`, `publicFundVault`, `authHeadVault`, `simpleVault`, `simpleMinter`, `feeMinter`, `instanceVault` |
 
 Contracts are typed by artifact (e.g. `TransactionManagerContract`), so constructor arguments
 and `unlock.*()` calls are type-checked.
+
+## Verifying genesis
+
+The contracts trust an instance's deployment, and a fund's creator, to have created their
+tokens as required; these check it on-chain through your provider (`getUtxos` and
+`getRawTransaction` only), not the registry. Rules and what each check covers:
+[trust assumptions](../../../agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions).
+
+| Export | Description |
+| --- | --- |
+| `verifySystemGenesis({ provider, system, deploymentTxid?, authorizationGenesisTxid?, maxSteps? })` | `GenesisReport`: one minting NFT per thread, public fund and fee category, created straight into its minter and never moved out; no fungible system supply; the deployment's two instance NFTs holding `system` |
+| `verifyFundGenesis({ provider, system, fund, genesisTxid })` | `GenesisCheck`: the genesis created every fund token into the fund's FundManager. Run it before depositing into a fund that wasn't created publicly |
+| `getInstanceDataHex(system)` | The 208-byte instance data the instance NFTs hash |
+
+A `GenesisCheck` is `{ name, category, status, genesisTxid, problems }`, with `status`
+`'verified'`, `'failed'` or `'unverifiable'` (the genesis couldn't be located from what was
+given). A `GenesisReport` is `{ ok, checks }`; `ok` only when every check is verified. Both
+return results rather than throwing; provider errors propagate.
+
+```ts
+const report = await instance.verifyGenesis({ deploymentTxid: registryInstance.txid ?? undefined });
+const check = await instance.verifyFundGenesis(fund, genesisTxid); // a public fund: its RegistryFund.genesisTxid
+```
 
 ## Measured sizes
 

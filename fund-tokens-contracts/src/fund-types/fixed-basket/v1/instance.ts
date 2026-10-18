@@ -2,6 +2,13 @@ import type { NetworkProvider } from 'cashscript';
 import { deriveFundContracts, deriveSystemContracts, type FundContracts, type SystemContracts } from './contracts.js';
 import { decodeFundCommitment } from './encoding.js';
 import { FundTokenTransactionBuilder, type FundTokenTransactionBuilderOptions } from './FundTokenTransactionBuilder.js';
+import {
+    verifyFundGenesis,
+    verifySystemGenesis,
+    type GenesisCheck,
+    type GenesisReport,
+    type VerifySystemGenesisOptions,
+} from './genesis.js';
 import { normalizeFund, parseFund } from './fund.js';
 import { parseSystemParameters } from './parameters.js';
 import { PublicFundTransactionBuilder, type PublicFundTransactionBuilderOptions } from './PublicFundTransactionBuilder.js';
@@ -72,6 +79,19 @@ export class FixedBasketInstance {
     /** Decodes the fund commitment this version publishes on-chain. */
     decodeFundCommitment(hex: string): Fund {
         return decodeFundCommitment(hex);
+    }
+
+    /**
+     * Verifies this instance's system token genesis on-chain, through this instance's provider
+     * (see `verifySystemGenesis`). Pass the registry instance's `txid` as `deploymentTxid`.
+     */
+    verifyGenesis(options: Omit<VerifySystemGenesisOptions, 'provider' | 'system'> = {}): Promise<GenesisReport> {
+        return verifySystemGenesis({ ...options, provider: this.provider, system: this.system });
+    }
+
+    /** Verifies that `fund`'s genesis put every fund token in its FundManager (see `verifyFundGenesis`). */
+    verifyFundGenesis(fund: FundInput | Fund, genesisTxid: string): Promise<GenesisCheck> {
+        return verifyFundGenesis({ provider: this.provider, system: this.system, fund, genesisTxid });
     }
 
     /** A fund on this instance, with its contracts and a builder factory. */

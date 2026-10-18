@@ -74,8 +74,13 @@ Each instance publishes a **lifecycle state** on-chain, mirrored by the registry
 - **Verifiable deployment.** Each instance is seeded once with its system tokens: one minting
   NFT per system category and the two instance NFTs. The contracts rely on that seeding but
   cannot check it themselves; clients can, on-chain, from each category's genesis transaction
-  and the instance NFTs, instead of trusting the deployer or the registry:
+  and the instance NFTs, instead of trusting the deployer or the registry. The library does
+  this through the client's own node (`verifyGenesis`):
   [trust assumptions](agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions).
+- **Public funds.** A fund created publicly puts its whole supply into its contracts in its
+  genesis transaction. Anyone can also add threads for a fund created another way, whose
+  creator may have kept unbacked tokens; check such a fund's genesis (`verifyFundGenesis`)
+  before depositing into it.
 
 ## Technology
 
