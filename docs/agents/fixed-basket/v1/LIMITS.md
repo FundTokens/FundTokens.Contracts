@@ -45,17 +45,17 @@ redeem script share the 10,000-byte unlocking bytecode limit.
 Every deposit leaves one custody UTXO per reserve, and a redemption releases custody UTXOs
 largest first, so a redemption can release several UTXOs of every reserve. Each released
 custody UTXO costs the TransactionManager about 4,400 of operation cost (token reserve) or
-3,300 (BCH) and the transaction about 330 to 370 bytes, while the TransactionManager's budget
+3,300 (BCH) and the transaction about 300 to 340 bytes, while the TransactionManager's budget
 grows only with the fund's asset count. Which limit is reached first:
 
 | Redemption | Largest measured standard | TransactionManager | Padding |
 | --- | --- | --- | --- |
-| 4 custody UTXOs per reserve | 60 assets: 252 inputs, 99,141 bytes | 2,457,764 of 3,179,200 | none |
-| 5 per reserve | 45 assets: 239 inputs, 92,488 bytes | 2,020,855 of 2,699,200 | none |
-| 6 per reserve | 40 assets: 256 inputs, 97,907 bytes | 1,974,037 of 2,539,200 | none |
+| 4 custody UTXOs per reserve | 60 assets: 252 inputs, 92,041 bytes | 2,442,398 of 3,156,000 | none |
+| 5 per reserve | 45 assets: 239 inputs, 85,794 bytes | 2,009,239 of 2,676,000 | none |
+| 6 per reserve | 40 assets: 256 inputs, 90,749 bytes | 1,963,671 of 2,516,000 | none |
 | BCH only, many custody UTXOs | 270 custody UTXOs, 92,453 bytes | 999,786 of 1,257,600 | none |
 | BCH and one token, many per reserve | 120 per reserve, 86,833 bytes | 1,049,756 of 1,290,400 | none |
-| **One token, many custody UTXOs** | 280 custody UTXOs, 95,895 bytes | runs out past about 264 | **88 bytes at 280** |
+| **One token, many custody UTXOs** | 280 custody UTXOs, 87,779 bytes | runs out past about 264 | **116 bytes at 280** |
 
 So padding is needed only when a fund with few reserves (in practice, a single token reserve)
 redeems more than about 264 custody UTXOs at once: its budget runs out while the transaction
@@ -82,7 +82,7 @@ listing a fund or offering deposits.
 At 100 assets:
 
 - redeeming two custody UTXOs of every asset into one output per asset needs no padding and
-  takes 96,194 bytes (209 inputs, 207 outputs)
+  takes 90,263 bytes (209 inputs, 207 outputs)
 - paying each asset out in two outputs exceeds the limit
 
 `addOutflow` (with validation on) estimates the transaction with the fewest caller inputs
@@ -90,6 +90,12 @@ and outputs possible (one P2PKH input; one P2PKH output per released asset, plus
 cannot fit, it throws `TRANSACTION_TOO_LARGE`, naming the most units that fit
 ("redeem at most N unit(s) per transaction"). Fewer units release fewer custody UTXOs,
 because custody is spent largest first.
+
+`addInflow` does the same for fund supply split into many UTXOs (P2-2), with the fewest
+caller inputs (one P2PKH input per asset, at least one) and one output for the minted fund
+tokens: "mint at most N unit(s) per transaction". Supply is spent one covering UTXO, or
+else largest first (`tests/audit.supplyFragments.test.ts`). Fragmentation and its cost:
+[CONTRACTS.md](CONTRACTS.md#contract-behaviours-to-know).
 
 ## Measured sizes
 

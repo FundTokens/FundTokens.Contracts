@@ -187,7 +187,9 @@ every additional pair of threads.
 - `in[s + 1].tokenCategory == inflowToken + 0x02`; `in[s + 2].tokenCategory == outflowToken + 0x02`
 - `in[s + 3]` is locked by `P2SH32(fee)` and `out[s + 3]` has the same locking bytecode
   (the fee returned, so it ran `pay()`)
-- outside outputs `s … s + 6`, no output has a category starting with `inflowToken` or `outflowToken`
+- outside outputs `s … s + 6`, and at the create fee payment `s + 4`, no output has a category
+  starting with `inflowToken` or `outflowToken` (R-2: a voluntary fee lets the payment carry
+  any immutable NFT, which the minting NFTs at `s + 1` and `s + 2` could otherwise forge onto it)
 - no input has category exactly `inflowToken` or `outflowToken` (no live thread is spent)
 - `in[s]` is tokenless and `out[s]` returns to the same locking bytecode, tokenless
 
@@ -237,8 +239,9 @@ The templates for the derived address are read from the mint contract's own
 - `out[p + 1]` and `out[p + 2]` commitments == `0x02 · fundCategory · fundHash`
 - `out[p + 3]` is the FundManager bound to the TransactionManager at `out[p + 1]`'s locking
   bytecode, holds the fund category with amount exactly 2⁶³−1 (the whole supply)
-- outside outputs `0` and `s … end of chunks`, no output has a category starting with the
-  fund category or `token`
+- outside outputs `0` and `s … end of chunks`, and at the create fee payment `p`, no output
+  has a category starting with the fund category or `token` (R-2: no fake definition chunk
+  or fund-category NFT on the payment)
 - `in[p].tokenCategory == token + 0x02`; `out[p + 4]` returns `in[p]` (locking bytecode,
   category, commitment, fungible amount)
 
@@ -267,7 +270,8 @@ addresses are derived from the fund, see [TRANSACTIONS.md](TRANSACTIONS.md#contr
 - FundManager inputs: the run from `a + 2` locked by the FundManager; each tokenless or
   holding `fundCategory`
 - FundManager outputs: the run from `a + 3` locked by the FundManager; each tokenless or
-  holding `fundCategory`
+  holding `fundCategory`. Any number may hold tokens, so a mint can return the supply in many
+  UTXOs (P2-2): `addInflow` spends one covering UTXO when there is one, else largest first
 - released = inputs − outputs; `released % fundAmount == 0`; `units = released / fundAmount > 0`
 - custody outputs start right after the FundManager outputs, one per reserve:
   - BCH (if satoshis > 0): the BCH AssetManager, value exactly `units × satoshis`, tokenless
@@ -290,7 +294,8 @@ addresses are derived from the fund, see [TRANSACTIONS.md](TRANSACTIONS.md#contr
   or more per reserve. BCH change: the run of outputs locked by the BCH AssetManager, each
   required tokenless (token-bearing BCH custody could never be released). Asset change: the
   run of outputs locked by that asset's AssetManager, each required to hold exactly its
-  category (custody in another category could never be released)
+  category (custody in another category could never be released). A run may have any
+  number of outputs (P2-3, see *Fragmentation is griefing, not loss* below)
 - any of these runs may end the transaction
 - per reserve: inputs − change == `units × satoshis` (BCH) or `units × amount` (asset)
 - `out[a]` returns `in[a]`
@@ -355,13 +360,18 @@ redeem). `defaultDestination` is the fee vault's locking bytecode. Holds tokenle
   - 0x02 (voluntary): either `out[a + 1]` is locked by `defaultDestination` and holds a
     32-byte category (fungible tokens or an immutable NFT) or is tokenless with value > 0,
     or it is an OP_RETURN, tokenless, value 0
-- otherwise (no fee NFT): `out[a + 1]` locked by `defaultDestination`, value exactly
-  `defaultValue`, tokenless
+- otherwise (no fee NFT): `in[a]` is tokenless, and `out[a + 1]` locked by
+  `defaultDestination`, value exactly `defaultValue`, tokenless. A token at the FeeManager
+  without being a fee NFT (e.g. an authorization NFT, which `hasAuthority` would count, as it
+  isn't locked by the caller) can't be spent through `pay()` (R-1,
+  `tests/audit.feeBorrow.test.ts`); `close()` recovers it with `0x0020`
 
 No branch lets the payment carry a minting or mutable NFT. In a fund creation the payment
 (`s + 4`) sits inside the FundStartup and PublicFund scan windows, where the genesis input
 could otherwise mint a minting NFT of the new fund's category onto it
-(`tests/audit.feeSlotMinting.test.ts`).
+(`tests/audit.feeSlotMinting.test.ts`). A voluntary fee's payment may still carry an
+immutable NFT, so both scans check the payment output as well
+(`tests/audit.feeSlotCategory.test.ts`).
 
 `close()`:
 
@@ -398,6 +408,18 @@ Facts about v1 that are easy to miss when changing builders or reviewing:
 - **Custody accepts what is sent**. Anything sent to an AssetManager's address (e.g. an
   immutable NFT of the asset category) is held; only `release()` paths spend it, and the
   redemption that releases it decides where its BCH and any attached NFT go.
+- **Fragmentation is griefing, not loss (P2-2, P2-3)**. The FundManager output runs and each
+  reserve's change run take any number of outputs. So a one-unit mint or redemption can
+  split the supply, or a reserve's change, into as many UTXOs as fit in a transaction (about
+  1,000), each costing the attacker only its dust. That dust is reclaimable: whoever spends
+  a supply UTXO or releases a custody UTXO may take its BCH (AUD-008). Plain sends to an
+  AssetManager fragment custody too, at the cost of the value sent. Nothing is lost or
+  locked. Later operations spend fragments largest first, so small ones are only spent
+  when larger ones run out. They may need more inputs, and those inputs merge into one
+  change output, so use heals the fragmentation. The builders refuse a mint or redemption
+  too large to relay, naming the most units that fit (`TRANSACTION_TOO_LARGE`); the rest
+  goes in further transactions. Each released custody UTXO costs a redemption about 300 to
+  340 bytes and 3,300 to 4,400 of operation cost ([LIMITS.md](LIMITS.md#custody-fragmentation)).
 
 ---
 

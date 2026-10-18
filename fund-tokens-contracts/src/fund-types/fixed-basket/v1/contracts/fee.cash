@@ -56,6 +56,7 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
      * - Fee amount is at least the encoded amount (satoshis or token)
      * - Fee routes to correct destination (from encoding or default)
      * - Token category (if token fee) matches encoding
+     * - A UTXO without a fee NFT (the default fee) holds no token
      */
     function pay() {
         //
@@ -113,6 +114,10 @@ contract FeeManager(bytes32 authToken, bytes defaultDestination, bytes32 feeToke
                 }
             }
         } else {
+            //
+            // A default fee UTXO holds no token: one kept in place here (e.g. an authorization NFT) could be borrowed
+            require(thisInputCategory == 0x);
+
             //
             // Verify default route and at least default sats are paid
             require(tx.outputs[feeOutput].lockingBytecode == defaultDestination);

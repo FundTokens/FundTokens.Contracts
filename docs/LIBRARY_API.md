@@ -158,7 +158,7 @@ its version's builders; see the version's builder docs (e.g.
 | `INVALID_TRANSACTION_STATE` | Unequal inputs/outputs; missing genesis input; wrong output 0 | Add inputs/outputs in matching numbers; genesis input first |
 | `MISSING_UTXO` | Fund not created yet; no thread; no fee thread for `payBy`; no fund contract UTXO to collect a redemption into | Create the fund; wait for threads; pay in BCH; send a token-free dust UTXO to the fund contract (check with `getCollectorUtxos()`) |
 | `INSUFFICIENT_FUNDS` | Unminted supply or custody can't cover the units | Use fewer units |
-| `TRANSACTION_TOO_LARGE` | A redemption releases so many custody UTXOs it can't fit in a standard transaction | Redeem at most the units the message names, over several transactions |
+| `TRANSACTION_TOO_LARGE` | A redemption releases so many custody UTXOs, or a mint spends so many fund supply UTXOs, that it can't fit in a standard transaction | Mint or redeem at most the units the message names, over several transactions |
 | `UNSUPPORTED_FUND_TYPE` | Registry instance version unknown to this library | Upgrade the library, or pick a version explicitly |
 | `NOT_IMPLEMENTED` | Planned fund type | |
 | `REGISTRY_REQUEST_FAILED`, `REGISTRY_NOT_FOUND`, `REGISTRY_INVALID_RESPONSE` | Registry unreachable or erroring; unknown record; unexpected payload | Check `getHealth()` and the registry URL |

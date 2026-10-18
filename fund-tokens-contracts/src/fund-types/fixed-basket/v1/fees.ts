@@ -74,7 +74,9 @@ function toFeeOption(utxo: SpendableUtxo, fee: FeeParameters, network: string, d
     if (!utxo.token) {
         return { isBitcoin: true, category: BitcoinCategory, amount: fee.value, destination: defaultDestination, utxo };
     }
-    if (utxo.token.category !== fee.nft || !utxo.token.nft) {
+    // pay() reads only immutable fee NFTs; anything else at the fee contract (another token, a
+    // mutable or minting fee NFT) fails it.
+    if (utxo.token.category !== fee.nft || utxo.token.nft?.capability !== 'none') {
         return undefined;
     }
     try {

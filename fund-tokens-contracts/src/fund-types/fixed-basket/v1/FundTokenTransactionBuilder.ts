@@ -3,7 +3,7 @@ import { MaxStandardTransactionSize, MaxTokenAmount } from '../../../core/consta
 import { FundTokensError } from '../../../core/errors.js';
 import { silentLogger, type Logger } from '../../../core/logger.js';
 import { dustThreshold, outputSize, withDust } from '../../../core/outputs.js';
-import { pickRandom, shuffle } from '../../../core/random.js';
+import { pickRandom } from '../../../core/random.js';
 import { assertInRange, toBigInt, type BigIntish } from '../../../core/validation.js';
 import { deriveFundContracts, type AssetManagerContract, type FundContracts } from './contracts.js';
 import { getFundBin, getPadding, getThreadCommitment } from './encoding.js';
@@ -40,6 +40,11 @@ export interface FundFlowOptions {
     padding?: number | undefined;
 }
 
+interface Mint {
+    readonly inputs: UnlockableUtxo[];
+    readonly outputs: Output[];
+}
+
 interface Release {
     readonly inputs: UnlockableUtxo[];
     readonly changeOutputs: Output[];
@@ -70,6 +75,13 @@ function inputSize({ unlocker }: UnlockableUtxo): number {
     return 32 + 4 + varIntSize(length) + length + 4;
 }
 
+/** What the caller must at least add to a transaction: `inputs` and `outputs` counts, and their size. */
+interface CallerShare {
+    readonly inputs: number;
+    readonly outputs: number;
+    readonly bytes: number;
+}
+
 interface Selection<T> {
     readonly utxos: T[];
     readonly total: bigint;
@@ -92,6 +104,21 @@ function selectLargestFirst<T>(
         }
     }
     return undefined;
+}
+
+/** The most units below `count` that fit, given that once some count fits every smaller one does. */
+function largestThatFits(count: bigint, fits: (units: bigint) => boolean): bigint {
+    let low = 0n;
+    let high = count - 1n;
+    while (low < high) {
+        const middle = (low + high + 1n) / 2n;
+        if (fits(middle)) {
+            low = middle;
+        } else {
+            high = middle - 1n;
+        }
+    }
+    return low;
 }
 
 /**
@@ -136,7 +163,7 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         this.#assertAligned('addInflow');
         const count = this.#units(units);
         const paddingBytes = getPadding(padding);
-        const { managerContract, fundContract, assetContracts, satoshiAssetContract, feeContract, feeVaultContract } = this.contracts;
+        const { managerContract, fundContract, satoshiAssetContract, feeContract, feeVaultContract } = this.contracts;
         const mintAmount = this.fund.amount * count;
 
         if (this.#validate) {
@@ -165,48 +192,39 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
                 `No inflow thread found for fund ${this.fund.category} at ${managerContract.tokenAddress}; has the fund been created?`);
         }
 
-        // Shuffled so concurrent mints tend to pick different supply UTXOs.
-        const supplyUtxos = shuffle(fundUtxos.filter(u => holds(u, this.fund.category)));
-        const supply: SpendableUtxo[] = [];
-        let supplyTotal = 0n;
-        for (const utxo of supplyUtxos) {
-            supply.push(utxo);
-            supplyTotal += utxo.token?.amount ?? 0n;
-            if (supplyTotal >= mintAmount) break;
-        }
+        const supplyUtxos = fundUtxos.filter(u => holds(u, this.fund.category));
+        const supplyTotal = supplyUtxos.reduce((sum, u) => sum + (u.token?.amount ?? 0n), 0n);
         if (supplyTotal < mintAmount) {
             throw new FundTokensError('INSUFFICIENT_FUNDS',
                 `The fund contract holds ${supplyTotal} unminted fund tokens; ${mintAmount} are needed`);
         }
 
-        // One output per supply input: the first carries the remaining supply, the rest are emptied.
-        const change = supplyTotal - mintAmount;
-        const supplyOutputs = supply.map((_, i) => withDust({
-            to: fundContract.tokenAddress,
-            token: i === 0 && change > 0n ? { category: this.fund.category, amount: change } : undefined,
-        }));
-
-        const custodyOutputs: Output[] = [];
-        if (satoshiAssetContract) {
-            custodyOutputs.push({ to: satoshiAssetContract.tokenAddress, amount: this.fund.satoshis * count });
-        }
-        this.fund.assets.forEach((asset, i) => {
-            custodyOutputs.push(withDust({
-                to: this.#assetContract(assetContracts, i).tokenAddress,
-                token: { category: asset.category, amount: asset.amount * count },
-            }));
-        });
-
-        this.addInputs([
+        const contractInputs: UnlockableUtxo[] = [
             { ...inflowUtxo, unlocker: managerContract.unlock.inflow(getFundBin(this.fund), paddingBytes) },
             { ...fee.utxo, unlocker: feeContract.unlock.pay() },
-            ...supply.map((utxo): UnlockableUtxo => ({ ...utxo, unlocker: fundContract.unlock.mint() })),
-        ]).addOutputs([
+        ];
+        const contractOutputs: Output[] = [
             withDust({ to: managerContract.tokenAddress, token: inflowUtxo.token }),
             ...fee.outputs,
-            ...supplyOutputs,
-            ...custodyOutputs,
-        ]);
+        ];
+        const mint = (minted: bigint) => this.#planMint(minted, supplyUtxos);
+        const { inputs: supplyInputs, outputs: mintOutputs } = mint(count);
+
+        if (this.#validate) {
+            const sizeOf = (minted: bigint, planned: Mint) =>
+                this.#estimateSize([...contractInputs, ...planned.inputs], [...contractOutputs, ...planned.outputs], this.#leastForMint(minted));
+            const size = sizeOf(count, { inputs: supplyInputs, outputs: mintOutputs });
+            if (size > MaxStandardTransactionSize) {
+                // Fewer units spend no more supply UTXOs (largest first), so the largest that fits is found by bisection.
+                const low = largestThatFits(count, minted => sizeOf(minted, mint(minted)) <= MaxStandardTransactionSize);
+                throw new FundTokensError('TRANSACTION_TOO_LARGE',
+                    `Minting ${count} unit(s) spends ${supplyInputs.length} fund supply UTXOs, for a transaction of at least ${size} bytes, `
+                    + `over the ${MaxStandardTransactionSize}-byte standard size; `
+                    + (low > 0n ? `mint at most ${low} unit(s) per transaction` : 'even one unit does not fit'));
+            }
+        }
+
+        this.addInputs([...contractInputs, ...supplyInputs]).addOutputs([...contractOutputs, ...mintOutputs]);
 
         return this;
     }
@@ -273,21 +291,11 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
 
         if (this.#validate) {
             const sizeOf = (redeemed: bigint, planned: Release) =>
-                this.#estimateSize(redeemed, [...contractInputs, ...planned.inputs], [...contractOutputs, ...planned.changeOutputs]);
+                this.#estimateSize([...contractInputs, ...planned.inputs], [...contractOutputs, ...planned.changeOutputs], this.#leastForRedemption(redeemed));
             const size = sizeOf(count, { inputs: releaseInputs, changeOutputs });
             if (size > MaxStandardTransactionSize) {
                 // Fewer units release no more custody UTXOs (largest first), so the largest that fits is found by bisection.
-                const fits = (redeemed: bigint) => sizeOf(redeemed, release(redeemed)) <= MaxStandardTransactionSize;
-                let low = 0n;
-                let high = count - 1n;
-                while (low < high) {
-                    const middle = (low + high + 1n) / 2n;
-                    if (fits(middle)) {
-                        low = middle;
-                    } else {
-                        high = middle - 1n;
-                    }
-                }
+                const low = largestThatFits(count, redeemed => sizeOf(redeemed, release(redeemed)) <= MaxStandardTransactionSize);
                 throw new FundTokensError('TRANSACTION_TOO_LARGE',
                     `Redeeming ${count} unit(s) releases ${releaseInputs.length} custody UTXOs, for a transaction of at least ${size} bytes, `
                     + `over the ${MaxStandardTransactionSize}-byte standard size; `
@@ -319,6 +327,42 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
     #isThread(utxo: SpendableUtxo, category: string): boolean {
         const nft = utxo.token?.nft;
         return utxo.token?.category === category && nft?.capability === 'none' && nft.commitment === getThreadCommitment(this.fund);
+    }
+
+    /**
+     * The supply UTXOs a mint of `count` units spends, then the FundManager and custody outputs.
+     *
+     * When single UTXOs cover the mint, one of them at random, so concurrent mints tend to pick
+     * different ones. Otherwise largest first: anyone can split the supply into many small UTXOs
+     * (a mint or redemption may return it as any number of FundManager outputs), and taking them
+     * in random order would make most mints too large. One FundManager output per supply input:
+     * the first carries the remaining supply, the rest are emptied.
+     */
+    #planMint(count: bigint, supplyUtxos: readonly SpendableUtxo[]): Mint {
+        const { fundContract, assetContracts, satoshiAssetContract } = this.contracts;
+        const needed = this.fund.amount * count;
+        const amountOf = (utxo: SpendableUtxo) => utxo.token?.amount ?? 0n;
+        const covering = pickRandom(supplyUtxos.filter(u => amountOf(u) >= needed));
+        const supply = covering ? [covering] : selectLargestFirst(supplyUtxos, amountOf, needed)?.utxos;
+        if (!supply) {
+            throw new FundTokensError('INSUFFICIENT_FUNDS', `The fund contract cannot release ${needed} unminted fund tokens`);
+        }
+
+        const change = supply.reduce((sum, u) => sum + amountOf(u), 0n) - needed;
+        const outputs: Output[] = supply.map((_, i) => withDust({
+            to: fundContract.tokenAddress,
+            token: i === 0 && change > 0n ? { category: this.fund.category, amount: change } : undefined,
+        }));
+        if (satoshiAssetContract) {
+            outputs.push({ to: satoshiAssetContract.tokenAddress, amount: this.fund.satoshis * count });
+        }
+        this.fund.assets.forEach((asset, i) => {
+            outputs.push(withDust({
+                to: this.#assetContract(assetContracts, i).tokenAddress,
+                token: { category: asset.category, amount: asset.amount * count },
+            }));
+        });
+        return { inputs: supply.map(utxo => ({ ...utxo, unlocker: fundContract.unlock.mint() })), outputs };
     }
 
     /** The custody UTXOs released (largest first) to cover `count` units, and the change returned to custody. */
@@ -371,12 +415,10 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
     }
 
     /**
-     * The smallest the finished redemption can be: the contract inputs and outputs, plus what the
-     * caller has added or, if larger, the least they must add: an input with the fund tokens and an
-     * output for the released BCH and each released asset. The caller's other inputs and outputs
-     * (fees, change) only add to it.
+     * The least a redeemer adds: an input with the fund tokens, and an output for the released
+     * BCH and each released asset.
      */
-    #estimateSize(count: bigint, inputs: readonly UnlockableUtxo[], outputs: readonly Output[]): number {
+    #leastForRedemption(count: bigint): CallerShare {
         const released: Output[] = this.fund.assets.map(asset => ({
             to: P2pkhLockingBytecode,
             amount: 0n,
@@ -385,7 +427,25 @@ export class FundTokenTransactionBuilder extends TransactionBuilder {
         if (this.fund.satoshis > 0n) {
             released.push({ to: P2pkhLockingBytecode, amount: this.fund.satoshis * count });
         }
-        const least = { inputs: 1, bytes: P2pkhInputSize + released.reduce((sum, o) => sum + outputSize(o), 0), outputs: released.length };
+        return { inputs: 1, bytes: P2pkhInputSize + released.reduce((sum, o) => sum + outputSize(o), 0), outputs: released.length };
+    }
+
+    /**
+     * The least a minter adds: an input per deposited asset (one at least, for the BCH), and an
+     * output receiving the fund tokens.
+     */
+    #leastForMint(count: bigint): CallerShare {
+        const inputs = Math.max(this.fund.assets.length, 1);
+        const minted = outputSize({ to: P2pkhLockingBytecode, amount: 0n, token: { category: this.fund.category, amount: this.fund.amount * count } });
+        return { inputs, bytes: inputs * P2pkhInputSize + minted, outputs: 1 };
+    }
+
+    /**
+     * The smallest the finished transaction can be: the contract inputs and outputs, plus what the
+     * caller has added or, if larger, `least`, the least they must add. The caller's other inputs
+     * and outputs (fees, change) only add to it.
+     */
+    #estimateSize(inputs: readonly UnlockableUtxo[], outputs: readonly Output[], least: CallerShare): number {
         const added = {
             inputs: this.inputs.length,
             bytes: this.inputs.reduce((sum, u) => sum + inputSize(u), 0) + this.outputs.reduce((sum, o) => sum + outputSize(o), 0),

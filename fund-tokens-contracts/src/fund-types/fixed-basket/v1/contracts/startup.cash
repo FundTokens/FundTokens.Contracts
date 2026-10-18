@@ -91,9 +91,10 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
 
         //
         // Ensure no other outputs mint inflow/outflow tokens
+        // The create fee payment (+4) is checked too: a voluntary fee lets it carry any immutable NFT
         int outputIndex = 0;
         do {
-            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7)) {
+            if(!within(outputIndex, this.activeInputIndex, this.activeInputIndex + 7) || outputIndex == feeContractInput + 1) {
                 if(tx.outputs[outputIndex].tokenCategory != 0x) {
                     // No other outputs can mint inflow or outflow tokens
                     bytes outputCategory = tx.outputs[outputIndex].tokenCategory.slice(0, 32);

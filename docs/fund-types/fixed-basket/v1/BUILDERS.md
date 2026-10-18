@@ -140,10 +140,13 @@ supply and custody UTXOs carrying a mutable or minting NFT of their category are
 contracts compare the bare category, so they can never spend them.
 
 **`addInflow`** adds the fund's inflow thread, an execute fee UTXO and enough FundManager
-supply to cover `units × fund.amount` (picked randomly to spread concurrent users), plus
-outputs locking `units × satoshis` BCH and `units × asset.amount` of each asset into
-custody. The caller adds inputs with those assets and the fee's BCH, an output receiving
-`units × fund.amount` fund tokens, and change.
+supply to cover `units × fund.amount`, plus outputs locking `units × satoshis` BCH and
+`units × asset.amount` of each asset into custody. Supply is one UTXO that covers the mint
+on its own, picked randomly among them to spread concurrent users, or else UTXOs largest
+first, so supply split into many small UTXOs doesn't bloat the mint. The caller adds inputs
+with those assets and the fee's BCH, an output receiving `units × fund.amount` fund tokens,
+and change. With validation on, it refuses a mint that cannot fit in a standard transaction
+(`TRANSACTION_TOO_LARGE`) and names the most units that fit.
 
 **`addOutflow`** adds the fund's outflow thread, an execute fee UTXO and a FundManager UTXO
 that collects the redeemed tokens (from `getCollectorUtxos()`, preferring one that already holds
