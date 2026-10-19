@@ -52,6 +52,12 @@ describe('audit: a vault proof starting at a later chunk (P2-1)', () => {
         await expect(prove(series(getFundChunks(y)))).toBeAccepted();
     });
 
+    it('refuses a later chunk without the continuation byte, though the joined data still hashes', async () => {
+        // proof() drops each later chunk's first byte unchecked; data() checks it is 0x03
+        const [first, ...later] = getFundChunks(y);
+        await expect(prove(series([first!, ...later.map(chunk => `05${chunk.slice(2)}`)]))).toBeRejected(/nftCommitment\.split\(1\)\[0\] == 0x03/);
+    });
+
     it('refuses to prove Y from a later chunk of another listing that carries it', async () => {
         // Another listing whose data, from its second chunk on, is Y's commitment: before the fix the
         // later chunks carried it as is, and proof() from the second chunk read exactly Y

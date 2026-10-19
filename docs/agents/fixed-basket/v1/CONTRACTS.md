@@ -122,7 +122,7 @@ transaction. Layout in [ENCODINGS.md](ENCODINGS.md#instance-nfts).
 - data NFT at `a + 1`: same locking bytecode as `in[a]`; returned at `out[a + 1]` with the
   same locking bytecode, category, commitment and fungible amount
 - `hash256(data in proof NFT ‖ data NFT commitment after its first byte) == hash` (the data NFT
-  starts with the continuation byte `0x03`, dropped unchecked as in PublicFundVault)
+  starts with the continuation byte `0x03`, dropped here and checked by its own `data()`)
 - `out[a]`: same locking bytecode, category and fungible amount as `in[a]`
 
 `burn()`:
@@ -137,8 +137,8 @@ transaction. Layout in [ENCODINGS.md](ENCODINGS.md#instance-nfts).
 and hash checks as `update()`, and `out[a]` returns `in[a]` unchanged, commitment included.
 No authorization and no state check: a vulnerable instance can still be proven.
 
-`data()`: `in[a].tokenCategory == instance`; `in[a - 1]` has the same locking bytecode and
-the same outpoint transaction hash.
+`data()`: `in[a].tokenCategory == instance`; its commitment starts with `0x03`; `in[a - 1]` has
+the same locking bytecode and the same outpoint transaction hash.
 
 ### PublicFundVault
 
@@ -154,13 +154,17 @@ first without its continuation byte ([ENCODINGS.md](ENCODINGS.md#fund-commitment
   amount, and its commitment after the first byte is appended
 - joined: `0x02 · hash · fund` with `hash256(fund) == hash`. A later chunk starts with `0x03`,
   so a proof can only start at a first chunk (P2-1, `tests/audit.listingStart.test.ts`). The
-  first byte of each later chunk is dropped unchecked: broadcast checked it, and any other
-  chunk changes the joined bytes, so the hash fails
+  first byte of each later chunk is dropped here; each later chunk's own `data()` checks it is
+  `0x03` (broadcast also enforces it)
 - `out[a]` returns `in[a]`
 - `publicFund` inputs elsewhere in the transaction are not checked
 
-`data()`: `in[a].tokenCategory == publicFund`; `in[a - 1]` has the same locking bytecode,
-category and outpoint transaction hash.
+`data()`: `in[a].tokenCategory == publicFund`; its commitment starts with `0x03`; `in[a - 1]` has
+the same locking bytecode and outpoint transaction hash (so it is a vault chunk: every vault
+function requires the publicFund category of its own input). A run of vault inputs
+can't start with `data()` (it needs a chunk before it), and a later chunk can't run `proof()`
+or `burn()` (its `0x03` fails their type check), so every later chunk is spent through
+`data()` and checks its own continuation byte.
 
 `burn(bytes padding)` (delist), `padding` ignored:
 

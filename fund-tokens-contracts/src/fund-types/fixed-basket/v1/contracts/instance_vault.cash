@@ -180,6 +180,8 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
      */
     function data() {
         require(tx.inputs[this.activeInputIndex].tokenCategory == instance);
+        // The data NFT starts with the continuation byte, which burn(), update() and proof() drop unchecked
+        require(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[0] == 0x03);
         int prevInput = this.activeInputIndex - 1;
         require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[prevInput].outpointTransactionHash);
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[prevInput].lockingBytecode);

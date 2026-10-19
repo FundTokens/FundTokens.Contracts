@@ -127,9 +127,10 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         //
         // Check for linked token on this contract
         require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
+        // A later chunk starts with the continuation byte, which proof() and burn() drop unchecked
+        require(tx.inputs[this.activeInputIndex].nftCommitment.split(1)[0] == 0x03);
         int prevInput = this.activeInputIndex - 1;
         require(tx.inputs[this.activeInputIndex].lockingBytecode == tx.inputs[prevInput].lockingBytecode);
-        require(tx.inputs[this.activeInputIndex].tokenCategory == tx.inputs[prevInput].tokenCategory);
         require(tx.inputs[this.activeInputIndex].outpointTransactionHash == tx.inputs[prevInput].outpointTransactionHash);
     }
 }
