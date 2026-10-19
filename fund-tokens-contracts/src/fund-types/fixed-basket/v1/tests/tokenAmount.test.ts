@@ -105,7 +105,7 @@ describe('fungible tokens on NFTs', () => {
             const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 100_000n }));
 
             const tx = new TransactionBuilder({ provider })
-                .addInput(chunks[0]!, vault.unlock.proof())
+                .addInput(chunks[0]!, vault.unlock.proof(new Uint8Array()))
                 .addInputs(chunks.slice(1), vault.unlock.data())
                 .addInput(funding, user.signatureTemplate.unlockP2PKH())
                 .addOutputs(chunks.map((u, i) => withDust({ to: vault.tokenAddress, token: { ...u.token!, amount: i === chunks.length - 1 ? returned : carried } })));

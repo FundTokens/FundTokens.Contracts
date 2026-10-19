@@ -72,7 +72,7 @@ describe('audit: complete burns cover every capability of the category (AUD-025)
             const { publicFundVaultContract: vault } = new PublicFundTransactionBuilder({ provider, system }).getContracts();
             const [head, ...rest] = await vault.getUtxos();
             const tx = new SystemFixture({ provider, system, allowImplicitFungibleTokenBurn: true })
-                .addInput(head!, vault.unlock.burn())
+                .addInput(head!, vault.unlock.burn(new Uint8Array()))
                 .addInputs(rest, vault.unlock.data());
             return addVariant(tx, system.publicFund, capability, burned);
         }

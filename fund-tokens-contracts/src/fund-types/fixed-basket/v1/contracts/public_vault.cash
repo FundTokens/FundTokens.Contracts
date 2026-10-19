@@ -15,17 +15,21 @@ import "./lib/authority.cash";
 contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 {
     /**
-     * burn(): Permanently delists a public fund data stream by burning all tokens related to this fund
-     * 
+     * burn(bytes padding): Permanently delists a public fund data stream by burning all tokens related to this fund
+     *
      * Delist a public fund and allow UTXO cleanup.
      * Verifies the entire fund series is burned together.
-     * 
+     *
+     * Parameters:
+     *   padding: Ignored. Each byte raises this input's operation cost budget by 800 (the budget is
+     *     (41 + unlocking bytecode length) * 800), so larger funds can pay for the compute they need
+     *
      * Ensures:
      * - All publicFund inputs must be processed sequentially
      * - Authorization token (bit 0x0100) must be present somewhere in the transaction
      * - No publicFund tokens allowed in any output, whatever their capability (complete burn)
      */
-    function burn() {
+    function burn(bytes padding) {
         //
         // Verify this input
         require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);
@@ -61,16 +65,20 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
     }
 
     /**
-     * proof(): Proves fund composition on-chain via hash verification and commitment introspection
-     * 
+     * proof(bytes padding): Proves fund composition on-chain via hash verification and commitment introspection
+     *
      * Support on-chain proofs using commitment introspection and hash verification.
-     * 
+     *
+     * Parameters:
+     *   padding: Ignored. Each byte raises this input's operation cost budget by 800 (the budget is
+     *     (41 + unlocking bytecode length) * 800), so larger funds can pay for the compute they need
+     *
      * Ensures:
      * - Active input (this UTXO) must forward without changes
      * - All consecutive publicFund inputs/outputs must be in matching positions
      * - Commitment data is immutable (same in/out)
      */
-    function proof() {
+    function proof(bytes padding) {
         //
         // Check this input
         require(tx.inputs[this.activeInputIndex].tokenCategory == publicFund);

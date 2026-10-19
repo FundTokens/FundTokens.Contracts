@@ -41,7 +41,7 @@ describe('audit: a vault proof starting at a later chunk (P2-1)', () => {
         const user = generateWallet();
         const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 100_000n }));
         return new TransactionBuilder({ provider })
-            .addInput(chunks[0]!, vault.unlock.proof())
+            .addInput(chunks[0]!, vault.unlock.proof(new Uint8Array()))
             .addInputs(chunks.slice(1), vault.unlock.data())
             .addInput(funding, user.signatureTemplate.unlockP2PKH())
             .addOutputs(chunks.map(u => ({ to: vault.tokenAddress, amount: u.satoshis, token: u.token! })))

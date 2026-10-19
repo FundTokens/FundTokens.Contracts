@@ -146,7 +146,7 @@ the same outpoint transaction hash.
 chunks: immutable `publicFund` NFTs that join to the fund commitment, each chunk after the
 first without its continuation byte ([ENCODINGS.md](ENCODINGS.md#fund-commitment)).
 
-`proof()`:
+`proof(bytes padding)`, `padding` ignored (buys compute for large listings, see [LIMITS.md](LIMITS.md)):
 
 - `in[a].tokenCategory == publicFund`; `in[a]` is the first chunk, read whole
 - for each consecutive input `i = a + 1, …` with category `publicFund` (the run may end the
@@ -162,7 +162,7 @@ first without its continuation byte ([ENCODINGS.md](ENCODINGS.md#fund-commitment
 `data()`: `in[a].tokenCategory == publicFund`; `in[a - 1]` has the same locking bytecode,
 category and outpoint transaction hash.
 
-`burn()` (delist):
+`burn(bytes padding)` (delist), `padding` ignored:
 
 - `in[a].tokenCategory == publicFund`
 - `hasAuthority(authorization, 0x0100)`

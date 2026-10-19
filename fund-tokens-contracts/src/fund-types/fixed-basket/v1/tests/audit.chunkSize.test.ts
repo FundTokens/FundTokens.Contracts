@@ -12,8 +12,10 @@ import { TransactionBuilder } from 'cashscript';
 import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
+import { operationCost, verifyTransaction } from '@test-utils/consensus.js';
+
 import { withDust } from '../../../../core/outputs.js';
-import { PublicFundTransactionBuilder, getFundChunks, getFundCommitment, normalizeFund, type Fund } from '../index.js';
+import { PublicFundTransactionBuilder, getFundChunks, getFundCommitment, getPadding, normalizeFund, type Fund } from '../index.js';
 import { bootstrapInstance, type TestInstance } from './support/bootstrap.js';
 
 const DustAmount = 1000n;
@@ -53,7 +55,8 @@ async function broadcastWith(instance: TestInstance, assetCount: number, chunks:
     return tx.addInput(funding, creator.signatureTemplate.unlockP2PKH());
 }
 
-async function seriesTransactions({ provider, system, owner }: TestInstance) {
+/** A proof() and a burn() of the vault's one series, each with `padding` bytes of padding. */
+async function seriesTransactions({ provider, system, owner }: TestInstance, padding = 0) {
     const user = generateWallet();
     const [proofFunding, burnFunding] = [randomUtxo({ satoshis: 100_000n }), randomUtxo({ satoshis: 100_000n })].map(u => provider.addUtxo(user.tokenAddress, u));
     const { publicFundVaultContract: vault } = new PublicFundTransactionBuilder({ provider, system }).getContracts();
@@ -61,14 +64,14 @@ async function seriesTransactions({ provider, system, owner }: TestInstance) {
     const auth = (await provider.getUtxos(owner.tokenAddress)).find(u => u.token?.category === system.authorization)!;
 
     const proof = new TransactionBuilder({ provider })
-        .addInput(head!, vault.unlock.proof())
+        .addInput(head!, vault.unlock.proof(getPadding(padding)))
         .addInputs(rest, vault.unlock.data())
         .addInput(proofFunding, user.signatureTemplate.unlockP2PKH())
         .addOutputs([head!, ...rest].map(u => ({ to: vault.tokenAddress, amount: u.satoshis, token: u.token! })))
         .addOutput({ to: user.tokenAddress, amount: 20_000n });
 
     const burn = new TransactionBuilder({ provider })
-        .addInput(head!, vault.unlock.burn())
+        .addInput(head!, vault.unlock.burn(getPadding(padding)))
         .addInputs(rest, vault.unlock.data())
         .addInput(auth, owner.signatureTemplate.unlockP2PKH())
         .addInput(burnFunding, user.signatureTemplate.unlockP2PKH())
@@ -79,7 +82,7 @@ async function seriesTransactions({ provider, system, owner }: TestInstance) {
 }
 
 describe('audit: the publicFund chunking is fixed, so no accepted series is trapped', () => {
-    // 70 assets is about the most a listing can have and still be burned: proof() and burn() take no padding (LIMITS.md)
+    // Without padding, about 74 assets is the most a listing can have and still be burned (LIMITS.md)
     it.each([1, 10, 20, 70])('accepts the builder\'s chunking of %i asset(s), then proves and burns it (control)', async (assets) => {
         const instance = await bootstrapInstance();
         await expect(await broadcastWith(instance, assets, getFundChunks)).toBeAccepted();
@@ -89,6 +92,23 @@ describe('audit: the publicFund chunking is fixed, so no accepted series is trap
         expect(proof).not.toFailRequire();
         expect(burn).not.toFailRequire();
     });
+
+    it('proves and burns a 100-asset listing only with padding', async () => {
+        const instance = await bootstrapInstance();
+        await expect(await broadcastWith(instance, 100, getFundChunks)).toBeAccepted();
+
+        // Checked with libauth: the cashscript debugger is slow on transactions this large
+        const unpadded = await seriesTransactions(instance);
+        expect(verifyTransaction(unpadded.proof)).toMatch(/operation cost/);
+        expect(verifyTransaction(unpadded.burn)).toMatch(/operation cost/);
+
+        const { proof, burn } = await seriesTransactions(instance, 200);
+        expect(verifyTransaction(proof)).toBe(true);
+        expect(verifyTransaction(burn)).toBe(true);
+        const [proofCost, burnCost] = [proof, burn].map(tx => operationCost(tx, 0));
+        console.log(`100-asset listing with 200 bytes of padding: proof() ${proofCost.cost} of ${proofCost.budget}, `
+            + `burn() ${burnCost.cost} of ${burnCost.budget} operation cost`);
+    }, 300_000);
 
     it.each([[1, 4], [1, 3], [10, 24], [10, 16], [20, 36], [20, 127]])('refuses %i asset(s) in %i-byte chunks', async (assets, size) => {
         const instance = await bootstrapInstance();

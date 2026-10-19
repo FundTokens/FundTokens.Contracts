@@ -18,8 +18,8 @@ and outputs do not change it.
 
 ## Padding
 
-FundStartup `start()`, PublicFund `broadcast()` and TransactionManager `inflow()` /
-`outflow()` take an ignored `bytes padding` argument. Each padding byte adds 800 to that
+FundStartup `start()`, PublicFund `broadcast()`, TransactionManager `inflow()` /
+`outflow()` and PublicFundVault `proof()` / `burn()` take an ignored `bytes padding` argument. Each padding byte adds 800 to that
 input's budget, for about 1 satoshi of fee at 1 sat/byte. Padding must be an argument: an
 unlocking bytecode must be push-only and minimally encoded, and a P2SH script must leave a
 clean stack.
@@ -36,17 +36,18 @@ redeem script share the 10,000-byte unlocking bytecode limit.
 | Function | Without padding | Notes |
 | --- | --- | --- |
 | PublicFund `broadcast()` | 90 assets | Fixed budget of 581,600 (its unlocking bytecode does not grow with the fund); about 6,000 per asset, in steps of about 22,000 as each data chunk is added. 90 assets uses 575,637; 91 runs out |
-| PublicFundVault `proof()` | 84 assets | No padding argument: fixed budget of 294,400. 84 assets uses 294,274; 85 runs out |
-| PublicFundVault `burn()` | about 71 assets | The same budget, and it also scans the outputs and checks authorization: 70 assets uses 283,569; 72 runs out |
+| PublicFundVault `proof()` | about 86 assets | Budget of 300,000 without padding; about 11,000 per chunk. 85 assets uses 295,264; 100 runs out (300,460) |
+| PublicFundVault `burn()` | about 74 assets | The same budget, and it also scans the outputs and checks authorization. 72 assets uses 298,144; 84 runs out. A 100-asset listing needs about 175 bytes of padding (438,487 of 460,800 with 200) |
 | TransactionManager `outflow()` | depends on custody fragmentation | The fund argument adds 32,000 of budget per asset. Releasing one custody UTXO per asset costs 27,000 to 30,000 per asset (rising slowly with fund size), and each further custody UTXO about 4,400 (token) or 3,300 (BCH). One or two per asset fits at every fund size the protocol accepts; heavily fragmented custody of a fund with few reserves can need padding ([below](#custody-fragmentation)) |
 | TransactionManager `inflow()` | never runs out | 73.5% of its budget at 189 assets |
 | FundStartup `start()` | 145 assets | About 60,000 per asset, 32,000 of budget per asset from the fund argument. 189 assets at most (fund encoding + padding fill its unlocking bytecode) |
 
-**Listings the vault can't process.** `proof()` and `burn()` take no padding, so a public fund
-of more than 84 assets can be created (up to 90 without padding, 100 with) but its listing
-can't be proven, and one of more than about 71 assets can't be delisted. This predates the
-continuation bytes (P2-1), which lowered the limits from 88 and about 75. The fund itself
-works either way: mints and redemptions don't touch the listing.
+**Large listings.** `proof(bytes padding)` and `burn(bytes padding)` take padding like the
+other compute-heavy functions, so every listing the library creates (up to 100 assets) can be
+proven and delisted: 200 bytes covers a 100-asset listing (`tests/audit.chunkSize.test.ts`).
+Before the argument existed, listings of more than about 88 assets (proof) or 75 (burn)
+could never be processed. The fund itself works either way: mints and redemptions don't
+touch the listing.
 
 ## Custody fragmentation
 

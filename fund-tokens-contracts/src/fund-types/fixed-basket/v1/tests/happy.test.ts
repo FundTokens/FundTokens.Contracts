@@ -199,7 +199,7 @@ describe('happy path', () => {
         const utxos = await publicFundVaultContract.getUtxos();
 
         transaction
-            .addInput(utxos[0], publicFundVaultContract.unlock.proof())
+            .addInput(utxos[0], publicFundVaultContract.unlock.proof(new Uint8Array()))
             .addInputs(utxos.slice(1), publicFundVaultContract.unlock.data())
             .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
             .addOutputs([
@@ -322,7 +322,7 @@ describe('happy path', () => {
         const utxos = await publicFundVaultContract.getUtxos();
 
         transaction
-            .addInput(utxos[0], publicFundVaultContract.unlock.burn())
+            .addInput(utxos[0], publicFundVaultContract.unlock.burn(new Uint8Array()))
             .addInputs(utxos.slice(1), publicFundVaultContract.unlock.data())
             .addInput(feeUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
             .addInput(authUtxo, ownerWallet.signatureTemplate.unlockP2PKH())
@@ -355,4 +355,4 @@ describe('happy path', () => {
         const response = await transaction.send();
         console.log('close fee threads tx size', response.hex.length / 2);
     });
-});
+});

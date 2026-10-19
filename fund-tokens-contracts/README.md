@@ -291,12 +291,6 @@ Tests that need distinct token categories should use `randomCategory()` from
 `test-utils/random.ts`. cashscript's `randomToken().category` only has 10,000
 possible values, so several draws can collide.
 
-Run the registry tests against a real registry too (read-only):
-
-```bash
-FUNDTOKENS_REGISTRY_URL=http://localhost:3002 yarn test src/registry
-```
-
 ### Adding a fund type version
 
 1. Copy the latest version directory (e.g. `fixed-basket/v1` to `fixed-basket/v2`), then change the contracts and builders there only.
