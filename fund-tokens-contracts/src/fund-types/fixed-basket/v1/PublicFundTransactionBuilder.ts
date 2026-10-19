@@ -6,16 +6,13 @@ import { silentLogger, type Logger } from '../../../core/logger.js';
 import { withDust } from '../../../core/outputs.js';
 import { pickRandom } from '../../../core/random.js';
 import { deriveFundContracts, deriveSystemContracts, type FundContracts, type SystemContracts } from './contracts.js';
-import { getFundCommitment, getFundHex, getPadding, hashFund } from './encoding.js';
+import { getFundChunks, getFundHex, getPadding, hashFund } from './encoding.js';
 import { getBestFee } from './fees.js';
 import { normalizeFund, validateFund } from './fund.js';
 import { parseSystemParameters } from './parameters.js';
 import type { Fund, FundInput, SystemParameters, SystemParametersInput } from './types.js';
 
 type TransactionBuilderOptions = ConstructorParameters<typeof TransactionBuilder>[0];
-
-/** NFT commitments are limited to 128 bytes, so fund data is split across outputs. */
-const MaxCommitmentHexLength = 128 * 2;
 
 export interface PublicFundTransactionBuilderOptions extends Omit<TransactionBuilderOptions, 'provider'> {
     provider: NetworkProvider;
@@ -193,15 +190,10 @@ export class PublicFundTransactionBuilder extends TransactionBuilder {
             withDust({ to: publicFundContract.tokenAddress, token: publicFundUtxo.token }),
         ]);
 
-        const commitment = getFundCommitment(definition);
-        for (let offset = 0; offset < commitment.length; offset += MaxCommitmentHexLength) {
+        for (const chunk of getFundChunks(definition)) {
             this.addOutput(withDust({
                 to: publicFundVaultContract.tokenAddress,
-                token: {
-                    category: this.system.publicFund,
-                    amount: 0n,
-                    nft: { capability: 'none', commitment: commitment.slice(offset, offset + MaxCommitmentHexLength) },
-                },
+                token: { category: this.system.publicFund, amount: 0n, nft: { capability: 'none', commitment: chunk } },
             }));
         }
 

@@ -121,7 +121,8 @@ transaction. Layout in [ENCODINGS.md](ENCODINGS.md#instance-nfts).
   after the state byte (version, hash, data) unchanged
 - data NFT at `a + 1`: same locking bytecode as `in[a]`; returned at `out[a + 1]` with the
   same locking bytecode, category, commitment and fungible amount
-- `hash256(data in proof NFT ‖ data NFT commitment) == hash`
+- `hash256(data in proof NFT ‖ data NFT commitment after its first byte) == hash` (the data NFT
+  starts with the continuation byte `0x03`, dropped unchecked as in PublicFundVault)
 - `out[a]`: same locking bytecode, category and fungible amount as `in[a]`
 
 `burn()`:
@@ -142,15 +143,20 @@ the same outpoint transaction hash.
 ### PublicFundVault
 
 `PublicFundVault(bytes32 publicFund, bytes32 authorization)`. Holds each public fund's data
-chunks: immutable `publicFund` NFTs whose commitments concatenate to the fund commitment
-([ENCODINGS.md](ENCODINGS.md#fund-commitment)).
+chunks: immutable `publicFund` NFTs that join to the fund commitment, each chunk after the
+first without its continuation byte ([ENCODINGS.md](ENCODINGS.md#fund-commitment)).
 
 `proof()`:
 
-- `in[a].tokenCategory == publicFund`
-- for each consecutive input `i = a, a + 1, …` with category `publicFund`: `out[i]` has the
-  same locking bytecode, category, commitment and fungible amount
-- the concatenated commitments are `0x02 · hash · fund` with `hash256(fund) == hash`
+- `in[a].tokenCategory == publicFund`; `in[a]` is the first chunk, read whole
+- for each consecutive input `i = a + 1, …` with category `publicFund` (the run may end the
+  transaction): `out[i]` has the same locking bytecode, category, commitment and fungible
+  amount, and its commitment after the first byte is appended
+- joined: `0x02 · hash · fund` with `hash256(fund) == hash`. A later chunk starts with `0x03`,
+  so a proof can only start at a first chunk (P2-1, `tests/audit.listingStart.test.ts`). The
+  first byte of each later chunk is dropped unchecked: broadcast checked it, and any other
+  chunk changes the joined bytes, so the hash fails
+- `out[a]` returns `in[a]`
 - `publicFund` inputs elsewhere in the transaction are not checked
 
 `data()`: `in[a].tokenCategory == publicFund`; `in[a - 1]` has the same locking bytecode,
@@ -162,7 +168,7 @@ category and outpoint transaction hash.
 - `hasAuthority(authorization, 0x0100)`
 - no output carries the `publicFund` category, whatever its capability (the first 32 bytes
   of each token-bearing output's category are compared)
-- the consecutive `publicFund` inputs from `a` concatenate to a valid fund commitment
+- the consecutive `publicFund` inputs from `a` join (as in `proof()`) to a valid fund commitment
 
 ---
 
@@ -232,10 +238,13 @@ The templates for the derived address are read from the mint contract's own
   transaction hash becomes the fund category)
 - `out[0]` is locked by `authHeadDestination`, tokenless
 - `in[p - 4]` is locked by `P2SH32(startupContract)`
-- data chunks: outputs from `p + 5` while their category is exactly `token`:
+- data chunks: `out[p + 5]` (the first chunk, category exactly `token`), then the outputs after
+  it while their category is exactly `token`:
   - locked by `publicFundDestination`, amount 0
-  - every chunk but the last has the first chunk's length; the last may be shorter
-  - concatenated: `0x02 · fundHash · fund` with `hash256(fund) == fundHash`
+  - every chunk followed by another is exactly 128 bytes (`'lastChunkLength == 128'`); the last
+    may be shorter
+  - every later chunk starts with `0x03` (`'marker == 0x03'`), left out when joining (P2-1)
+  - joined: `0x02 · fundHash · fund` with `hash256(fund) == fundHash`
 - the fund's category (`fund[0..32]`) == `in[0].outpointTransactionHash`
 - `out[p + 1]` and `out[p + 2]` commitments == `0x02 · fundCategory · fundHash`
 - `out[p + 3]` is the FundManager bound to the TransactionManager at `out[p + 1]`'s locking

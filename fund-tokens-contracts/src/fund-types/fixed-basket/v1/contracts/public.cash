@@ -55,33 +55,29 @@ contract PublicFund(bytes authHeadDestination, bytes publicFundDestination, byte
         require(tx.inputs[this.activeInputIndex - 4].lockingBytecode == new LockingBytecodeP2SH32(startupContract));        
 
         //
-        // Chunk fund into X-byte pieces and store in output NFT commitments
-        // Each chunk goes into an output as NFT commitment data
-        // Assuming selfish behavior and being as efficient as possible
-        bytes fundCommitment = 0x;
+        // The fund commitment is published as a series of NFT chunks, from output +5
+        // The first chunk: 0x02 + fund hash + the start of the fund (its type is checked with the hash below)
         int broadcastOutputEnd = this.activeInputIndex + 5;
-        int firstCommitmentLength = -1;
-        int lastCommitmentLength = -1;
+        require(tx.outputs[broadcastOutputEnd].tokenCategory == token);
+        require(tx.outputs[broadcastOutputEnd].lockingBytecode == publicFundDestination);
+        require(tx.outputs[broadcastOutputEnd].tokenAmount == 0);
+        bytes fundCommitment = tx.outputs[broadcastOutputEnd].nftCommitment;
+        int lastChunkLength = fundCommitment.length;
+        broadcastOutputEnd = broadcastOutputEnd + 1;
+
+        //
+        // Later chunks: 0x03 (continuation) + the next part of the fund, so no later chunk can start a proof
+        // Every chunk before another fills a whole 128-byte commitment: only the last may be shorter
         while(tx.outputs.length > broadcastOutputEnd && tx.outputs[broadcastOutputEnd % tx.outputs.length].tokenCategory == token) {
             require(tx.outputs[broadcastOutputEnd].lockingBytecode == publicFundDestination);
             require(tx.outputs[broadcastOutputEnd].tokenAmount == 0);
+            require(lastChunkLength == 128);
 
-            //
-            // Ensure the first commitment sets the max size
-            // Only the last token can be smaller than the first
-            int thisCommitmentLength = tx.outputs[broadcastOutputEnd].nftCommitment.length;
-            if(firstCommitmentLength == -1) {
-                firstCommitmentLength = thisCommitmentLength;
-            }
-            require(firstCommitmentLength >= thisCommitmentLength);
-            if(lastCommitmentLength != -1) {
-                require(firstCommitmentLength == lastCommitmentLength);
-            }
-            lastCommitmentLength = thisCommitmentLength;
-
-            //
-            // Advance commitment and index var
-            fundCommitment = fundCommitment + tx.outputs[broadcastOutputEnd].nftCommitment;
+            bytes chunk = tx.outputs[broadcastOutputEnd].nftCommitment;
+            lastChunkLength = chunk.length;
+            bytes marker, bytes chunkData = chunk.split(1);
+            require(marker == 0x03);
+            fundCommitment = fundCommitment + chunkData;
             broadcastOutputEnd = broadcastOutputEnd + 1;
         }
 

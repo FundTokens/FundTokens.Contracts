@@ -11,6 +11,7 @@ import { FundTokensError } from '../../../core/errors.js';
 import { lockingBytecodeHexOf } from '../../../core/outputs.js';
 import { assertCategory } from '../../../core/validation.js';
 import { deriveFundContracts, deriveInstanceVault, deriveMinterContracts } from './contracts.js';
+import { ContinuationType } from './encoding.js';
 import { parseFund } from './fund.js';
 import { getInstanceDataHex, parseSystemParameters } from './parameters.js';
 import type { Fund, FundInput, SystemParameters } from './types.js';
@@ -230,11 +231,15 @@ async function verifyInstance(source: TransactionSource, provider: NetworkProvid
         problems.push('the deployment creates fungible instance tokens');
     }
     if (proofs.length === 1 && data.length === 1) {
-        // type (1) · state (1) · version (2) · hash (32) · data, first part; the data NFT holds the rest
+        // type (1) · state (1) · version (2) · hash (32) · data, first part; the data NFT holds 0x03 · the rest
         const proof = binToHex(proofs[0]!.token!.nft!.commitment);
-        const instanceData = proof.slice(72) + binToHex(data[0]!.token!.nft!.commitment);
+        const dataNft = binToHex(data[0]!.token!.nft!.commitment);
+        const instanceData = proof.slice(72) + dataNft.slice(2);
         if (proof.slice(0, 2) !== '00' || proof.slice(4, 8) !== '0100') {
             problems.push('the proof NFT is not a type 0x00, version 1 proof');
+        }
+        if (dataNft.slice(0, 2) !== ContinuationType) {
+            problems.push(`the data NFT does not start with the continuation byte 0x${ContinuationType}`);
         }
         if (binToHex(hash256(hexToBin(instanceData))) !== proof.slice(8, 72)) {
             problems.push('the proof NFT hash does not cover the instance data');

@@ -68,8 +68,9 @@ identity output must be output 0, so the library's layout has `s = 1`; `p = s + 
 | `s + 9 …` | | Fund commitment chunks to PublicFundVault (immutable `publicFund` NFTs) |
 | after | | Caller's change |
 
-Thread commitments: `0x02 · fundCategory · fundHash`. Chunks: the fund commitment split
-into 128-byte pieces (the consensus commitment limit), in order.
+Thread commitments: `0x02 · fundCategory · fundHash`. Chunks: the fund commitment in order,
+the first chunk its first 128 bytes (the consensus commitment limit), each later chunk the
+continuation byte `0x03` and the next 127 ([ENCODINGS.md](ENCODINGS.md#fund-commitment)).
 
 ### Adding threads to an existing fund
 

@@ -28,7 +28,7 @@ describe('audit: instance vault address substitution', () => {
         const data2 = hexToBin('bbbb');
         const mainCommitment = binToHex(new Uint8Array([0x00, 0x02, 0x00, 0x01, ...hash256(new Uint8Array([...data1, ...data2])), ...data1]));
         const mainToken = { category: instance, amount: 0n, nft: { capability: 'mutable' as const, commitment: mainCommitment } };
-        const dataToken = { category: instance, amount: 0n, nft: { capability: 'none' as const, commitment: binToHex(data2) } };
+        const dataToken = { category: instance, amount: 0n, nft: { capability: 'none' as const, commitment: '03' + binToHex(data2) } }; // the continuation byte, then the rest of the data
 
         // Both instance NFTs are minted straight to the attacker, in one transaction as data() expects.
         const genesis = provider.addUtxo(attacker.tokenAddress, randomUtxo({ vout: 0, satoshis: 100_000n, txid: instance }));

@@ -18,7 +18,7 @@ What `FundTypeResolver.resolve()` returns for a v1 instance (also `createInstanc
 | `createPublicFundBuilder(options?)` | A `PublicFundTransactionBuilder` bound to the provider and parameters |
 | `createFundTokenBuilder(fund, options?)` | A `FundTokenTransactionBuilder` for `fund` |
 | `getFundContracts(fund)` | `FundContracts` for `fund` |
-| `parseFund(input)`, `decodeFundCommitment(hex)` | Fund parsing and on-chain decoding |
+| `parseFund(input)`, `decodeFundCommitment(hex)`, `decodeFundChunks(chunks)` | Fund parsing and on-chain decoding |
 | `forFund(input)` | `{ fund, contracts, createBuilder(options?) }` |
 | `verifyGenesis(options?)` | `verifySystemGenesis` through the bound provider and parameters ([verifying genesis](#verifying-genesis)) |
 | `verifyFundGenesis(fund, genesisTxid)` | `verifyFundGenesis` for `fund` |
@@ -109,7 +109,7 @@ those addresses is ignored. Exact layout:
 [TRANSACTIONS.md](../../../agents/fixed-basket/v1/TRANSACTIONS.md#fund-creation).
 
 `padding` and `startupPadding` (bytes, default 0) buy PublicFund and FundStartup more compute
-for funds of more than 84 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
+for funds of more than 90 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
 
 ## FundTokenTransactionBuilder
 
@@ -170,6 +170,8 @@ to the fund contract fixes), `INSUFFICIENT_FUNDS` (supply or custody can't cover
 | `getFundHex(fund)` / `getFundBin(fund)` | The fund encoding the contracts read (47 bytes + 40 per asset). Assets are sorted first |
 | `hashFund(fund)` | hash256 of the encoding, hex |
 | `getFundCommitment(fund)` | `02 · hash · encoding`, the published definition |
+| `getFundChunks(fund)` / `decodeFundChunks(chunks)` | The definition as the PublicFundVault holds it: 128-byte chunks (`FundChunkBytes`), each after the first starting with `ContinuationType` (`03`). Decode a listing's chunks in output order with `decodeFundChunks`, not by joining them |
+| `getInstanceCommitments(system, state?)`, `InstanceStates` | The instance proof and data NFT commitments, for deployment tooling |
 | `getThreadCommitment(fund)` | `02 · category · hash`, the commitment of the fund's inflow and outflow threads |
 | `decodeFund(hex)` / `decodeFundCommitment(hex)` | Inverses; the latter verifies the hash. Throw `INVALID_ENCODING` |
 | `categoryAscending`, `sortAssets` | The contracts' asset order |
@@ -227,8 +229,8 @@ const snapshot = {
 };
 ```
 
-What each type shows, and what the layouts can't show (later public fund definition
-chunks, the instance's public fund category):
+What each type shows, and what the layouts can't show (the assets in later public fund
+definition chunks, the instance's public fund category):
 [encodings](../../../agents/fixed-basket/v1/ENCODINGS.md#reading-nfts-with-bcmr-v2).
 
 ## Contracts and artifacts

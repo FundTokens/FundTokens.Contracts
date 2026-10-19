@@ -84,7 +84,7 @@
               }
             },
             "parse": {
-              "bytecode": "00ce82770121876300cf527f7c6b527f7c816b01207f7c6b01207f7cbc6b01207f7cbc6b756701ff6b00cf547f7701207f7cbc6b01207f7cbc6b587f7c816b01207f7cbc6b816b68",
+              "bytecode": "00ce82770121876300cf527f7c6b527f7c816b01207f7c6b01207f7cbc6b01207f7cbc6b756700cf517f7c6b547f7701207f7cbc6b01207f7cbc6b587f7c816b01207f7cbc6b816b68",
               "types": {
                 "0001": {
                   "name": "Instance (pre-release)",
@@ -126,7 +126,7 @@
                     "outflow"
                   ]
                 },
-                "ff": {
+                "03": {
                   "name": "Instance data",
                   "description": "The rest of the instance's system parameters",
                   "fields": [
@@ -374,7 +374,7 @@
               }
             },
             "parse": {
-              "bytecode": "00cf517f7c766b52876301207f7c6b01207f7cbc6b587f7c816b577f7c816b7567816b68",
+              "bytecode": "00cf517f7c766b765287637501207f7c6b01207f7cbc6b587f7c816b577f7c816b75675387637567816b6868",
               "types": {
                 "00": {
                   "name": "Public fund counter",
@@ -399,6 +399,11 @@
                     "amount",
                     "satoshis"
                   ]
+                },
+                "03": {
+                  "name": "Public fund definition, continued",
+                  "description": "A later part of a public fund's definition, following the NFT before it",
+                  "fields": []
                 }
               }
             }

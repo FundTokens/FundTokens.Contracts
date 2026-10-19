@@ -45,7 +45,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
         require(tx.inputs.length >= this.activeInputIndex + 2);
         int dataIndex = this.activeInputIndex + 1;
         require(tx.inputs[dataIndex].lockingBytecode == tx.inputs[this.activeInputIndex].lockingBytecode, 'Data input must spend from this lockingBytecode');
-        data = data + tx.inputs[dataIndex].nftCommitment;
+        data = data + tx.inputs[dataIndex].nftCommitment.split(1)[1]; // the data NFT starts with the continuation byte 0x03
 
         // hash and verify
         require(hash256(data) == hash, 'Encoded hash and calculated hash must match');      
@@ -113,7 +113,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
 
         //
         // Concate the data and verify the hash
-        data = data + tx.inputs[dataIndex].nftCommitment;
+        data = data + tx.inputs[dataIndex].nftCommitment.split(1)[1]; // the data NFT starts with the continuation byte 0x03
         require(hash256(data) == hash, 'Encoded hash and calculated hash must match');
 
         //
@@ -156,7 +156,7 @@ contract InstanceVault(bytes32 instance, bytes32 authorization)
 
         //
         // Concate the data and verify the hash
-        data = data + tx.inputs[dataIndex].nftCommitment;
+        data = data + tx.inputs[dataIndex].nftCommitment.split(1)[1]; // the data NFT starts with the continuation byte 0x03
         require(hash256(data) == hash, 'Encoded hash and calculated hash must match');
 
         //

@@ -283,15 +283,16 @@ describe('PublicFundTransactionBuilder', () => {
             .rejects.toMatchObject({ code: 'INVALID_TRANSACTION_STATE' });
     });
 
-    it('splits the fund commitment into 128-byte chunks with exact dust', async () => {
+    it('splits the fund commitment into 128-byte chunks, later ones marked 0x03, with exact dust', async () => {
         const genesis = genesisFor();
         const assets = Array.from({ length: 4 }, () => asset(1n));
         const b = await builder().addInput(genesis, unlock()).addBroadcast({ fund: { category: genesis.txid, amount: 1n, assets } });
 
         const vault = b.contracts.publicFundVaultContract.tokenAddress;
         const chunks = b.outputs.filter(o => o.to === vault);
-        // 1 type byte + 32 hash + 47 header + 4 × 40 assets = 240 bytes
-        expect(chunks.map(o => o.token!.nft!.commitment.length / 2)).toEqual([128, 112]);
+        // 1 type byte + 32 hash + 47 header + 4 × 40 assets = 240 bytes: 128 in the first chunk, 0x03 and 112 in the second
+        expect(chunks.map(o => o.token!.nft!.commitment.length / 2)).toEqual([128, 113]);
+        expect(chunks.map(o => o.token!.nft!.commitment.slice(0, 2))).toEqual(['02', '03']);
         expect(chunks[0]!.amount).toBe(1065n);
     });
 

@@ -87,7 +87,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: instanceCommitment.slice(256)
+                    commitment: '03' + instanceCommitment.slice(256) // the continuation byte, then the rest of the data
                 }
             }
         }))

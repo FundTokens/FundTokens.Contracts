@@ -46,12 +46,13 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
 
         //
         // Verify data integrity (contains the entire sequence)
-        bytes fundCommitment = 0x;
-        int fundIndex = this.activeInputIndex;
-        do {
-            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
+        // Later chunks start with the continuation byte 0x03, left out of the commitment
+        bytes fundCommitment = tx.inputs[this.activeInputIndex].nftCommitment;
+        int fundIndex = this.activeInputIndex + 1;
+        while(tx.inputs.length > fundIndex && tx.inputs[fundIndex % tx.inputs.length].tokenCategory == publicFund) {
+            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment.split(1)[1];
             fundIndex = fundIndex + 1;
-        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
+        }
 
         bytes type, bytes hashAndData = fundCommitment.split(1);
         require(type == 0x02);
@@ -76,17 +77,19 @@ contract PublicFundVault(bytes32 publicFund, bytes32 authorization)
         
         //
         // Build data and validate sequence via hash
-        bytes fundCommitment = 0x;
-        int fundIndex = this.activeInputIndex;
-        do {
+        // This input is the first chunk (0x02 + hash + fund, checked below); later chunks start with the
+        // continuation byte 0x03, left out of the commitment, so a later chunk can never start a proof
+        bytes fundCommitment = tx.inputs[this.activeInputIndex].nftCommitment;
+        int fundIndex = this.activeInputIndex + 1;
+        while(tx.inputs.length > fundIndex && tx.inputs[fundIndex % tx.inputs.length].tokenCategory == publicFund) {
             require(tx.inputs[fundIndex].lockingBytecode == tx.outputs[fundIndex].lockingBytecode);
             require(tx.inputs[fundIndex].tokenCategory == tx.outputs[fundIndex].tokenCategory);
             require(tx.inputs[fundIndex].nftCommitment == tx.outputs[fundIndex].nftCommitment);
             require(tx.inputs[fundIndex].tokenAmount == tx.outputs[fundIndex].tokenAmount);
 
-            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment;
+            fundCommitment = fundCommitment + tx.inputs[fundIndex].nftCommitment.split(1)[1];
             fundIndex = fundIndex + 1;
-        } while(fundIndex < tx.inputs.length && tx.inputs[fundIndex].tokenCategory == publicFund);
+        }
 
         bytes type, bytes hashAndData = fundCommitment.split(1);
         require(type == 0x02);

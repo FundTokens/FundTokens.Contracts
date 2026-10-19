@@ -14,7 +14,7 @@ import { deriveFundContracts, deriveInstanceVault } from '../contracts.js';
 import { verifyFundGenesis, verifySystemGenesis, type GenesisReport } from '../genesis.js';
 import { parseFund } from '../fund.js';
 import { FixedBasketInstance } from '../instance.js';
-import { getInstanceDataHex } from '../parameters.js';
+import { getInstanceCommitments, getInstanceDataHex, InstanceStates } from '../parameters.js';
 import { PublicFundTransactionBuilder } from '../PublicFundTransactionBuilder.js';
 import type { SystemParameters } from '../types.js';
 import { randomSystem } from './support/bootstrap.js';
@@ -40,6 +40,8 @@ interface DeployOptions {
     readonly instanceData?: (system: SystemParameters) => string;
     /** How many instance NFTs to create (2 for an honest deployment). */
     readonly instanceNfts?: number;
+    /** The data NFT's first byte (the continuation byte 0x03 for an honest deployment). */
+    readonly instanceDataMarker?: string;
     /** Whether the authorization genesis is in the system genesis transaction (as bootstrapInstance does). */
     readonly authorizationInGenesis?: boolean;
 }
@@ -101,9 +103,10 @@ async function deployInstance(provider: MockNetworkProvider, system: SystemParam
     const commitment = '00' + '02' + '0100' + binToHex(hash256(hexToBin(data))) + data; // type 0x00, main, version 1
     const nft = (capability: 'mutable' | 'none', hex: string): Output =>
         withDust({ to: vault, token: { category: instance, amount: 0n, nft: { capability, commitment: hex } } });
-    const outputs = [nft('mutable', commitment.slice(0, 256)), nft('none', commitment.slice(256))];
+    const dataNft = (options.instanceDataMarker ?? '03') + commitment.slice(256);
+    const outputs = [nft('mutable', commitment.slice(0, 256)), nft('none', dataNft)];
     for (let extra = 2; extra < (options.instanceNfts ?? 2); extra++) {
-        outputs.push(nft('none', commitment.slice(256)));
+        outputs.push(nft('none', dataNft));
     }
 
     const { txid } = await new TransactionBuilder({ provider })
@@ -223,6 +226,20 @@ describe('verifySystemGenesis', () => {
             });
             const report = await verifySystemGenesis({ provider, system, deploymentTxid });
             expect(problemsOf(report, 'instance')).toEqual(['the instance data is not these system parameters']);
+        });
+
+        it('reject a data NFT without the continuation byte', async ({ expect }) => {
+            const { provider, system, deploymentTxid } = await deploy({ instanceDataMarker: '' });
+            const report = await verifySystemGenesis({ provider, system, deploymentTxid });
+            expect(problemsOf(report, 'instance')).toContain('the data NFT does not start with the continuation byte 0x03');
+        });
+
+        it('match the library\'s instance commitments (control)', async ({ expect }) => {
+            const { provider, system, deploymentTxid } = await deploy();
+            const vault = deriveInstanceVault(provider, system, (await verifySystemGenesis({ provider, system, deploymentTxid })).checks.find(c => c.name === 'instance')!.category!);
+            const held = (await vault.getUtxos()).map(u => u.token!.nft!.commitment).sort();
+            const { proof, data } = getInstanceCommitments(system, InstanceStates.main);
+            expect(held).toEqual([proof, data].sort());
         });
 
         it('reject a third instance NFT', async ({ expect }) => {

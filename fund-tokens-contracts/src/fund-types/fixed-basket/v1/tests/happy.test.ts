@@ -11,8 +11,8 @@ import {
     FundTokenTransactionBuilder,
     PublicFundTransactionBuilder,
     categoryAscending,
-    decodeFundCommitment,
-    getFundCommitment,
+    decodeFundChunks,
+    getFundChunks,
 } from '../index.js';
 import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
@@ -168,13 +168,12 @@ describe('happy path', () => {
         const utxos = await publicFundVaultContract.getUtxos();
 
         const fundParts = utxos.filter(u => u.token?.nft?.capability === 'none');
-        let fundHex = '';
+        // The chunks in output order: the first, then each later one starting with the continuation byte 0x03
+        const chunks = [...fundParts].sort((a, b) => a.vout - b.vout).map(p => p.token!.nft!.commitment);
 
-        fundParts.forEach(p => fundHex += p.token!.nft!.commitment);
+        expect(chunks).to.deep.equal(getFundChunks(fund));
 
-        expect(getFundCommitment(fund)).to.equal(fundHex);
-
-        const decodedFund = decodeFundCommitment(fundHex);
+        const decodedFund = decodeFundChunks(chunks);
 
         expect(decodedFund.category).to.equal(fund.category);
         expect(decodedFund.amount).to.equal(fund.amount);

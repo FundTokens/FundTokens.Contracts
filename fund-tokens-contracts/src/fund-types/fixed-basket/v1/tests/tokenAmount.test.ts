@@ -9,7 +9,7 @@ import { generateWallet } from '@test-utils/wallet.js';
 import { randomCategory, randomUtxo } from '@test-utils/random.js';
 
 import { withDust } from '../../../../core/outputs.js';
-import { FundTokenTransactionBuilder, PublicFundTransactionBuilder, getFundCommitment, normalizeFund } from '../index.js';
+import { FundTokenTransactionBuilder, PublicFundTransactionBuilder, getFundChunks, normalizeFund } from '../index.js';
 import { bootstrapInstance, createFund, type TestInstance } from './support/bootstrap.js';
 import { buildManualBroadcast } from './support/broadcast.js';
 
@@ -96,11 +96,10 @@ describe('fungible tokens on NFTs', () => {
             const { provider, system } = instance;
             const { publicFundVaultContract: vault } = new PublicFundTransactionBuilder({ provider, system }).getContracts();
             const fund = normalizeFund({ category: randomCategory(), amount: 1n, satoshis: 1000n, assets: Array.from({ length: 4 }, () => ({ category: randomCategory(), amount: 1n })) });
-            const commitment = getFundCommitment(fund);
             const txid = randomCategory();
-            const chunks = Array.from({ length: Math.ceil(commitment.length / 256) }, (_, vout) => provider.addUtxo(vault.tokenAddress, randomUtxo({
+            const chunks = getFundChunks(fund).map((commitment, vout) => provider.addUtxo(vault.tokenAddress, randomUtxo({
                 txid, vout, satoshis: DustAmount,
-                token: { category: system.publicFund, amount: carried, nft: { capability: 'none', commitment: commitment.slice(vout * 256, vout * 256 + 256) } },
+                token: { category: system.publicFund, amount: carried, nft: { capability: 'none', commitment } },
             })));
             const user = generateWallet();
             const funding = provider.addUtxo(user.tokenAddress, randomUtxo({ satoshis: 100_000n }));

@@ -1,6 +1,6 @@
 import type { NetworkProvider } from 'cashscript';
 import { deriveFundContracts, deriveSystemContracts, type FundContracts, type SystemContracts } from './contracts.js';
-import { decodeFundCommitment } from './encoding.js';
+import { decodeFundChunks, decodeFundCommitment } from './encoding.js';
 import { FundTokenTransactionBuilder, type FundTokenTransactionBuilderOptions } from './FundTokenTransactionBuilder.js';
 import {
     verifyFundGenesis,
@@ -79,6 +79,11 @@ export class FixedBasketInstance {
     /** Decodes the fund commitment this version publishes on-chain. */
     decodeFundCommitment(hex: string): Fund {
         return decodeFundCommitment(hex);
+    }
+
+    /** Decodes a public fund definition from its chunks, in order, as the PublicFundVault holds them. */
+    decodeFundChunks(chunks: readonly string[]): Fund {
+        return decodeFundChunks(chunks);
     }
 
     /**

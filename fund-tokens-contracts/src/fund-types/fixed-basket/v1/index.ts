@@ -51,9 +51,13 @@ export {
 } from './genesis.js';
 export {
     categoryAscending,
+    ContinuationType,
     decodeFund,
+    decodeFundChunks,
     decodeFundCommitment,
+    FundChunkBytes,
     getFundBin,
+    getFundChunks,
     getFundCommitment,
     getFundHex,
     getPadding,
@@ -79,7 +83,7 @@ export {
     type SystemCategories,
 } from './bcmr.js';
 export { MaxFundAssets, normalizeFund, parseFund, validateFund } from './fund.js';
-export { getInstanceDataHex, parseSystemParameters } from './parameters.js';
+export { getInstanceCommitments, getInstanceDataHex, InstanceStates, parseSystemParameters } from './parameters.js';
 export * as artifacts from './artifacts/index.js';
 export type {
     EncodedFee,

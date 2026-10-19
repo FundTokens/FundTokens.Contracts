@@ -42,9 +42,19 @@ Published by PublicFund in the PublicFundVault. Library: `getFundCommitment`,
 0x02 · fundHash (32) · fund encoding
 ```
 
-80 + 40·N bytes, split in order across immutable `publicFund` NFTs. Every chunk but the
-last has the first chunk's length; the library uses 128-byte chunks. Only the first chunk
-starts with the type byte.
+80 + 40·N bytes, published in order as immutable `publicFund` NFTs (chunks). Library:
+`getFundChunks`, `decodeFundChunks`.
+
+```
+first chunk:  the commitment's first 128 bytes (from its 0x02 type byte)
+later chunks: 0x03 (continuation) · the next 127 bytes
+```
+
+Every chunk but the last is exactly 128 bytes (`FundChunkBytes`); the last may be shorter.
+Every later chunk starts with the continuation byte `0x03` (`ContinuationType`), left out
+when the chunks are joined. So no later chunk can be read as the start of a commitment
+(P2-1): `proof()` only ever proves a listing from its first chunk. A 100-asset definition
+takes 33 chunks.
 
 ## Thread commitment
 
@@ -129,12 +139,14 @@ Two NFTs of the `instance` category in the InstanceVault, created in one transac
 
 ```
 proof NFT (mutable):  type (1) = 0x00 · state (1) · version (2) · hash (32) · data, first part
-data NFT (immutable): data, rest
+data NFT (immutable): 0x03 (continuation) · data, rest
 ```
 
 `version` is the contract version number as a 2-byte little-endian integer: v1 is `01 00`.
-`hash = hash256(data)` over the whole data, both parts concatenated. With 128-byte
-commitments the proof NFT carries the first 92 bytes of data and the data NFT the other 116.
+`hash = hash256(data)` over the whole data, both parts concatenated (the data NFT without its
+continuation byte, which InstanceVault leaves out like PublicFundVault). With 128-byte
+commitments the proof NFT carries the first 92 bytes of data and the data NFT `0x03` and the
+other 116. Library: `getInstanceCommitments(system, state)`.
 
 | State | Name | Meaning |
 | --- | --- | --- |
@@ -196,9 +208,10 @@ the parse produces.
 | Inflow, outflow | `02` thread | fund category, fund hash |
 | | `00` counter, `01` minting | serial |
 | Public fund | `02` definition (first chunk) | fund hash, fund category, amount, satoshis |
+| | `03` continuation (later chunks) | none |
 | | `00` counter, `01` minting | serial |
 | Instance | `0001`, `0002`, `0004`, `0008`: proof NFT (type · state) | version (number), hash, inflow, outflow |
-| | `ff`: data NFT (immutable; the parse tells it apart by capability, as it has no type byte) | authorization, create fee NFT, create fee value, execute fee NFT, execute fee value |
+| | `03`: data NFT (immutable, a continuation; the parse tells the two apart by capability) | authorization, create fee NFT, create fee value, execute fee NFT, execute fee value |
 
 An enforced fee's amount is satoshis for BCH and token units otherwise. A BCMR field has a
 single `decimals`, so BCH fees get their own type (`0100`, built by the parse) and can show
@@ -206,11 +219,9 @@ as BCH.
 
 Accepted limits (the layouts stay as they are):
 
-- **Public fund definitions span NFTs.** Only the first chunk has a type byte; later chunks
-  start mid-asset. A later chunk is read as an unknown type, or, when its first byte happens
-  to be `0x02` (about 1 in 256), as a definition with meaningless fields. Assets beyond the
-  first chunk can't be shown. Read full definitions with `decodeFundCommitment` over all
-  chunks.
+- **Public fund definitions span NFTs.** Later chunks show as continuations with no fields,
+  so assets beyond the first chunk can't be shown. Read full definitions with
+  `decodeFundChunks` over all chunks.
 - **The instance's `publicFund` straddles its two NFTs** (28 bytes in the proof NFT, 4 in the
   data NFT), so neither parse shows it. Every other parameter is shown.
 - BCMR has no address encoding, so fee destinations show as locking bytecode hex. A token
