@@ -57,7 +57,10 @@ One transaction, built by `PublicFundTransactionBuilder.addBroadcast`:
   PublicFundVault in 128-byte pieces.
 - The create fee is paid.
 
-More thread pairs can be added later the same way, without PublicFund.
+More thread pairs can be added later the same way, without PublicFund. Threads can be added
+this way for a fund that was never created publicly. Only a public creation guarantees the
+fund's whole supply starts in its FundManager, so check any other fund with
+`verifyFundGenesis` before depositing ([system tokens](TOKENS.md#public-fund)).
 
 ### Mint (inflow)
 
@@ -83,7 +86,7 @@ published NFTs and returning them unchanged.
 - Funds of up to **100 assets** (plus BCH) are accepted by the library: the most whose
   redemption fits in a standard transaction. The protocol itself sets no limit, so larger
   funds can exist; clients are expected not to create or deposit into them.
-- Large funds need extra compute, bought with padding: fund creation beyond 81 assets.
+- Large funds need extra compute, bought with padding: fund creation beyond 90 assets.
   Redemptions fit without padding. See [LIMITS](../../../agents/fixed-basket/v1/LIMITS.md).
 - A redemption that would release too many custody UTXOs to fit is refused; redeem fewer
   units per transaction.

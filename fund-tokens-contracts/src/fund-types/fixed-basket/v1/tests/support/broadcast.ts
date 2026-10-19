@@ -6,7 +6,7 @@ import { randomUtxo } from '@test-utils/random.js';
 import { MaxTokenAmount } from '../../../../../core/constants.js';
 import { withDust } from '../../../../../core/outputs.js';
 import { deriveFundContracts } from '../../contracts.js';
-import { getFundCommitment, getFundHex, hashFund } from '../../encoding.js';
+import { getFundChunks, getFundHex, hashFund } from '../../encoding.js';
 import { normalizeFund } from '../../fund.js';
 import { PublicFundTransactionBuilder } from '../../PublicFundTransactionBuilder.js';
 import type { TestInstance } from './bootstrap.js';
@@ -59,11 +59,10 @@ export async function buildManualBroadcast({ provider, system }: TestInstance, {
             withDust({ to: fundContract.tokenAddress, token: { category: fund.category, amount: MaxTokenAmount } }),
             withDust({ to: publicFundContract.tokenAddress, token: publicFundUtxo.token }),
         ]);
-    const commitment = getFundCommitment(fund);
-    for (let offset = 0; offset < commitment.length; offset += 256) {
+    for (const chunk of getFundChunks(fund)) {
         tx.addOutput(withDust({
             to: publicFundVaultContract.tokenAddress,
-            token: { category: system.publicFund, amount: 0n, nft: { capability: 'none', commitment: commitment.slice(offset, offset + 256) } },
+            token: { category: system.publicFund, amount: 0n, nft: { capability: 'none', commitment: chunk } },
         }));
     }
     tx.addInput(funding, creator.signatureTemplate.unlockP2PKH());

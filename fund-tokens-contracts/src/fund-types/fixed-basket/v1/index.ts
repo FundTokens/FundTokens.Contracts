@@ -19,26 +19,45 @@ export { FundTokenTransactionBuilder, type FundFlowOptions, type FundTokenTransa
 export { PublicFundTransactionBuilder, type BroadcastOptions, type PublicFundTransactionBuilderOptions } from './PublicFundTransactionBuilder.js';
 export {
     deriveFundContracts,
+    deriveInstanceVault,
+    deriveMinterContracts,
     deriveSystemContracts,
     type AssetManagerContract,
     type AuthHeadVaultContract,
     type FeeManagerContract,
+    type FeeMinterContract,
     type FundContracts,
     type FundInflowMintContract,
     type FundManagerContract,
     type FundOutflowMintContract,
     type FundStartupContract,
+    type InstanceVaultContract,
+    type MinterContracts,
     type PublicFundContract,
     type PublicFundVaultContract,
+    type SimpleMinterContract,
     type SimpleVaultContract,
     type SystemContracts,
     type TransactionManagerContract,
 } from './contracts.js';
 export {
+    verifyFundGenesis,
+    verifySystemGenesis,
+    type GenesisCheck,
+    type GenesisReport,
+    type GenesisStatus,
+    type VerifyFundGenesisOptions,
+    type VerifySystemGenesisOptions,
+} from './genesis.js';
+export {
     categoryAscending,
+    ContinuationType,
     decodeFund,
+    decodeFundChunks,
     decodeFundCommitment,
+    FundChunkBytes,
     getFundBin,
+    getFundChunks,
     getFundCommitment,
     getFundHex,
     getPadding,
@@ -64,7 +83,7 @@ export {
     type SystemCategories,
 } from './bcmr.js';
 export { MaxFundAssets, normalizeFund, parseFund, validateFund } from './fund.js';
-export { parseSystemParameters } from './parameters.js';
+export { getInstanceCommitments, getInstanceDataHex, InstanceStates, parseSystemParameters } from './parameters.js';
 export * as artifacts from './artifacts/index.js';
 export type {
     EncodedFee,

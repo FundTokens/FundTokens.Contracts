@@ -5,18 +5,20 @@
  * This replaces the removed SystemTransactionBuilder. It exists so the tests
  * can stand up a complete instance on a mock network; it is not shipped.
  */
-import { bigIntToVmNumber, binToHex, hexToBin, swapEndianness, vmNumberToBigInt } from '@bitauth/libauth';
-import { Contract, TransactionBuilder, type NetworkProvider } from 'cashscript';
-import { lockingBytecodeOf, withDust } from '../../../../../core/outputs.js';
-import { deriveSystemContracts, type FeeManagerContract, type SystemContracts } from '../../contracts.js';
+import { bigIntToVmNumber, binToHex, hexToBin, vmNumberToBigInt } from '@bitauth/libauth';
+import { TransactionBuilder, type NetworkProvider } from 'cashscript';
+import { withDust } from '../../../../../core/outputs.js';
+import {
+    deriveMinterContracts,
+    deriveSystemContracts,
+    type FeeManagerContract,
+    type FeeMinterContract,
+    type SimpleMinterContract,
+    type SystemContracts,
+} from '../../contracts.js';
 import { encodeFee } from '../../fees.js';
 import { parseSystemParameters } from '../../parameters.js';
 import type { SystemParameters, SystemParametersInput } from '../../types.js';
-import feeMinterArtifact from '../../artifacts/fee_minter.js';
-import simpleMinterArtifact from '../../artifacts/simple_minter.js';
-
-type SimpleMinterContract = Contract<typeof simpleMinterArtifact>;
-type FeeMinterContract = Contract<typeof feeMinterArtifact>;
 
 export interface MaintenanceContracts extends SystemContracts {
     readonly inflowHoldingContract: SimpleMinterContract;
@@ -28,20 +30,14 @@ export interface MaintenanceContracts extends SystemContracts {
 
 /** The system contracts plus the minters that hold each control token's minting baton. */
 export function deriveMaintenanceContracts(provider: NetworkProvider, system: SystemParameters): MaintenanceContracts {
-    const contracts = deriveSystemContracts(provider, system);
-    const authorization = swapEndianness(system.authorization);
-    const simpleMinter = (token: string, destination: string) =>
-        new Contract(simpleMinterArtifact, [authorization, swapEndianness(token), lockingBytecodeOf(destination)], { provider });
-    const feeMinter = (token: string, destination: string) =>
-        new Contract(feeMinterArtifact, [authorization, swapEndianness(token), lockingBytecodeOf(destination)], { provider });
-
+    const minters = deriveMinterContracts(provider, system);
     return {
-        ...contracts,
-        inflowHoldingContract: simpleMinter(system.inflow, contracts.mintInflowContract.tokenAddress),
-        outflowHoldingContract: simpleMinter(system.outflow, contracts.mintOutflowContract.tokenAddress),
-        publicFundHoldingContract: simpleMinter(system.publicFund, contracts.publicFundContract.tokenAddress),
-        mintCreateFundFeeContract: feeMinter(system.fees.create.nft, contracts.createFundFeeContract.tokenAddress),
-        mintExecuteFundFeeContract: feeMinter(system.fees.execute.nft, contracts.executeFundFeeContract.tokenAddress),
+        ...deriveSystemContracts(provider, system),
+        inflowHoldingContract: minters.inflowMinterContract,
+        outflowHoldingContract: minters.outflowMinterContract,
+        publicFundHoldingContract: minters.publicFundMinterContract,
+        mintCreateFundFeeContract: minters.createFeeMinterContract,
+        mintExecuteFundFeeContract: minters.executeFeeMinterContract,
     };
 }
 

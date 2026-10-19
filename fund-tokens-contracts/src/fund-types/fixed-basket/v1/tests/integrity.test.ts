@@ -14,8 +14,8 @@ import {
     FundTokenTransactionBuilder,
     PublicFundTransactionBuilder,
     decodeFund,
-    decodeFundCommitment,
-    getFundCommitment,
+    decodeFundChunks,
+    getFundChunks,
     getFundHex,
 } from '../index.js';
 
@@ -281,13 +281,12 @@ describe('testing transaction integrity', () => {
         const utxos = await publicFundVaultContract.getUtxos();
 
         const fundParts = utxos.filter(u => u.token?.nft?.capability === 'none');
-        let fundHex = '';
+        // The chunks in output order: the first, then each later one starting with the continuation byte 0x03
+        const chunks = [...fundParts].sort((a, b) => a.vout - b.vout).map(p => p.token!.nft!.commitment);
 
-        fundParts.forEach(p => fundHex += p.token!.nft!.commitment);
-        
-        expect(getFundCommitment(fund)).to.equal(fundHex);
-        
-        const decodedFund = decodeFundCommitment(fundHex);
+        expect(chunks).to.deep.equal(getFundChunks(fund));
+
+        const decodedFund = decodeFundChunks(chunks);
 
         expect(decodedFund.category).to.equal(fund.category);
         expect(decodedFund.amount).to.equal(fund.amount);

@@ -87,7 +87,7 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
                 amount: 0n,
                 nft: {
                     capability: 'none',
-                    commitment: instanceCommitment.slice(256)
+                    commitment: '03' + instanceCommitment.slice(256) // the continuation byte, then the rest of the data
                 }
             }
         }))
@@ -470,6 +470,37 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
 
         it('rejects taking them off the data NFT', () => {
             expect(proof([7n, 0n])).toFailRequireWith('Data input amount must be preserved');
+        });
+    });
+
+    describe('the data NFT\'s continuation byte', () => {
+        /** proof() over an instance pair whose data NFT starts with `marker` instead of 0x03; the data is unchanged. */
+        const proof = (marker: string) => {
+            const txid = randomCategory();
+            const [main, data] = [instanceCommitment.slice(0, 256), marker + instanceCommitment.slice(256)].map((commitment, vout) =>
+                provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
+                    txid, vout, satoshis: 3000n,
+                    token: { category: instanceCategory, amount: 0n, nft: { capability: vout === 0 ? 'mutable' : 'none', commitment } },
+                })));
+            const userWallet = generateWallet();
+            const feeUtxo = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
+            return new TransactionBuilder({ provider })
+                .addInput(main!, systemUnderTest.unlock.proof())
+                .addInput(data!, systemUnderTest.unlock.data())
+                .addInput(feeUtxo, userWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    { to: systemUnderTest.tokenAddress, amount: DustAmount, token: main!.token },
+                    { to: systemUnderTest.tokenAddress, amount: DustAmount, token: data!.token },
+                    { to: ownerWallet.address, amount: DustAmount },
+                ]);
+        };
+
+        it('proves a data NFT starting with 0x03 (control)', () => {
+            expect(proof('03')).not.toFailRequire();
+        });
+
+        it('rejects a data NFT starting with any other byte, though the hash still verifies', () => {
+            expect(proof('05')).toFailRequireWith('nftCommitment.split(1)[0] == 0x03');
         });
     });
 });

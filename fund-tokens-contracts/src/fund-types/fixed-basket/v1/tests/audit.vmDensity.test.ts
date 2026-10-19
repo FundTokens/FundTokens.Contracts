@@ -130,7 +130,7 @@ describe('audit: PublicFundVault.proof() is not a ceiling (negative result)', ()
         const { publicFundVaultContract: vault } = new PublicFundTransactionBuilder({ provider, system }).getContracts();
         const [head, ...rest] = await vault.getUtxos();
         const proof = new TransactionBuilder({ provider })
-            .addInput(head!, vault.unlock.proof())
+            .addInput(head!, vault.unlock.proof(new Uint8Array()))
             .addInputs(rest, vault.unlock.data())
             .addInput(funding, user.signatureTemplate.unlockP2PKH())
             .addOutputs([head!, ...rest].map(u => ({ to: vault.tokenAddress, amount: u.satoshis, token: u.token! })))

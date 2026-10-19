@@ -105,6 +105,15 @@ contract FundStartup(bytes32 fee, bytes32 inflowToken, bytes32 outflowToken)
         } while(outputIndex < tx.outputs.length);
 
         //
+        // The create fee payment (+4) is inside the skipped outputs, and a voluntary fee lets it carry any immutable NFT
+        bytes feePaymentCategory = tx.outputs[feeContractInput + 1].tokenCategory;
+        if(feePaymentCategory != 0x) {
+            bytes feePaymentToken = feePaymentCategory.slice(0, 32);
+            require(feePaymentToken != inflowToken);
+            require(feePaymentToken != outflowToken);
+        }
+
+        //
         // Ensure no live inflow/outflow thread shares this transaction (e.g. a TransactionManager operation)
         // Only the minting tokens (category + 0x02) may be spent, so every thread created here is a new one
         int inputIndex = 0;

@@ -18,8 +18,10 @@ What `FundTypeResolver.resolve()` returns for a v1 instance (also `createInstanc
 | `createPublicFundBuilder(options?)` | A `PublicFundTransactionBuilder` bound to the provider and parameters |
 | `createFundTokenBuilder(fund, options?)` | A `FundTokenTransactionBuilder` for `fund` |
 | `getFundContracts(fund)` | `FundContracts` for `fund` |
-| `parseFund(input)`, `decodeFundCommitment(hex)` | Fund parsing and on-chain decoding |
+| `parseFund(input)`, `decodeFundCommitment(hex)`, `decodeFundChunks(chunks)` | Fund parsing and on-chain decoding |
 | `forFund(input)` | `{ fund, contracts, createBuilder(options?) }` |
+| `verifyGenesis(options?)` | `verifySystemGenesis` through the bound provider and parameters ([verifying genesis](#verifying-genesis)) |
+| `verifyFundGenesis(fund, genesisTxid)` | `verifyFundGenesis` for `fund` |
 
 ## System parameters
 
@@ -107,7 +109,7 @@ those addresses is ignored. Exact layout:
 [TRANSACTIONS.md](../../../agents/fixed-basket/v1/TRANSACTIONS.md#fund-creation).
 
 `padding` and `startupPadding` (bytes, default 0) buy PublicFund and FundStartup more compute
-for funds of more than 81 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
+for funds of more than 90 assets ([limits](../../../agents/fixed-basket/v1/LIMITS.md)).
 
 ## FundTokenTransactionBuilder
 
@@ -138,10 +140,13 @@ supply and custody UTXOs carrying a mutable or minting NFT of their category are
 contracts compare the bare category, so they can never spend them.
 
 **`addInflow`** adds the fund's inflow thread, an execute fee UTXO and enough FundManager
-supply to cover `units × fund.amount` (picked randomly to spread concurrent users), plus
-outputs locking `units × satoshis` BCH and `units × asset.amount` of each asset into
-custody. The caller adds inputs with those assets and the fee's BCH, an output receiving
-`units × fund.amount` fund tokens, and change.
+supply to cover `units × fund.amount`, plus outputs locking `units × satoshis` BCH and
+`units × asset.amount` of each asset into custody. Supply is one UTXO that covers the mint
+on its own, picked randomly among them to spread concurrent users, or else UTXOs largest
+first, so supply split into many small UTXOs doesn't bloat the mint. The caller adds inputs
+with those assets and the fee's BCH, an output receiving `units × fund.amount` fund tokens,
+and change. With validation on, it refuses a mint that cannot fit in a standard transaction
+(`TRANSACTION_TOO_LARGE`) and names the most units that fit.
 
 **`addOutflow`** adds the fund's outflow thread, an execute fee UTXO and a FundManager UTXO
 that collects the redeemed tokens (from `getCollectorUtxos()`, preferring one that already holds
@@ -165,6 +170,8 @@ to the fund contract fixes), `INSUFFICIENT_FUNDS` (supply or custody can't cover
 | `getFundHex(fund)` / `getFundBin(fund)` | The fund encoding the contracts read (47 bytes + 40 per asset). Assets are sorted first |
 | `hashFund(fund)` | hash256 of the encoding, hex |
 | `getFundCommitment(fund)` | `02 · hash · encoding`, the published definition |
+| `getFundChunks(fund)` / `decodeFundChunks(chunks)` | The definition as the PublicFundVault holds it: 128-byte chunks (`FundChunkBytes`), each after the first starting with `ContinuationType` (`03`). Decode a listing's chunks in output order with `decodeFundChunks`, not by joining them |
+| `getInstanceCommitments(system, state?)`, `InstanceStates` | The instance proof and data NFT commitments, for deployment tooling |
 | `getThreadCommitment(fund)` | `02 · category · hash`, the commitment of the fund's inflow and outflow threads |
 | `decodeFund(hex)` / `decodeFundCommitment(hex)` | Inverses; the latter verifies the hash. Throw `INVALID_ENCODING` |
 | `categoryAscending`, `sortAssets` | The contracts' asset order |
@@ -222,8 +229,8 @@ const snapshot = {
 };
 ```
 
-What each type shows, and what the layouts can't show (later public fund definition
-chunks, the instance's public fund category):
+What each type shows, and what the layouts can't show (the assets in later public fund
+definition chunks, the instance's public fund category):
 [encodings](../../../agents/fixed-basket/v1/ENCODINGS.md#reading-nfts-with-bcmr-v2).
 
 ## Contracts and artifacts
@@ -232,10 +239,35 @@ chunks, the instance's public fund category):
 | --- | --- |
 | `deriveSystemContracts(provider, system)` | `SystemContracts`, without network access |
 | `deriveFundContracts(provider, system, fund)` | `FundContracts` |
+| `deriveMinterContracts(provider, system)` | The SimpleMinters and FeeMinters holding each system category's minting NFT |
+| `deriveInstanceVault(provider, system, instance)` | The InstanceVault for the `instance` category |
 | `artifacts` | Typed artifacts by contract name: `transactionManager`, `fundManager`, `assetManager`, `feeManager`, `fundStartup`, `fundInflowMint`, `fundOutflowMint`, `publicFund`, `publicFundVault`, `authHeadVault`, `simpleVault`, `simpleMinter`, `feeMinter`, `instanceVault` |
 
 Contracts are typed by artifact (e.g. `TransactionManagerContract`), so constructor arguments
 and `unlock.*()` calls are type-checked.
+
+## Verifying genesis
+
+The contracts trust an instance's deployment, and a fund's creator, to have created their
+tokens as required; these check it on-chain through your provider (`getUtxos` and
+`getRawTransaction` only), not the registry. Rules and what each check covers:
+[trust assumptions](../../../agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions).
+
+| Export | Description |
+| --- | --- |
+| `verifySystemGenesis({ provider, system, deploymentTxid?, authorizationGenesisTxid?, maxSteps? })` | `GenesisReport`: one minting NFT per thread, public fund and fee category, created straight into its minter and never moved out; no fungible system supply; the deployment's two instance NFTs holding `system` |
+| `verifyFundGenesis({ provider, system, fund, genesisTxid })` | `GenesisCheck`: the genesis created every fund token into the fund's FundManager. Run it before depositing into a fund that wasn't created publicly |
+| `getInstanceDataHex(system)` | The 208-byte instance data the instance NFTs hash |
+
+A `GenesisCheck` is `{ name, category, status, genesisTxid, problems }`, with `status`
+`'verified'`, `'failed'` or `'unverifiable'` (the genesis couldn't be located from what was
+given). A `GenesisReport` is `{ ok, checks }`; `ok` only when every check is verified. Both
+return results rather than throwing; provider errors propagate.
+
+```ts
+const report = await instance.verifyGenesis({ deploymentTxid: registryInstance.txid ?? undefined });
+const check = await instance.verifyFundGenesis(fund, genesisTxid); // a public fund: its RegistryFund.genesisTxid
+```
 
 ## Measured sizes
 

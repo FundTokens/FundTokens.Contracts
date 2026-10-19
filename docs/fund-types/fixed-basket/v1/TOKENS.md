@@ -36,6 +36,8 @@ parameters, so anyone can recover and verify them on-chain.
 - The deployment must create exactly these two instance NFTs, and one minting NFT for each
   system category; the contracts trust this and cannot check it
   ([trust assumptions](../../../agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions)).
+  Clients can: `verifyGenesis` checks it through their own node
+  ([builders](BUILDERS.md#verifying-genesis)).
 
 ## Threads
 
@@ -50,6 +52,14 @@ PublicFund holds a minting NFT that, at each fund creation, publishes the fund d
 a series of immutable NFTs to the PublicFundVault: the fund's on-chain listing. Anyone can
 prove a definition by spending the series and returning it unchanged. Delisting (permission
 `0x0100`) burns the series; the fund itself keeps working.
+
+A public creation is also what guarantees the fund's supply: it runs in the fund category's
+genesis transaction and puts every fund token into the FundManager. Threads can be added for
+a fund created any other way, but nothing then stops its creator from keeping unbacked fund
+tokens that redeem other people's deposits, or from reusing an existing token's category.
+The registry lists public funds only. Before depositing into any other fund, check its
+genesis with `verifyFundGenesis`
+([trust assumptions](../../../agents/fixed-basket/v1/CONTRACTS.md#trust-assumptions)).
 
 ## Fees
 

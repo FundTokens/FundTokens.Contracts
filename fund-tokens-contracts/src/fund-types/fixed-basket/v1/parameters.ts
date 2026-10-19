@@ -1,6 +1,8 @@
+import { bigIntToBinUint64LEClamped, binToHex, hash256, hexToBin, swapEndianness } from '@bitauth/libauth';
 import { FundTokensError } from '../../../core/errors.js';
 import { assertCategory, assertInRange, assertObject, toBigInt } from '../../../core/validation.js';
 import { MaxTokenAmount } from '../../../core/constants.js';
+import { ContinuationType } from './encoding.js';
 import type { FeeParameters, SystemParameters, SystemParametersInput } from './types.js';
 
 function parseFee(value: unknown, name: string): FeeParameters {
@@ -39,4 +41,37 @@ export function parseSystemParameters(input: SystemParametersInput | SystemParam
     }
 
     return Object.freeze(parsed);
+}
+
+/**
+ * The instance data: `system` serialized as the contracts take it, the 208 bytes the instance
+ * NFTs hash (docs/agents/fixed-basket/v1/ENCODINGS.md#instance-data). Categories are in
+ * internal byte order, fee values 8-byte little-endian.
+ */
+export function getInstanceDataHex(system: SystemParameters): string {
+    const value = (amount: bigint) => binToHex(bigIntToBinUint64LEClamped(amount));
+    return swapEndianness(system.inflow)
+        + swapEndianness(system.outflow)
+        + swapEndianness(system.publicFund)
+        + swapEndianness(system.authorization)
+        + swapEndianness(system.fees.create.nft) + value(system.fees.create.value)
+        + swapEndianness(system.fees.execute.nft) + value(system.fees.execute.value);
+}
+
+/** Instance lifecycle states, as the proof NFT's state byte. */
+export const InstanceStates = Object.freeze({ pre: 0x01, main: 0x02, dep: 0x04, vul: 0x08 });
+
+/**
+ * The instance NFT commitments for `system` in lifecycle `state`
+ * (docs/agents/fixed-basket/v1/ENCODINGS.md#instance-nfts): the mutable proof NFT, type 0x00,
+ * the state, contract version 1, the data hash and the first 92 data bytes; and the immutable data
+ * NFT, the continuation byte 0x03 and the other 116.
+ */
+export function getInstanceCommitments(system: SystemParameters, state: number = InstanceStates.pre): { proof: string; data: string } {
+    if (!Object.values(InstanceStates).includes(state as never)) {
+        throw new FundTokensError('INVALID_ARGUMENT', `state must be 0x01, 0x02, 0x04 or 0x08; got ${state}`);
+    }
+    const data = getInstanceDataHex(system);
+    const commitment = '00' + state.toString(16).padStart(2, '0') + '0100' + binToHex(hash256(hexToBin(data))) + data;
+    return { proof: commitment.slice(0, 256), data: ContinuationType + commitment.slice(256) };
 }

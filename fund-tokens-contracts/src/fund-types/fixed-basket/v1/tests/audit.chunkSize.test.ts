@@ -1,33 +1,38 @@
 /**
- * Audit check (fresh pass, v0.1.0-rc2; negative result): the broadcaster chooses the publicFund
- * NFT chunk size, and PublicFundVault.proof() / burn() walk the whole series against a fixed
- * budget. Broadcast's own scans reject small chunk sizes first, so no accepted series is left
- * unprovable.
+ * Audit check (fresh pass, v0.1.0-rc2), revised for P2-1: the broadcaster used to choose the
+ * publicFund chunk size, and PublicFundVault.proof() / burn() walk the whole series against a fixed
+ * budget, so small chunks could leave a series that broadcasts but can't be burned. Now every chunk
+ * but the last is a whole 128-byte commitment, and each later chunk starts with the continuation
+ * byte 0x03, so the only series broadcast accepts are the builder's.
  *
- * Every accepted series must stay provable and burnable.
+ * Every accepted series must stay provable and burnable; every other chunking is refused.
  */
 import { TransactionBuilder } from 'cashscript';
 
 import { randomCategory, randomUtxo } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 
+import { operationCost, verifyTransaction } from '@test-utils/consensus.js';
+
 import { withDust } from '../../../../core/outputs.js';
-import { PublicFundTransactionBuilder, getFundCommitment, normalizeFund } from '../index.js';
+import { PublicFundTransactionBuilder, getFundChunks, getFundCommitment, getPadding, normalizeFund, type Fund } from '../index.js';
 import { bootstrapInstance, type TestInstance } from './support/bootstrap.js';
 
 const DustAmount = 1000n;
 
-const isValid = (tx: TransactionBuilder) => {
-    try {
-        tx.debug();
-        return true;
-    } catch {
-        return false;
+/** The commitment cut into `size`-byte chunks, each after the first opening with `marker` (none: raw pieces). */
+function chunked(fund: Fund, size: number, marker: string): string[] {
+    const commitment = getFundCommitment(fund);
+    const chunks = [commitment.slice(0, size * 2)];
+    const step = (size - marker.length / 2) * 2;
+    for (let offset = size * 2; offset < commitment.length; offset += step) {
+        chunks.push(marker + commitment.slice(offset, offset + step));
     }
-};
+    return chunks;
+}
 
-/** Broadcasts `assetCount` assets with the definition split into `chunkSize`-byte NFTs; false if rejected. */
-async function broadcastChunked(instance: TestInstance, assetCount: number, chunkSize: number) {
+/** A fund creation for `assetCount` assets publishing `chunks(fund)` in place of the builder's chunks. */
+async function broadcastWith(instance: TestInstance, assetCount: number, chunks: (fund: Fund) => string[]) {
     const { provider, system } = instance;
     const creator = generateWallet();
     const genesis = provider.addUtxo(creator.tokenAddress, randomUtxo({ vout: 0, satoshis: DustAmount }));
@@ -42,37 +47,31 @@ async function broadcastChunked(instance: TestInstance, assetCount: number, chun
     const tx = new PublicFundTransactionBuilder({ provider, system });
     const vault = tx.getContracts().publicFundVaultContract.tokenAddress;
     tx.addInput(genesis, creator.signatureTemplate.unlockP2PKH());
-    await tx.addBroadcast({ fund });
+    await tx.addBroadcast({ fund, padding: 1000 });
     while (tx.outputs.at(-1)?.to === vault) tx.outputs.pop();
-    const commitment = getFundCommitment(fund);
-    for (let offset = 0; offset < commitment.length; offset += chunkSize * 2) {
-        tx.addOutput(withDust({
-            to: vault,
-            token: { category: system.publicFund, amount: 0n, nft: { capability: 'none', commitment: commitment.slice(offset, offset + chunkSize * 2) } },
-        }));
+    for (const commitment of chunks(fund)) {
+        tx.addOutput(withDust({ to: vault, token: { category: system.publicFund, amount: 0n, nft: { capability: 'none', commitment } } }));
     }
-    tx.addInput(funding, creator.signatureTemplate.unlockP2PKH());
-    if (!isValid(tx)) return false;
-    await tx.send();
-    return true;
+    return tx.addInput(funding, creator.signatureTemplate.unlockP2PKH());
 }
 
-async function seriesTransactions({ provider, system, owner }: TestInstance) {
+/** A proof() and a burn() of the vault's one series, each with `padding` bytes of padding. */
+async function seriesTransactions({ provider, system, owner }: TestInstance, padding = 0) {
     const user = generateWallet();
     const [proofFunding, burnFunding] = [randomUtxo({ satoshis: 100_000n }), randomUtxo({ satoshis: 100_000n })].map(u => provider.addUtxo(user.tokenAddress, u));
     const { publicFundVaultContract: vault } = new PublicFundTransactionBuilder({ provider, system }).getContracts();
-    const [head, ...rest] = await vault.getUtxos();
+    const [head, ...rest] = (await vault.getUtxos()).sort((a, b) => a.vout - b.vout);
     const auth = (await provider.getUtxos(owner.tokenAddress)).find(u => u.token?.category === system.authorization)!;
 
     const proof = new TransactionBuilder({ provider })
-        .addInput(head!, vault.unlock.proof())
+        .addInput(head!, vault.unlock.proof(getPadding(padding)))
         .addInputs(rest, vault.unlock.data())
         .addInput(proofFunding, user.signatureTemplate.unlockP2PKH())
         .addOutputs([head!, ...rest].map(u => ({ to: vault.tokenAddress, amount: u.satoshis, token: u.token! })))
         .addOutput({ to: user.tokenAddress, amount: 20_000n });
 
     const burn = new TransactionBuilder({ provider })
-        .addInput(head!, vault.unlock.burn())
+        .addInput(head!, vault.unlock.burn(getPadding(padding)))
         .addInputs(rest, vault.unlock.data())
         .addInput(auth, owner.signatureTemplate.unlockP2PKH())
         .addInput(burnFunding, user.signatureTemplate.unlockP2PKH())
@@ -82,17 +81,44 @@ async function seriesTransactions({ provider, system, owner }: TestInstance) {
     return { proof, burn };
 }
 
-describe('audit: broadcaster-chosen chunk size cannot trap a publicFund series', () => {
-    const cases: [assets: number, chunkSize: number][] = [[1, 128], [1, 4], [1, 3], [10, 24], [10, 18], [10, 16], [20, 36], [20, 16]];
-
-    it.each(cases)('%i asset(s) in %i-byte chunks: rejected at broadcast, or provable and burnable', async (assets, chunkSize) => {
+describe('audit: the publicFund chunking is fixed, so no accepted series is trapped', () => {
+    // Without padding, about 74 assets is the most a listing can have and still be burned (LIMITS.md)
+    it.each([1, 10, 20, 70])('accepts the builder\'s chunking of %i asset(s), then proves and burns it (control)', async (assets) => {
         const instance = await bootstrapInstance();
-        const accepted = await broadcastChunked(instance, assets, chunkSize);
-        if (chunkSize === 128) expect(accepted).toBe(true); // the builder's own chunking always broadcasts
-        if (!accepted) return;
+        await expect(await broadcastWith(instance, assets, getFundChunks)).toBeAccepted();
 
         const { proof, burn } = await seriesTransactions(instance);
-        expect(isValid(proof)).toBe(true);
-        expect(isValid(burn)).toBe(true);
+        // Both spend the same series, so each is evaluated against it rather than sent
+        expect(proof).not.toFailRequire();
+        expect(burn).not.toFailRequire();
+    });
+
+    it('proves and burns a 100-asset listing only with padding', async () => {
+        const instance = await bootstrapInstance();
+        await expect(await broadcastWith(instance, 100, getFundChunks)).toBeAccepted();
+
+        // Checked with libauth: the cashscript debugger is slow on transactions this large
+        const unpadded = await seriesTransactions(instance);
+        expect(verifyTransaction(unpadded.proof)).toMatch(/operation cost/);
+        expect(verifyTransaction(unpadded.burn)).toMatch(/operation cost/);
+
+        const { proof, burn } = await seriesTransactions(instance, 200);
+        expect(verifyTransaction(proof)).toBe(true);
+        expect(verifyTransaction(burn)).toBe(true);
+        const [proofCost, burnCost] = [proof, burn].map(tx => operationCost(tx, 0));
+        console.log(`100-asset listing with 200 bytes of padding: proof() ${proofCost.cost} of ${proofCost.budget}, `
+            + `burn() ${burnCost.cost} of ${burnCost.budget} operation cost`);
+    }, 300_000);
+
+    it.each([[1, 4], [1, 3], [10, 24], [10, 16], [20, 36], [20, 127]])('refuses %i asset(s) in %i-byte chunks', async (assets, size) => {
+        const instance = await bootstrapInstance();
+        const tx = await broadcastWith(instance, assets, fund => chunked(fund, size, '03'));
+        expect(tx).toFailRequireWith('require(lastChunkLength == 128)');
+    });
+
+    it.each([['no continuation byte', ''], ['a 0x02 type byte', '02']])('refuses later chunks with %s', async (_, marker) => {
+        const instance = await bootstrapInstance();
+        const tx = await broadcastWith(instance, 10, fund => chunked(fund, 128, marker));
+        expect(tx).toFailRequireWith('require(marker == 0x03)');
     });
 });

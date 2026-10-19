@@ -62,5 +62,6 @@ contract AuthHeadVault(bytes32 authToken)
         // Verify the burned identity
         require(tx.outputs[0].lockingBytecode.slice(0, 1) == 0x6a, "first output must be an OP_RETURN");
         require(tx.outputs[0].tokenCategory == 0x, "no token allowed on authhead");
+        require(tx.outputs[0].value == 0, "no value allowed on burned authhead");
     }
 }

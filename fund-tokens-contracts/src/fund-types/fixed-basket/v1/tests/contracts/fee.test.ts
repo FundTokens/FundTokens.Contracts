@@ -434,4 +434,58 @@ describe(`System Under Test: ${systemUnderTestJson.contractName} Contract`, () =
             expect(pay(0n)).toFailRequireWith('tokenAmount == tx.outputs[this.activeInputIndex].tokenAmount');
         });
     });
+
+    describe('a default fee UTXO holding a token (R-1)', () => {
+        /** pay() through a FeeManager UTXO without a fee NFT, holding `token`, paying the default fee. */
+        const payDefault = (token?: typeof authToken) => {
+            const feeUtxo = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo(token ? { token } : {}));
+            const funding = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
+            return new TransactionBuilder({ provider })
+                .addInput(feeUtxo, systemUnderTest.unlock.pay())
+                .addInput(funding, userWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    { to: systemUnderTest.tokenAddress, amount: feeUtxo.satoshis, token },
+                    { to: ownerWallet.address, amount: defaultFeeAmount },
+                ]);
+        };
+
+        it('pays the default fee from a tokenless UTXO (control)', ({ expect }) => {
+            expect(payDefault()).not.toFailRequire();
+        });
+
+        it('rejects a UTXO keeping an authorization NFT in place', ({ expect }) => {
+            expect(payDefault(authToken)).toFailRequireWith('require(thisInputCategory == 0x)');
+        });
+    });
+
+    describe('the BCH fee category (AUD-044)', () => {
+        /** pay() through an enforced fee NFT encoding `category` (commitment byte order), paying 4000 satoshis. */
+        const payInBch = (category: string) => {
+            const feeNft = provider.addUtxo(systemUnderTest.tokenAddress, randomUtxo({
+                token: {
+                    category: contractToken.category,
+                    amount: 0n,
+                    nft: { capability: 'none', commitment: '01' + category + binToHex(bigIntToBinUint64LEClamped(4000n)) },
+                },
+            }));
+            const funding = provider.addUtxo(userWallet.address, randomUtxo({ satoshis: 10000n }));
+            const transaction = new TransactionBuilder({ provider });
+            return transaction
+                .addInput(feeNft, systemUnderTest.unlock.pay())
+                .addInput(funding, userWallet.signatureTemplate.unlockP2PKH())
+                .addOutputs([
+                    { to: systemUnderTest.tokenAddress, amount: feeNft.satoshis, token: feeNft.token },
+                    { to: ownerWallet.address, amount: 4000n },
+                ]);
+        };
+
+        it('is paid in BCH when it is 32 zero bytes (control)', ({ expect }) => {
+            expect(payInBch('00'.repeat(32))).not.toFailRequire();
+        });
+
+        it('is not BCH when it is a negative zero', ({ expect }) => {
+            // 0x00...0080 reads as the number zero, but the library decodes it as a token category
+            expect(payInBch('00'.repeat(31) + '80')).toFailRequireWith('tx.outputs[feeOutput].tokenCategory == fee_category');
+        });
+    });
 });

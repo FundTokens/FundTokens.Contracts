@@ -108,7 +108,7 @@ export const outflowNfts: BcmrParsableNfts = threadNfts('Outflow', 'redemption')
 
 /**
  * Public fund tokens. `02` definition (the first chunk): fund hash, fund category, amount, satoshis.
- * `00` counter, `01` minting: serial. Later chunks of a definition have no type byte and don't parse.
+ * `03` continuation (each later chunk): no fields. `00` counter, `01` minting: serial.
  */
 export const publicFundNfts: BcmrParsableNfts = deepFreeze({
     description: 'Public fund definitions, published on-chain when a public fund is created. A definition longer than one NFT continues in the next ones, which can\'t be shown on their own.',
@@ -120,11 +120,12 @@ export const publicFundNfts: BcmrParsableNfts = deepFreeze({
         ...serialField,
     },
     parse: {
-        bytecode: '00cf517f7c766b52876301207f7c6b01207f7cbc6b587f7c816b577f7c816b7567816b68',
+        bytecode: '00cf517f7c766b765287637501207f7c6b01207f7cbc6b587f7c816b577f7c816b75675387637567816b6868',
         types: {
             '00': { name: 'Public fund counter', description: 'Issues public fund minting tokens', fields: ['serial'] },
             '01': { name: 'Public fund minting token', description: 'Publishes the definitions of new public funds', fields: ['serial'] },
             '02': { name: 'Public fund definition', description: 'The first part of a public fund\'s definition; its assets continue in the NFTs after it', fields: ['fundHash', 'fundCategory', 'amount', 'satoshis'] },
+            '03': { name: 'Public fund definition, continued', description: 'A later part of a public fund\'s definition, following the NFT before it', fields: [] },
         },
     },
 });
@@ -134,7 +135,7 @@ const proofFields = ['version', 'hash', 'inflow', 'outflow'] as const;
 /**
  * The instance's two NFTs, told apart by capability. Proof NFT (mutable), typed by type and state
  * (`0001` pre-release, `0002` main, `0004` deprecated, `0008` vulnerable): version, hash, inflow, outflow.
- * `ff` data NFT (immutable): authorization and both fees. The publicFund category straddles the two NFTs,
+ * `03` data NFT (immutable, a continuation of the proof NFT's data): authorization and both fees. The publicFund category straddles the two NFTs,
  * so neither shows it.
  */
 export const instanceNfts: BcmrParsableNfts = deepFreeze({
@@ -151,13 +152,13 @@ export const instanceNfts: BcmrParsableNfts = deepFreeze({
         executeFee: { name: 'Execute fee', description: 'Default fee to mint or redeem', encoding: { type: 'number', decimals: 8, unit: 'BCH' } },
     },
     parse: {
-        bytecode: '00ce82770121876300cf527f7c6b527f7c816b01207f7c6b01207f7cbc6b01207f7cbc6b756701ff6b00cf547f7701207f7cbc6b01207f7cbc6b587f7c816b01207f7cbc6b816b68',
+        bytecode: '00ce82770121876300cf527f7c6b527f7c816b01207f7c6b01207f7cbc6b01207f7cbc6b756700cf517f7c6b547f7701207f7cbc6b01207f7cbc6b587f7c816b01207f7cbc6b816b68',
         types: {
             '0001': { name: 'Instance (pre-release)', description: 'Early access: use at your own risk', fields: proofFields },
             '0002': { name: 'Instance (main)', description: 'The instance to use for new funds', fields: proofFields },
             '0004': { name: 'Instance (deprecated)', description: 'No new funds; existing funds keep working', fields: proofFields },
             '0008': { name: 'Instance (vulnerable)', description: 'A vulnerability was found: redeem holdings', fields: proofFields },
-            ff: { name: 'Instance data', description: 'The rest of the instance\'s system parameters', fields: ['authorization', 'createFeeToken', 'createFee', 'executeFeeToken', 'executeFee'] },
+            '03': { name: 'Instance data', description: 'The rest of the instance\'s system parameters', fields: ['authorization', 'createFeeToken', 'createFee', 'executeFeeToken', 'executeFee'] },
         },
     },
 });

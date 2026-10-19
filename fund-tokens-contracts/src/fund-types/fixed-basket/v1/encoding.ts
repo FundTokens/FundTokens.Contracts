@@ -82,7 +82,49 @@ export function getFundCommitment(fund: Fund): string {
     return CommitmentType + binToHex(hash256(hexToBin(fundHex))) + fundHex;
 }
 
+/**
+ * The byte that starts every NFT continuing a commitment begun in another: each public fund chunk
+ * after the first, and the instance data NFT. No continuation can be read as the start of a commitment.
+ */
+export const ContinuationType = '03';
+
+/** Bytes in every public fund chunk but the last: a whole NFT commitment, as PublicFund requires. */
+export const FundChunkBytes = 128;
+
+/**
+ * The public fund commitment as the NFTs `broadcast()` publishes: the first chunk is its first 128
+ * bytes (from the `0x02` type byte), each later chunk `0x03` and the next 127 bytes; only the last
+ * may be shorter.
+ */
+export function getFundChunks(fund: Fund): string[] {
+    const commitment = getFundCommitment(fund);
+    const chunks = [commitment.slice(0, FundChunkBytes * 2)];
+    const step = (FundChunkBytes - 1) * 2;
+    for (let offset = FundChunkBytes * 2; offset < commitment.length; offset += step) {
+        chunks.push(ContinuationType + commitment.slice(offset, offset + step));
+    }
+    return chunks;
+}
+
 const invalidEncoding = (message: string) => new FundTokensError('INVALID_ENCODING', message);
+
+/**
+ * Decodes a public fund's chunks, in order (as `getFundChunks` makes them and the PublicFundVault
+ * holds them), verifying the embedded hash. Each chunk after the first must start with `0x03`.
+ */
+export function decodeFundChunks(chunks: readonly string[]): Fund {
+    const [first, ...rest] = chunks;
+    if (first === undefined) {
+        throw invalidEncoding('A public fund definition has at least one chunk');
+    }
+    const parts = rest.map((chunk, i) => {
+        if (!isHex(chunk) || chunk.slice(0, 2) !== ContinuationType) {
+            throw invalidEncoding(`Public fund chunk ${i + 1} must start with the continuation byte 0x${ContinuationType}`);
+        }
+        return chunk.slice(2);
+    });
+    return decodeFundCommitment(first + parts.join(''));
+}
 
 /** Decodes the output of `getFundHex`. */
 export function decodeFund(hex: string): Fund {

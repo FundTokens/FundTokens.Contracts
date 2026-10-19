@@ -257,7 +257,8 @@ They aren't part of the published package. Otherwise, test against chipnet.
 4. **Handle errors by `code`**, not by message.
 5. **Don't turn off validation** in production; `validate: false` exists to test that the contracts reject bad transactions.
 6. **Mind dust.** Give token outputs at least 1,000 satoshis. A fund with a small `satoshis` value needs enough units per mint for the locked BCH to clear dust; the builder says how many.
-7. **Test on chipnet** before mainnet.
+7. **Verify what you don't trust.** The registry is trusted over HTTPS. To check an instance through your own node, run `instance.verifyGenesis({ deploymentTxid: registryInstance.txid })`. Before depositing into a fund the registry doesn't list (one not created publicly), run `instance.verifyFundGenesis(fund, genesisTxid)`: its creator may have kept unbacked fund tokens. See [verifying genesis](fund-types/fixed-basket/v1/BUILDERS.md#verifying-genesis).
+8. **Test on chipnet** before mainnet.
 
 ---
 

@@ -9,8 +9,9 @@
  * The library's templates (../bcmr.ts) carry these scripts as bytecode; the 'templates' tests check they
  * match and that every type lists exactly the fields its parse produces.
  *
- * Two layouts don't fit a per-UTXO parse. They are accepted as they are; the "gap" tests pin what clients see:
- * - Public fund definitions span several NFTs and only the first carries a type byte.
+ * Public fund definitions and the instance data span several NFTs. Every NFT after the first starts with
+ * the continuation byte 0x03, so it reads as a continuation and never as the start of a commitment.
+ * One layout doesn't fit a per-UTXO parse and is accepted as it is; the "gap" test pins what clients see:
  * - The instance data spans two NFTs and `publicFund` straddles them.
  */
 import { readFileSync } from 'node:fs';
@@ -19,7 +20,7 @@ import { hex, num, parseBytecode, parseNft } from '@test-utils/bcmr.js';
 import { randomCategory } from '@test-utils/random.js';
 import { generateWallet } from '@test-utils/wallet.js';
 import { lockingBytecodeHexOf } from '../../../../core/index.js';
-import { bcmrNfts, encodeFee, getFundCommitment, getSystemRegistry, hashFund, parseFund, SystemRegistryPlaceholders, type BcmrParsableNfts } from '../index.js';
+import { bcmrNfts, encodeFee, getFundChunks, getFundCommitment, getSystemRegistry, hashFund, parseFund, SystemRegistryPlaceholders, type BcmrParsableNfts } from '../index.js';
 
 /** Minting counters and minting threads: `type · serial`. */
 const Serial = 'OP_BIN2NUM OP_TOALTSTACK';
@@ -81,26 +82,30 @@ const ThreadParse = parseBytecode(`
 /**
  * Public fund tokens:
  *   "02" definition, first chunk: fund hash, fund category, amount, satoshis (the assets run on into later chunks)
- *   "00" counter, "01" minting: serial
+ *   "03" continuation, a later chunk: no fields      "00" counter, "01" minting: serial
  */
 const PublicFundParse = parseBytecode(`
     OP_0 OP_UTXOTOKENCOMMITMENT
     OP_1 OP_SPLIT OP_SWAP OP_DUP OP_TOALTSTACK
-    <0x02> OP_EQUAL
+    OP_DUP <0x02> OP_EQUAL
     OP_IF
+        OP_DROP
         <32> OP_SPLIT OP_SWAP OP_TOALTSTACK
         <32> OP_SPLIT OP_SWAP OP_REVERSEBYTES OP_TOALTSTACK
         OP_8 OP_SPLIT OP_SWAP OP_BIN2NUM OP_TOALTSTACK
         OP_7 OP_SPLIT OP_SWAP OP_BIN2NUM OP_TOALTSTACK
         OP_DROP
-    OP_ELSE ${Serial} OP_ENDIF
+    OP_ELSE
+        <0x03> OP_EQUAL
+        OP_IF OP_DROP OP_ELSE ${Serial} OP_ENDIF
+    OP_ENDIF
 `);
 
 /**
- * Instance NFTs, told apart by capability (the data NFT has no type byte):
+ * Instance NFTs, told apart by capability:
  *   proof (mutable), type = type · state ("0001" pre-release, "0002" main, "0004" deprecated, "0008" vulnerable):
  *     version (2-byte little-endian number), hash, inflow, outflow
- *   "ff" data (immutable): authorization, create fee NFT, create fee value, execute fee NFT, execute fee value
+ *   "03" data (immutable, a continuation): authorization, create fee NFT, create fee value, execute fee NFT, execute fee value
  * publicFund straddles the two NFTs, so neither shows it.
  */
 const InstanceParse = parseBytecode(`
@@ -114,8 +119,8 @@ const InstanceParse = parseBytecode(`
         <32> OP_SPLIT OP_SWAP OP_REVERSEBYTES OP_TOALTSTACK
         OP_DROP
     OP_ELSE
-        <0xff> OP_TOALTSTACK
         OP_0 OP_UTXOTOKENCOMMITMENT
+        OP_1 OP_SPLIT OP_SWAP OP_TOALTSTACK
         OP_4 OP_SPLIT OP_NIP
         <32> OP_SPLIT OP_SWAP OP_REVERSEBYTES OP_TOALTSTACK
         <32> OP_SPLIT OP_SWAP OP_REVERSEBYTES OP_TOALTSTACK
@@ -203,8 +208,8 @@ describe('fixed basket v1 NFTs under BCMR v2', () => {
     });
 
     describe('public fund definitions', () => {
-        // The builder's chunks: 128 bytes each, the last shorter
-        const chunks = getFundCommitment(fund).match(/.{1,256}/g)!;
+        // The builder's chunks: 128 bytes each, the last shorter; each after the first starts with 0x03
+        const chunks = getFundChunks(fund);
 
         it('reads the first chunk: fund hash, fund category, amount and satoshis', () => {
             const parsed = parseNft(PublicFundParse, { commitment: chunks[0]! });
@@ -225,17 +230,17 @@ describe('fixed basket v1 NFTs under BCMR v2', () => {
             expect([parsed.type, ...parsed.fields.map(num)]).toEqual(['01', 3n]);
         });
 
-        it('gap: a later chunk has no type byte, so its first data byte is read as the type', () => {
+        it('reads a later chunk as a continuation with no fields', () => {
             expect(chunks.length).toBe(2);
             const parsed = parseNft(PublicFundParse, { commitment: chunks[1]! });
-            expect(parsed.type).toBe(chunks[1]!.slice(0, 2)); // part of an asset category, not a type
+            expect(parsed.error).toBeUndefined();
+            expect(parsed.type).toBe('03');
+            expect(parsed.fields).toEqual([]);
         });
 
-        it('gap: a later chunk starting with 0x02 is misread as a first chunk', () => {
-            const continuation = `02${'ab'.repeat(127)}`; // a full later chunk whose asset bytes happen to start with 0x02
-            const parsed = parseNft(PublicFundParse, { commitment: continuation });
-            expect(parsed.error).toBeUndefined();
-            expect(parsed.type).toBe('02'); // shown as a fund definition with nonsense fields
+        it('reads a later chunk as a continuation even when its data starts with 0x02', () => {
+            const parsed = parseNft(PublicFundParse, { commitment: `0302${'ab'.repeat(126)}` });
+            expect([parsed.type, parsed.fields]).toEqual(['03', []]);
         });
     });
 
@@ -254,10 +259,10 @@ describe('fixed basket v1 NFTs under BCMR v2', () => {
         const hash = binToHex(hash256(hexToBin(data)));
         const commitment = `00020100${hash}${data}`; // type 0x00, main, version 1 (2-byte little-endian)
         const proof = commitment.slice(0, 256);
-        const rest = commitment.slice(256);
+        const rest = `03${commitment.slice(256)}`; // the data NFT: the continuation byte, then the rest of the data
 
-        it('splits as documented: 92 data bytes in the proof NFT, 116 in the data NFT', () => {
-            expect([proof.length / 2, rest.length / 2]).toEqual([128, 116]);
+        it('splits as documented: 92 data bytes in the proof NFT, 0x03 and 116 in the data NFT', () => {
+            expect([proof.length / 2, rest.length / 2]).toEqual([128, 117]);
         });
 
         it('reads the proof NFT: type and state as the type, then version, hash, inflow and outflow', () => {
@@ -274,7 +279,7 @@ describe('fixed basket v1 NFTs under BCMR v2', () => {
         it('reads the data NFT: authorization and both fees', () => {
             const parsed = parseNft(InstanceParse, { capability: 'none', commitment: rest });
             expect(parsed.error).toBeUndefined();
-            expect(parsed.type).toBe('ff');
+            expect(parsed.type).toBe('03');
             expect([hex(parsed.fields[0]), hex(parsed.fields[1]), num(parsed.fields[2]), hex(parsed.fields[3]), num(parsed.fields[4])])
                 .toEqual([authorization, createNft, 1_234n, executeNft, 123_456n]);
         });
@@ -282,7 +287,7 @@ describe('fixed basket v1 NFTs under BCMR v2', () => {
         it('gap: publicFund straddles the two NFTs, so neither can show it', () => {
             const publicFundHex = swapEndianness(publicFund);
             expect(proof.endsWith(publicFundHex.slice(0, 56))).toBe(true); // its first 28 bytes
-            expect(rest.startsWith(publicFundHex.slice(56))).toBe(true); // its last 4
+            expect(rest.startsWith(`03${publicFundHex.slice(56)}`)).toBe(true); // its last 4, after the continuation byte
         });
     });
 });
@@ -328,11 +333,12 @@ describe('fixed basket v1 BCMR templates', () => {
         ['publicFund', '00', 'minting', '0001'],
         ['publicFund', '01', 'minting', '0103'],
         ['publicFund', '02', 'none', getFundCommitment(fund)],
+        ['publicFund', '03', 'none', `03${'ab'.repeat(127)}`],
         ['instance', '0001', 'mutable', `0001${proof.slice(4)}`],
         ['instance', '0002', 'mutable', `0002${proof.slice(4)}`],
         ['instance', '0004', 'mutable', `0004${proof.slice(4)}`],
         ['instance', '0008', 'mutable', `0008${proof.slice(4)}`],
-        ['instance', 'ff', 'none', '33'.repeat(116)],
+        ['instance', '03', 'none', `03${'33'.repeat(116)}`],
     ];
 
     it.each(samples)('%s type %s parses, with its own bytecode, to exactly its listed fields', (name, type, capability, commitment) => {

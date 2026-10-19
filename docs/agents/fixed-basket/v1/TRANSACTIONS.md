@@ -68,8 +68,9 @@ identity output must be output 0, so the library's layout has `s = 1`; `p = s + 
 | `s + 9 …` | | Fund commitment chunks to PublicFundVault (immutable `publicFund` NFTs) |
 | after | | Caller's change |
 
-Thread commitments: `0x02 · fundCategory · fundHash`. Chunks: the fund commitment split
-into 128-byte pieces (the consensus commitment limit), in order.
+Thread commitments: `0x02 · fundCategory · fundHash`. Chunks: the fund commitment in order,
+the first chunk its first 128 bytes (the consensus commitment limit), each later chunk the
+continuation byte `0x03` and the next 127 ([ENCODINGS.md](ENCODINGS.md#fund-commitment)).
 
 ### Adding threads to an existing fund
 
@@ -123,7 +124,7 @@ Anyone can run these; outputs return the NFTs unchanged at the same indices.
 | Operation | Inputs | Outputs |
 | --- | --- | --- |
 | Instance proof | `a`: proof NFT, InstanceVault `proof()`; `a + 1`: data NFT, `data()` | `a`, `a + 1`: both returned |
-| Public fund proof | `a`: first chunk, PublicFundVault `proof()`; `a + 1 …`: the following chunks (same creating transaction), `data()` | `a …`: each chunk returned at its index |
+| Public fund proof | `a`: first chunk, PublicFundVault `proof(padding)`; `a + 1 …`: the following chunks (same creating transaction), `data()` | `a …`: each chunk returned at its index |
 
 ## Maintenance
 
@@ -140,4 +141,4 @@ contract it authorizes ([ENCODINGS.md](ENCODINGS.md#authorization-token)).
 | Close fee UTXOs: FeeManager `close()` | 0x0020 | No output to the FeeManager or holding the fee category |
 | Change instance state: InstanceVault `update()` + `data()` | 0x0040 | Proof and data NFTs at `a`, `a + 1`, returned at the same indices |
 | Burn the instance: InstanceVault `burn()` + `data()` | 0x0080 | No output holds the instance category |
-| Delist a public fund: PublicFundVault `burn()` on the first chunk, `data()` on the rest | 0x0100 | No output holds the `publicFund` category |
+| Delist a public fund: PublicFundVault `burn(padding)` on the first chunk, `data()` on the rest | 0x0100 | No output holds the `publicFund` category |

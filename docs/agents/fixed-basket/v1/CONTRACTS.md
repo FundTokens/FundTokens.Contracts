@@ -21,7 +21,7 @@ input:
 The commitment's type byte is not checked. A commitment shorter than 3 bytes fails the
 script (fail closed). Permission bits are in [ENCODINGS.md](ENCODINGS.md#authorization-token).
 
-**Fungible tokens on NFTs**. A minting NFT in the transaction can add fungible tokens of its
+**Fungible tokens on NFTs**. A minting NFT in the transaction can move fungible tokens of its
 category to any output. So every NFT a contract returns to itself keeps its fungible token
 amount, and every NFT a contract mints must carry amount 0.
 
@@ -46,7 +46,8 @@ order. The unlocker names below are the function names.
 ## System contracts
 
 Deployed once per instance. SimpleMinter, FeeMinter and InstanceVault are maintenance
-contracts not derived by the library; the others come from `deriveSystemContracts`
+contracts the builders don't use; the library derives them (`deriveMinterContracts`,
+`deriveInstanceVault`) only to verify genesis. The others come from `deriveSystemContracts`
 ([contracts.ts](../../../../fund-tokens-contracts/src/fund-types/fixed-basket/v1/contracts.ts)).
 
 ### SimpleMinter
@@ -78,8 +79,9 @@ NFT and mints fee NFTs to `next` (the FeeManager for that fee).
 - Every output `i != a` whose category starts with `token`:
   - `lockingBytecode == next`, `tokenCategory == token` (immutable), `tokenAmount == 0`
   - commitment type is 0x01 or 0x02 (never 0x00):
-    - 0x01: the 32-byte fee category is present, and the 8-byte amount (VM number) is > 0. A
-      trailing destination is optional and not checked
+    - 0x01: the 32-byte fee category is present (the split fails otherwise; its value is not
+      checked), and the 8-byte amount (VM number) is > 0. A trailing destination is optional
+      and not checked
     - 0x02: nothing follows the type byte
 - `in[a].tokenCategory == token + 0x02` and `out[a]` returns to itself (category, locking
   bytecode, commitment, fungible amount)
@@ -101,7 +103,8 @@ which fund creation sends here as output 0.
 - `update()`: `hasAuthority(authToken, 0x0004)`; `a == 0`; `out[0]` has `in[0]`'s locking
   bytecode and no token. One identity per transaction.
 - `burn()`: `hasAuthority(authToken, 0x0008)`; `out[0]` is an OP_RETURN (`0x6a…`) with no
-  token. Several identities may be burned in one transaction.
+  token and value 0 (`'no value allowed on burned authhead'`, AUD-034). Several identities
+  may be burned in one transaction.
 
 ### InstanceVault
 
@@ -118,7 +121,8 @@ transaction. Layout in [ENCODINGS.md](ENCODINGS.md#instance-nfts).
   after the state byte (version, hash, data) unchanged
 - data NFT at `a + 1`: same locking bytecode as `in[a]`; returned at `out[a + 1]` with the
   same locking bytecode, category, commitment and fungible amount
-- `hash256(data in proof NFT ‖ data NFT commitment) == hash`
+- `hash256(data in proof NFT ‖ data NFT commitment after its first byte) == hash` (the data NFT
+  starts with the continuation byte `0x03`, dropped here and checked by its own `data()`)
 - `out[a]`: same locking bytecode, category and fungible amount as `in[a]`
 
 `burn()`:
@@ -133,33 +137,42 @@ transaction. Layout in [ENCODINGS.md](ENCODINGS.md#instance-nfts).
 and hash checks as `update()`, and `out[a]` returns `in[a]` unchanged, commitment included.
 No authorization and no state check: a vulnerable instance can still be proven.
 
-`data()`: `in[a].tokenCategory == instance`; `in[a - 1]` has the same locking bytecode and
-the same outpoint transaction hash.
+`data()`: `in[a].tokenCategory == instance`; its commitment starts with `0x03`; `in[a - 1]` has
+the same locking bytecode and the same outpoint transaction hash.
 
 ### PublicFundVault
 
 `PublicFundVault(bytes32 publicFund, bytes32 authorization)`. Holds each public fund's data
-chunks: immutable `publicFund` NFTs whose commitments concatenate to the fund commitment
-([ENCODINGS.md](ENCODINGS.md#fund-commitment)).
+chunks: immutable `publicFund` NFTs that join to the fund commitment, each chunk after the
+first without its continuation byte ([ENCODINGS.md](ENCODINGS.md#fund-commitment)).
 
-`proof()`:
+`proof(bytes padding)`, `padding` ignored (buys compute for large listings, see [LIMITS.md](LIMITS.md)):
 
-- `in[a].tokenCategory == publicFund`
-- for each consecutive input `i = a, a + 1, …` with category `publicFund`: `out[i]` has the
-  same locking bytecode, category, commitment and fungible amount
-- the concatenated commitments are `0x02 · hash · fund` with `hash256(fund) == hash`
+- `in[a].tokenCategory == publicFund`; `in[a]` is the first chunk, read whole
+- for each consecutive input `i = a + 1, …` with category `publicFund` (the run may end the
+  transaction): `out[i]` has the same locking bytecode, category, commitment and fungible
+  amount, and its commitment after the first byte is appended
+- joined: `0x02 · hash · fund` with `hash256(fund) == hash`. A later chunk starts with `0x03`,
+  so a proof can only start at a first chunk (P2-1, `tests/audit.listingStart.test.ts`). The
+  first byte of each later chunk is dropped here; each later chunk's own `data()` checks it is
+  `0x03` (broadcast also enforces it)
+- `out[a]` returns `in[a]`
 - `publicFund` inputs elsewhere in the transaction are not checked
 
-`data()`: `in[a].tokenCategory == publicFund`; `in[a - 1]` has the same locking bytecode,
-category and outpoint transaction hash.
+`data()`: `in[a].tokenCategory == publicFund`; its commitment starts with `0x03`; `in[a - 1]` has
+the same locking bytecode and outpoint transaction hash (so it is a vault chunk: every vault
+function requires the publicFund category of its own input). A run of vault inputs
+can't start with `data()` (it needs a chunk before it), and a later chunk can't run `proof()`
+or `burn()` (its `0x03` fails their type check), so every later chunk is spent through
+`data()` and checks its own continuation byte.
 
-`burn()` (delist):
+`burn(bytes padding)` (delist), `padding` ignored:
 
 - `in[a].tokenCategory == publicFund`
 - `hasAuthority(authorization, 0x0100)`
 - no output carries the `publicFund` category, whatever its capability (the first 32 bytes
   of each token-bearing output's category are compared)
-- the consecutive `publicFund` inputs from `a` concatenate to a valid fund commitment
+- the consecutive `publicFund` inputs from `a` join (as in `proof()`) to a valid fund commitment
 
 ---
 
@@ -184,7 +197,10 @@ every additional pair of threads.
 - `in[s + 1].tokenCategory == inflowToken + 0x02`; `in[s + 2].tokenCategory == outflowToken + 0x02`
 - `in[s + 3]` is locked by `P2SH32(fee)` and `out[s + 3]` has the same locking bytecode
   (the fee returned, so it ran `pay()`)
-- outside outputs `s … s + 6`, no output has a category starting with `inflowToken` or `outflowToken`
+- outside outputs `s … s + 6`, and at the create fee payment `s + 4` (checked once after the
+  scan), no output has a category starting with `inflowToken` or `outflowToken` (R-2: a
+  voluntary fee lets the payment carry any immutable NFT, which the minting NFTs at `s + 1`
+  and `s + 2` could otherwise forge onto it)
 - no input has category exactly `inflowToken` or `outflowToken` (no live thread is spent)
 - `in[s]` is tokenless and `out[s]` returns to the same locking bytecode, tokenless
 
@@ -226,16 +242,20 @@ The templates for the derived address are read from the mint contract's own
   transaction hash becomes the fund category)
 - `out[0]` is locked by `authHeadDestination`, tokenless
 - `in[p - 4]` is locked by `P2SH32(startupContract)`
-- data chunks: outputs from `p + 5` while their category is exactly `token`:
+- data chunks: `out[p + 5]` (the first chunk, category exactly `token`), then the outputs after
+  it while their category is exactly `token`:
   - locked by `publicFundDestination`, amount 0
-  - every chunk but the last has the first chunk's length; the last may be shorter
-  - concatenated: `0x02 · fundHash · fund` with `hash256(fund) == fundHash`
+  - every chunk followed by another is exactly 128 bytes (`'lastChunkLength == 128'`); the last
+    may be shorter
+  - every later chunk starts with `0x03` (`'marker == 0x03'`), left out when joining (P2-1)
+  - joined: `0x02 · fundHash · fund` with `hash256(fund) == fundHash`
 - the fund's category (`fund[0..32]`) == `in[0].outpointTransactionHash`
 - `out[p + 1]` and `out[p + 2]` commitments == `0x02 · fundCategory · fundHash`
 - `out[p + 3]` is the FundManager bound to the TransactionManager at `out[p + 1]`'s locking
   bytecode, holds the fund category with amount exactly 2⁶³−1 (the whole supply)
-- outside outputs `0` and `s … end of chunks`, no output has a category starting with the
-  fund category or `token`
+- outside outputs `0` and `s … end of chunks`, and at the create fee payment `p` (checked
+  once after the scan), no output has a category starting with the fund category or `token` (R-2: no fake definition chunk
+  or fund-category NFT on the payment)
 - `in[p].tokenCategory == token + 0x02`; `out[p + 4]` returns `in[p]` (locking bytecode,
   category, commitment, fungible amount)
 
@@ -264,7 +284,8 @@ addresses are derived from the fund, see [TRANSACTIONS.md](TRANSACTIONS.md#contr
 - FundManager inputs: the run from `a + 2` locked by the FundManager; each tokenless or
   holding `fundCategory`
 - FundManager outputs: the run from `a + 3` locked by the FundManager; each tokenless or
-  holding `fundCategory`
+  holding `fundCategory`. Any number may hold tokens, so a mint can return the supply in many
+  UTXOs (P2-2): `addInflow` spends one covering UTXO when there is one, else largest first
 - released = inputs − outputs; `released % fundAmount == 0`; `units = released / fundAmount > 0`
 - custody outputs start right after the FundManager outputs, one per reserve:
   - BCH (if satoshis > 0): the BCH AssetManager, value exactly `units × satoshis`, tokenless
@@ -287,7 +308,8 @@ addresses are derived from the fund, see [TRANSACTIONS.md](TRANSACTIONS.md#contr
   or more per reserve. BCH change: the run of outputs locked by the BCH AssetManager, each
   required tokenless (token-bearing BCH custody could never be released). Asset change: the
   run of outputs locked by that asset's AssetManager, each required to hold exactly its
-  category (custody in another category could never be released)
+  category (custody in another category could never be released). A run may have any
+  number of outputs (P2-3, see *Fragmentation is griefing, not loss* below)
 - any of these runs may end the transaction
 - per reserve: inputs − change == `units × satoshis` (BCH) or `units × amount` (asset)
 - `out[a]` returns `in[a]`
@@ -345,18 +367,25 @@ redeem). `defaultDestination` is the fee vault's locking bytecode. Holds tokenle
 - `in[a]` holds a `feeToken` NFT (category exactly `feeToken`):
   - type must be 0x01 or 0x02
   - 0x01 (enforced): `out[a + 1]` locked by the encoded destination, or `defaultDestination`
-    when none is encoded. BCH category (all zeros): value exactly the amount, tokenless.
-    Otherwise: category exactly the encoded one, amount exactly the encoded amount
+    when none is encoded. BCH category (exactly 32 zero bytes, compared as bytes): value
+    exactly the amount, tokenless. Otherwise: category exactly the encoded one, amount exactly
+    the encoded amount. A category that is zero only as a number (negative zero,
+    `0x00…0080`) is a token category, as `decodeFee` reads it (AUD-044)
   - 0x02 (voluntary): either `out[a + 1]` is locked by `defaultDestination` and holds a
     32-byte category (fungible tokens or an immutable NFT) or is tokenless with value > 0,
     or it is an OP_RETURN, tokenless, value 0
-- otherwise (no fee NFT): `out[a + 1]` locked by `defaultDestination`, value exactly
-  `defaultValue`, tokenless
+- otherwise (no fee NFT): `in[a]` is tokenless, and `out[a + 1]` locked by
+  `defaultDestination`, value exactly `defaultValue`, tokenless. A token at the FeeManager
+  without being a fee NFT (e.g. an authorization NFT, which `hasAuthority` would count, as it
+  isn't locked by the caller) can't be spent through `pay()` (R-1,
+  `tests/audit.feeBorrow.test.ts`); `close()` recovers it with `0x0020`
 
 No branch lets the payment carry a minting or mutable NFT. In a fund creation the payment
 (`s + 4`) sits inside the FundStartup and PublicFund scan windows, where the genesis input
 could otherwise mint a minting NFT of the new fund's category onto it
-(`tests/audit.feeSlotMinting.test.ts`).
+(`tests/audit.feeSlotMinting.test.ts`). A voluntary fee's payment may still carry an
+immutable NFT, so both scans check the payment output as well
+(`tests/audit.feeSlotCategory.test.ts`).
 
 `close()`:
 
@@ -393,6 +422,18 @@ Facts about v1 that are easy to miss when changing builders or reviewing:
 - **Custody accepts what is sent**. Anything sent to an AssetManager's address (e.g. an
   immutable NFT of the asset category) is held; only `release()` paths spend it, and the
   redemption that releases it decides where its BCH and any attached NFT go.
+- **Fragmentation is griefing, not loss (P2-2, P2-3)**. The FundManager output runs and each
+  reserve's change run take any number of outputs. So a one-unit mint or redemption can
+  split the supply, or a reserve's change, into as many UTXOs as fit in a transaction (about
+  1,000), each costing the attacker only its dust. That dust is reclaimable: whoever spends
+  a supply UTXO or releases a custody UTXO may take its BCH (AUD-008). Plain sends to an
+  AssetManager fragment custody too, at the cost of the value sent. Nothing is lost or
+  locked. Later operations spend fragments largest first, so small ones are only spent
+  when larger ones run out. They may need more inputs, and those inputs merge into one
+  change output, so use heals the fragmentation. The builders refuse a mint or redemption
+  too large to relay, naming the most units that fit (`TRANSACTION_TOO_LARGE`); the rest
+  goes in further transactions. Each released custody UTXO costs a redemption about 300 to
+  340 bytes and 3,300 to 4,400 of operation cost ([LIMITS.md](LIMITS.md#custody-fragmentation)).
 
 ---
 
@@ -421,6 +462,27 @@ transaction (the one spending output 0 of the transaction whose id is the catego
 its token outputs against the table, and check that each minting NFT has only moved through
 its holding contract since.
 
+`verifySystemGenesis({ provider, system, deploymentTxid?, authorizationGenesisTxid?, maxSteps? })`
+([genesis.ts](../../../../fund-tokens-contracts/src/fund-types/fixed-basket/v1/genesis.ts),
+also `FixedBasketInstance.verifyGenesis`) does this through the caller's provider, using
+only `getUtxos` and `getRawTransaction`:
+
+- **Threads, public fund, fees.** The holder (`deriveMinterContracts`) must hold exactly one
+  minting NFT of the category. From it the check walks back: both minters return their
+  minting NFT at their own input index, so the previous holder UTXO is the input at the
+  output's index. Each step must be a minting NFT of the category at the holder, until a
+  transaction spends `category:0`. That genesis must create exactly one minting NFT, at the
+  holder, no other NFT of the category and no fungible supply. A minting NFT that reached the
+  holder from anywhere else fails, so a deployment must create each one straight into its
+  holder. A walk longer than `maxSteps` (default 1000) is `unverifiable`.
+- **Authorization.** Its genesis must create no fungible supply; who holds the NFTs can't be
+  judged. The genesis is looked for among the transactions the other checks fetched and
+  `authorizationGenesisTxid`; if none is found the check is `unverifiable`.
+- **Instance.** Below.
+
+Each check is `verified`, `failed` (with `problems`) or `unverifiable`; the report's `ok` is
+true only when all are `verified`. Provider errors propagate.
+
 **Instance NFTs (AUD-046).** InstanceVault's `proof()`, `update()` and `burn()` cover two
 inputs: the proof NFT and the data NFT after it. `data()` only checks that its input follows
 another from the same transaction at the vault, and constrains no output. The deployment is
@@ -430,8 +492,57 @@ that transaction at the vault could be spent through `data()` without authorizat
 record could then no longer be proven, updated or burned. No code in this repository creates
 the instance NFTs; verify the creating transaction's instance-category outputs.
 
+`verifySystemGenesis` does, given `deploymentTxid` (the registry instance's `txid`, the
+transaction that created the instance NFTs). The instance category is the one that
+transaction creates (an input spending `category:0`) with a mutable NFT at its own
+InstanceVault (`deriveInstanceVault`). The transaction must create exactly two NFTs of it,
+both at that vault: a mutable proof NFT of type 0x00 and version 1, and an immutable data
+NFT, with no fungible supply. The proof's hash must cover the data, and the data must be
+exactly `getInstanceDataHex(system)` ([ENCODINGS.md](ENCODINGS.md#instance-data)), so the
+parameters the client was given are the ones the instance published. Without
+`deploymentTxid` the check is `unverifiable`.
+
 **Registry.** `FundTokensRegistry` reads instances, their parameters and state from the
 registry service over HTTPS and does not reconcile them with the chain. Clients that need
-more than transport trust should verify the parameters against the instance NFTs (their hash
-covers the parameters, [ENCODINGS.md](ENCODINGS.md#instance-nfts)) and the genesis checks
-above.
+more than transport trust run `verifySystemGenesis` with the registry instance's
+`parameters` and `txid` through a provider they trust: a passing report proves the
+parameters are the instance's own and its system tokens were seeded as the table requires.
+The registry tracks only public funds.
+
+**Funds created without PublicFund (AUD-032).** FundStartup, FundInflowMint and
+FundOutflowMint run without PublicFund, so threads can exist for any valid fund encoding
+with any category (*Threads for any fund*, above). The contracts check the definition, not
+how the category's tokens came to exist. Only a public creation, run in the category's
+genesis transaction, guarantees:
+
+- the whole supply (2⁶³−1) is created into the fund's FundManager, and no other output
+  carries the category (PublicFund's scan)
+- the fund's identity output goes to the AuthHeadVault, so the steward, not the creator,
+  holds its BCMR authchain
+- the definition is published to the PublicFundVault, and the registry lists the fund
+
+For any other fund nothing on-chain rules out:
+
+- **Unbacked tokens.** The creator can create fund tokens outside the FundManager at
+  genesis. Those tokens redeem other depositors' backing like minted ones.
+- **An existing category.** The fund category can be any token that already exists. Its
+  holders can redeem whatever is deposited.
+- **Creator-controlled identity.** Whoever holds the genesis output's authchain publishes
+  the fund's BCMR metadata, including its name and symbol.
+
+Deposits into a fund are safe exactly when every fund token outside a FundManager was minted
+against backing, which holds when the genesis created every fund token into this fund's
+FundManager. Fungible tokens are only created at genesis, so that one transaction decides it.
+Other definitions with the same category don't break it. Their FundManagers hold only
+tokens taken out of circulation (redeemed into them or sent to them), so minting from them
+never puts more tokens in circulation than the genesis FundManager has released. NFTs of the
+fund category don't count, since the TransactionManager accounts fungible amounts only.
+
+`verifyFundGenesis({ provider, system, fund, genesisTxid })` (also
+`FixedBasketInstance.verifyFundGenesis(fund, genesisTxid)`) checks this:
+`genesisTxid` must spend `fund.category:0`, every fund token it creates must go to the
+fund's FundManager, and some must. For a public fund the genesis is its creation
+transaction (`RegistryFund.genesisTxid`); for any other fund it comes from the creator or an
+indexer, as the registry doesn't track them. The builders don't check genesis: a client
+that mints into a fund it didn't create, and that wasn't created publicly, should run this
+first.

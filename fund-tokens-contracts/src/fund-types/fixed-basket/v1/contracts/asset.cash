@@ -33,7 +33,7 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
         //
         // Verify this spends the correct asset
         // Bitcoin for 0x00... otherwise verify token category
-        if(assetCategory == 0x0000000000000000000000000000000000000000000000000000000000000000) {
+        if(assetCategory == toPaddedBytes(0, 32)) {
             require(tx.inputs[this.activeInputIndex].tokenCategory == 0x);
         } else {
             require(tx.inputs[this.activeInputIndex].tokenCategory == assetCategory);

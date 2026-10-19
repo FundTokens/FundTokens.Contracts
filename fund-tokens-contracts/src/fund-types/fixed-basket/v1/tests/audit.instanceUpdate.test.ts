@@ -29,7 +29,7 @@ describe('audit: InstanceVault.update() state change without authorization', () 
         const mainCommitment = new Uint8Array([0x00, StateMain, 0x01, 0x00, ...hash256(new Uint8Array([...data1, ...data2])), ...data1]);
         const mainToken = (commitment: Uint8Array) =>
             ({ category: instance, amount: 0n, nft: { capability: 'mutable' as const, commitment: binToHex(commitment) } });
-        const dataToken = { category: instance, amount: 0n, nft: { capability: 'none' as const, commitment: binToHex(data2) } };
+        const dataToken = { category: instance, amount: 0n, nft: { capability: 'none' as const, commitment: '03' + binToHex(data2) } }; // the continuation byte, then the rest of the data
 
         // Both instance UTXOs come from one transaction, as data() requires.
         const genesis = provider.addUtxo(owner.tokenAddress, randomUtxo({ vout: 0, satoshis: 100_000n, txid: instance }));

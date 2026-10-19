@@ -90,6 +90,17 @@ describe('fee selection', () => {
         expect(await getAvailableFees({ feeContract, fee })).toEqual({ [BitcoinCategory]: { category: BitcoinCategory, amount: fee.value } });
     });
 
+    it('skips UTXOs pay() refuses: a foreign token, or a fee NFT that is not immutable', async () => {
+        const { provider, feeContract, feeVaultContract, fee, add } = setup();
+        const cheap = encodeFee({ amount: 1000n });
+        provider.addUtxo(feeContract.tokenAddress, randomUtxo({ token: { category: randomCategory(), amount: 0n, nft: { capability: 'none', commitment: cheap } } }));
+        provider.addUtxo(feeContract.tokenAddress, randomUtxo({ token: { category: fee.nft, amount: 0n, nft: { capability: 'mutable', commitment: cheap } } }));
+        const usable = add(encodeFee({ amount: 2000n }));
+
+        const best = await getBestFee({ feeContract, feeVaultContract, fee });
+        expect(best.utxo.txid).toBe(usable.txid);
+    });
+
     it('reports when no fee thread accepts the requested payment', async () => {
         const { feeContract, feeVaultContract, fee, add } = setup();
         add();
