@@ -17,6 +17,8 @@ export interface RegistryInstance {
      * type version: parse with that version's `parseSystemParameters`.
      */
     readonly parameters: Readonly<Record<string, unknown>>;
+    /** The instance's `getInstanceHash`; registries before it was added don't send it. */
+    readonly hash?: string;
     readonly syncedHeight: number;
     readonly createdAt: string;
     readonly updatedAt: string;

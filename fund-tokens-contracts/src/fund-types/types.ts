@@ -10,6 +10,8 @@ export interface FundTypeVersion {
     readonly status: FundTypeVersionStatus;
     /** Binds an instance's parameters to a provider (see `FundTypeResolver`). Planned versions throw. */
     createInstance(options: { provider: NetworkProvider; parameters: unknown }): unknown;
+    /** What identifies an instance, as plain JSON, for `getInstanceHash`; versions without it can't be hashed. */
+    getIdentityParameters?(parameters: unknown): Record<string, unknown>;
 }
 
 /** What every fund type module exports about itself. */

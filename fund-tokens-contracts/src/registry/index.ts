@@ -1,4 +1,5 @@
 export { FundTokensRegistry, type FundTokensRegistryOptions, type FundTypeReference } from './FundTokensRegistry.js';
+export { getInstanceFolder, getInstanceHash, InstanceFolderHashLength } from './instanceHash.js';
 export type {
     RegistryAuthchainEntry,
     RegistryDocumentVersion,
