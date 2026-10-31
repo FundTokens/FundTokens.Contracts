@@ -351,6 +351,12 @@ bytecode of the reserve before it in reserve order, empty for the first.
     (the FundManager run), except the one right after the thread (the fee)
   - the thread must be found
 
+The lock the scan matches is the one on `in[a - 1]`, taken by position. An empty locking
+bytecode (`0x`) is a valid, standard output, so a value can't stand for "no lock taken yet"
+(R01, `tests/audit.emptyLock.test.ts`). With that marker, empty-lock inputs before a reserve
+UTXO left it unset, so the scan took the redemption's counted reserve run as its lock. In a
+one-reserve fund, the reserve UTXO after them then released uncounted.
+
 Amounts are the TransactionManager's job. No inflow function: deposits are plain outputs
 to the AssetManager.
 
