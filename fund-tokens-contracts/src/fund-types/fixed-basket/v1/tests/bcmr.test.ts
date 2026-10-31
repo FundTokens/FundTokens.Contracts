@@ -133,8 +133,9 @@ const InstanceParse = parseBytecode(`
 describe('fixed basket v1 NFTs under BCMR v2', () => {
     describe('authorization', () => {
         it.each([
-            ['a person', '01', '00c0', 1n],
-            ['a contract', '02', '0100', 77n],
+            ['a user', '01', '00c0', 1n],
+            ['a service', '02', '0020', 5n],
+            ['a contract', '03', '0100', 77n],
         ])('reads %s token: permissions as written, then the serial', (_, type, permissions, serial) => {
             const parsed = parseNft(AuthorizationParse, { commitment: `${type}${permissions}${binToHex(bigIntToBinUint64LE(serial)).replace(/(00)+$/, '')}` });
             expect(parsed.error).toBeUndefined();
@@ -319,7 +320,8 @@ describe('fixed basket v1 BCMR templates', () => {
     const samples: [keyof typeof bcmrNfts, string, 'none' | 'mutable' | 'minting', string][] = [
         ['authorization', '00', 'minting', '0005'],
         ['authorization', '01', 'none', '01ffff01'],
-        ['authorization', '02', 'none', '0200c007'],
+        ['authorization', '02', 'none', '02002005'],
+        ['authorization', '03', 'none', '0300c007'],
         ['fees', '00', 'minting', '0007'],
         ['fees', '01', 'none', encodeFee({ category: randomCategory(), amount: 5n, destination: generateWallet().address })],
         ['fees', '0100', 'none', encodeFee({ amount: 1_000n })],

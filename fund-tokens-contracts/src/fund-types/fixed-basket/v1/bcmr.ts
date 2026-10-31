@@ -39,8 +39,9 @@ const deepFreeze = <T>(value: T): T => {
 };
 
 /**
- * Authorization tokens, held by maintainers and services.
- * `00` minting: serial. `01` person, `02` contract: permissions (2 bytes, as written), serial.
+ * Authorization tokens, held by maintainers, services and contracts.
+ * `00` minting: serial. `01` user, `02` service, `03` contract: permissions (2 bytes, as written), serial.
+ * The type labels the holder only; the contracts check the permission bits, not the type.
  */
 export const authorizationNfts: BcmrParsableNfts = deepFreeze({
     description: 'Authorization tokens: each grants the permission bits it carries over the instance\'s maintenance operations.',
@@ -52,8 +53,9 @@ export const authorizationNfts: BcmrParsableNfts = deepFreeze({
         bytecode: '00cf517f7c766b01008764527f7c6b68816b',
         types: {
             '00': { name: 'Authorization minting token', description: 'Issues authorization tokens', fields: ['serial'] },
-            '01': { name: 'Authorization token', description: 'Held by a person or service', fields: ['permissions', 'serial'] },
-            '02': { name: 'Contract authorization token', description: 'Held by a contract', fields: ['permissions', 'serial'] },
+            '01': { name: 'User authorization token', description: 'Held by a person', fields: ['permissions', 'serial'] },
+            '02': { name: 'Service authorization token', description: 'Held by a service', fields: ['permissions', 'serial'] },
+            '03': { name: 'Contract authorization token', description: 'Held by a contract', fields: ['permissions', 'serial'] },
         },
     },
 });
