@@ -110,10 +110,16 @@ authType (1) · permissions (2) · serial
 | --- | --- | --- |
 | 0x00 | Minting | Mints authorization NFTs (commitment `0x00 · serial`) |
 | 0x01 | None | Held by a person or service |
-| 0x02 | Mutable or none | Held by a contract |
+| 0x02 | None | Held by a contract |
 
 Only an immutable authorization NFT can authorize: `hasAuthority` matches the category
 exactly. The type byte itself is not checked.
+
+Never issue a mutable authorization NFT. Spending one may create an NFT of its category
+with any commitment and capability none, so whoever holds it can make `01 · ffff` and every
+permission (R03). The minting NFT (0x00) can do the same, so it is the root of authority. A
+contract that holds a mutable authorization NFT would have to return it to itself, still
+mutable, at a fixed output on every spend: that is the one NFT the spend may create.
 
 `permissions` is two bytes, compared as written: permission `0x0040` is stored `00 40`. A
 token may hold several bits (bitwise OR).

@@ -95,6 +95,8 @@ each maintainer, person or service can hold only what it needs.
 | 0xFE00 | | Reserved |
 
 - Only an immutable authorization NFT authorizes.
+- Never issue a mutable authorization NFT: its holder can turn it into an immutable one with
+  every permission. Keep the minting authorization NFT as safe as every permission combined.
 - A token held by the contract it would authorize does not count, so an authorization token
   sent to a contract cannot authorize its own release. Keep authorization tokens outside the
   contracts they authorize.
