@@ -51,6 +51,8 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
             // Tip of the asset chain
             // Find the transaction manager w/ outflow token
             // Check all inputs leading to outflow, should be the same or one a single input for fee contract
+            // The lock to match is taken from the input just before this one, by position: an empty lock (0x) is a
+            // valid locking bytecode, so the value can't mark "not recorded yet" or it would let a later lock be adopted
             bytes prevFundManager = 0x;
             bool prevOutflow = false;
             int inputIndex = this.activeInputIndex - 1;
@@ -59,7 +61,7 @@ contract AssetManager(bytes32 outflowToken, bytes32 fundHash, bytes32 assetCateg
                     require(tx.inputs[inputIndex].lockingBytecode == transactionManager);
                     require(tx.inputs[inputIndex].nftCommitment.slice(33, 65) == fundHash); // type 0x02 + fund category 32 bytes + fund hash 32 bytes
                     prevOutflow = true;
-                } else if(prevFundManager == 0x) {
+                } else if(inputIndex == this.activeInputIndex - 1) {
                     prevFundManager = tx.inputs[inputIndex].lockingBytecode;
                 } else {
                     require(prevFundManager == tx.inputs[inputIndex].lockingBytecode || tx.inputs[inputIndex - 1].tokenCategory == outflowToken);

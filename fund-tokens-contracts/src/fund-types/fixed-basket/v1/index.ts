@@ -83,7 +83,7 @@ export {
     type SystemCategories,
 } from './bcmr.js';
 export { MaxFundAssets, normalizeFund, parseFund, validateFund } from './fund.js';
-export { getInstanceCommitments, getInstanceDataHex, InstanceStates, parseSystemParameters } from './parameters.js';
+export { getIdentityParameters, getInstanceCommitments, getInstanceDataHex, InstanceStates, parseSystemParameters } from './parameters.js';
 export * as artifacts from './artifacts/index.js';
 export type {
     EncodedFee,

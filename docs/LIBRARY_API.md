@@ -84,9 +84,33 @@ Instance listings are cached and concurrent requests share one fetch. Results ar
 Fund amounts are decimal strings; `FundTypeResolver.resolveFund` parses them with the
 instance's version.
 
-**`RegistryInstance`**: `{ id, name, network, type, status, version, txid, parameters, syncedHeight, createdAt, updatedAt }`.
+**`RegistryInstance`**: `{ id, name, network, type, status, version, txid, parameters, hash?, syncedHeight, createdAt, updatedAt }`.
 `status` is `'pre' | 'main' | 'dep' | 'vul'` (pre-release, main, deprecated, vulnerable).
 `version` is the contract version id. `parameters` is raw JSON, parsed by the matching version.
+`hash` is the instance's `getInstanceHash`; registries from before it was added leave it out.
+
+### Instance hash
+
+[src/registry/instanceHash.ts](../fund-tokens-contracts/src/registry/instanceHash.ts). The registry, the
+dashboard and the dApp identify an instance by this hash, so they name its folders the same way
+(e.g. its IPFS MFS directory) whatever id each gives it.
+
+| Export | Returns | Notes |
+| --- | --- | --- |
+| `getInstanceHash({ type, version, parameters })` | 64 hex characters | sha256 of the canonical JSON (keys sorted, no whitespace) of `{ type, version, parameters }`, where `parameters` are the version's identity parameters. Throws `UNSUPPORTED_FUND_TYPE` for a type or version without them, `INVALID_ARGUMENT` for invalid parameters |
+| `getInstanceFolder(hash)` | `h` + 16 hex characters | The first `InstanceFolderHashLength` (16) characters of the hash: 64 bits |
+
+Files published in an instance's folder (and a fund's `<category>` sub-folder) are named by their content
+alone, so every system and every retry names a file the same:
+
+| Export | Returns | Notes |
+| --- | --- | --- |
+| `getPublishedFileName({ kind: 'bcmr', content })` | `bcmr-<hash>.json` | `<hash>`: the first `PublishedFileHashLength` (16) hex characters of the content's sha256, for a document the hash its BCMR OP_RETURN commits to. Text content is hashed as UTF-8 |
+| `getPublishedFileName({ kind: 'icon', content, mediaType })` | `icon-<hash>.<ext>` | `<ext>` from `PublishedIconExtensions` (png, svg, jpg, gif, webp); other media types throw `INVALID_ARGUMENT` |
+
+A fund type version provides `getIdentityParameters(parameters)`. For `FixedBasket.v1` they are the
+system parameters, normalised (lowercase categories, fee values as decimal strings), plus
+`instance`, the category of the instance proof, which is required.
 
 ---
 

@@ -94,7 +94,13 @@ each maintainer, person or service can hold only what it needs.
 | 0x0100 | PublicFundVault | Delist a public fund |
 | 0xFE00 | | Reserved |
 
+A token's first commitment byte names who holds it: `01` a user, `02` a service, `03` a
+contract (`00` is the minting token that issues them). The type is a label for wallets and
+explorers; the contracts check only the permission bits.
+
 - Only an immutable authorization NFT authorizes.
+- Never issue a mutable authorization NFT: its holder can turn it into an immutable one with
+  every permission. Keep the minting authorization NFT as safe as every permission combined.
 - A token held by the contract it would authorize does not count, so an authorization token
   sent to a contract cannot authorize its own release. Keep authorization tokens outside the
   contracts they authorize.

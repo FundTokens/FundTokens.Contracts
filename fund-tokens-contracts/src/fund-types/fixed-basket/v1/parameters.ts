@@ -44,6 +44,25 @@ export function parseSystemParameters(input: SystemParametersInput | SystemParam
 }
 
 /**
+ * What identifies a fixed basket v1 instance, as plain JSON for `getInstanceHash`: its system
+ * parameters, normalised (lowercase categories, fee values as decimal strings), and the category of
+ * its instance proof (`instance`), which the registry records alongside them.
+ */
+export function getIdentityParameters(input: unknown): Record<string, unknown> {
+    const system = parseSystemParameters(input);
+    const instance = assertCategory(assertObject(input, 'system').instance, 'system.instance');
+    const fee = ({ nft, value }: FeeParameters) => ({ nft, value: value.toString() });
+    return {
+        inflow: system.inflow,
+        outflow: system.outflow,
+        publicFund: system.publicFund,
+        authorization: system.authorization,
+        instance,
+        fees: { create: fee(system.fees.create), execute: fee(system.fees.execute) },
+    };
+}
+
+/**
  * The instance data: `system` serialized as the contracts take it, the 208 bytes the instance
  * NFTs hash (docs/agents/fixed-basket/v1/ENCODINGS.md#instance-data). Categories are in
  * internal byte order, fee values 8-byte little-endian.

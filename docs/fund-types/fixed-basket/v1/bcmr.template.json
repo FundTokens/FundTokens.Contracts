@@ -179,14 +179,22 @@
                   ]
                 },
                 "01": {
-                  "name": "Authorization token",
-                  "description": "Held by a person or service",
+                  "name": "User authorization token",
+                  "description": "Held by a person",
                   "fields": [
                     "permissions",
                     "serial"
                   ]
                 },
                 "02": {
+                  "name": "Service authorization token",
+                  "description": "Held by a service",
+                  "fields": [
+                    "permissions",
+                    "serial"
+                  ]
+                },
+                "03": {
                   "name": "Contract authorization token",
                   "description": "Held by a contract",
                   "fields": [

@@ -13,7 +13,8 @@ PublicFundVault and FeeManager. `hasAuthority(authorization, permission)` is tru
 input:
 
 - has `tokenCategory == authorization` exactly (an immutable NFT; a mutable or minting
-  authorization NFT never counts), and
+  authorization NFT never counts, but can create an immutable one with any permissions, so
+  it must never be issued outside the steward's custody: see *Trust assumptions*), and
 - is not locked by the calling input's locking bytecode (neither the caller nor another UTXO
   at the same address counts), and
 - has `commitment[1..3] & permission == permission`.
@@ -351,6 +352,12 @@ bytecode of the reserve before it in reserve order, empty for the first.
     (the FundManager run), except the one right after the thread (the fee)
   - the thread must be found
 
+The lock the scan matches is the one on `in[a - 1]`, taken by position. An empty locking
+bytecode (`0x`) is a valid, standard output, so a value can't stand for "no lock taken yet"
+(R01, `tests/audit.emptyLock.test.ts`). With that marker, empty-lock inputs before a reserve
+UTXO left it unset, so the scan took the redemption's counted reserve run as its lock. In a
+one-reserve fund, the reserve UTXO after them then released uncounted.
+
 Amounts are the TransactionManager's job. No inflow function: deposits are plain outputs
 to the AssetManager.
 
@@ -453,7 +460,7 @@ category, in an uncovenanted genesis transaction:
 | --- | --- |
 | `inflow`, `outflow`, `publicFund` | Exactly one minting NFT (a type-0x00 counter), held by that category's SimpleMinter; no fungible supply |
 | `fees.create.nft`, `fees.execute.nft` | Exactly one minting NFT, held by that fee's FeeMinter; no fungible supply |
-| `authorization` | NFTs held only by the steward and the steward's own contracts; no fungible supply |
+| `authorization` | The minting NFT and immutable NFTs, held only by the steward and the steward's own contracts; no mutable NFT; no fungible supply |
 | instance | The proof and data NFTs only (below) |
 
 A deployer that created a second minting NFT of a system category could forge threads,
@@ -482,6 +489,15 @@ only `getUtxos` and `getRawTransaction`:
 
 Each check is `verified`, `failed` (with `problems`) or `unverifiable`; the report's `ok` is
 true only when all are `verified`. Provider errors propagate.
+
+**Authorization issuance (R03).** `hasAuthority` cannot tell how an immutable authorization
+NFT was made. Spending a mutable or minting authorization NFT may create one with any
+commitment, so holding either equals holding every permission (`ffff`, the reserved bits
+included) on every instance that shares the category. The steward is trusted to keep the
+minting NFT and to never issue a mutable authorization NFT; the contracts cannot check this,
+because the token can be made in an earlier transaction, and `verifySystemGenesis` checks
+only the authorization genesis. A contract trusted to hold a mutable one must return it to
+itself, still mutable, at a fixed output on every spend.
 
 **Instance NFTs (AUD-046).** InstanceVault's `proof()`, `update()` and `burn()` cover two
 inputs: the proof NFT and the data NFT after it. `data()` only checks that its input follows
