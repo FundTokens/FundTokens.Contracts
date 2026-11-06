@@ -208,7 +208,7 @@ the parse produces.
 | Category | Type key | Fields |
 | --- | --- | --- |
 | Authorization | `00` minting | serial |
-| | `01` person, `02` contract | permissions (`hex`, as written: `00c0`), serial |
+| | `01` user, `02` service, `03` contract | permissions (`hex`, as written: `00c0`), serial |
 | Fee | `01` enforced, token | token (`hex`), amount (token units), destination (`hex` locking bytecode, empty for the fee vault) |
 | | `0100` enforced, BCH (fee category all zeros) | amount (satoshis), destination |
 | | `02` voluntary | none |
