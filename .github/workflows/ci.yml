@@ -1,0 +1,34 @@
+# Runs yarn verify on pull requests and on main: stale artifacts, the BCMR template, types, every test and the build.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Yarn 4 is pinned by packageManager in package.json; Corepack fetches it.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fund-tokens-contracts
+    steps:
+      - uses: actions/checkout@v5
+      - run: corepack enable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: yarn install --immutable
+      - run: yarn verify

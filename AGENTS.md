@@ -46,9 +46,9 @@ Run from `fund-tokens-contracts/` (Yarn 4 via Corepack).
 - **Released versions are frozen.** Change contracts only in an unreleased version; a
   change to a released one ships as a new version directory (see the library README,
   "Adding a fund type version").
-- **Line endings.** `.cash` files are CRLF except `startup.cash` (LF); keep each file's
-  existing endings. After `git stash pop` or checkout, rerun `yarn build:contracts` if
-  artifacts show as stale.
+- **Line endings.** `.cash` files are CRLF except `startup.cash` (LF), and everything else
+  is LF, on every OS: `.gitattributes` enforces this. Artifacts embed each source with its
+  line endings, so changing a released contract's would make its artifact stale.
 - **Tests that must fail** state why: `toFailRequireWith('<message or statement>')` (debugger,
   cashscript) or `await expect(tx).toBeRejected(/reason/)` (full verification with
   libauth). Passing controls use `not.toFailRequire()` / `toBeAccepted()`. Pair every
