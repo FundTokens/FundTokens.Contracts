@@ -1,0 +1,8 @@
+# Files are LF on every OS, whatever core.autocrlf says. CRLF is only for what needs it.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Each artifact embeds its contract's source with these line endings, and released versions are frozen.
+*.cash text eol=crlf
+fund-tokens-contracts/src/fund-types/fixed-basket/v1/contracts/startup.cash text eol=lf
